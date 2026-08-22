@@ -7,7 +7,7 @@
 using namespace std;
 
 int main() {
-    fast_gtfs::bin_search::sortFile(fast_gtfs::fast_stop_path, "stop_id");
+    fast_gtfs::bin_search::sortFile(fast_config::fast_stop_path, "stop_id", );
     cout << "done sorting\n";
 
     auto starta = std::chrono::steady_clock::now();
