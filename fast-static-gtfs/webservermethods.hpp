@@ -1,35 +1,25 @@
-#include "httplib.h"
 #include <iostream>
-#include <string>
+#include <iomanip>
+#include <sstream>
 #include "../static-gtfs/gtfs.hpp"
 #include "fast-gtfs.hpp"
-using namespace httplib;
-
-// --- Your C++ functions ---
-#include <iostream>
-#include <vector>
-#include <string>
-#include <iomanip>
-#include <cstdlib>
-
-vector<pair<string, vector<string>>> triplines;
-std::unordered_map<string, int> triprefs;
-
-vector<pair<string, vector<string>>> stoplines;
-std::unordered_map<string, int> stoprefs;
-
-vector<pair<string, vector<string>>> stoptimesstoplines;
-std::unordered_map<string, int> stoptimesstoprefs;
-
-vector<pair<string, vector<string>>> shapelines;
-std::unordered_map<string, int> shaperefs;
-
 
 using std::cout;
+using std::ostringstream;
 
-void getTrip(const string& trip_id, const int& precision = 6) {
+inline string getTrip(const string& trip_id,
+                     const vector<pair<string, vector<string>>>& triplines,
+                     const std::unordered_map<string, int>& triprefs,
+                     const vector<pair<string, vector<string>>>& stoplines,
+                     const std::unordered_map<string, int>& stoprefs,
+                     const vector<pair<string, vector<string>>>& stoptimesstoplines,
+                     const std::unordered_map<string, int>& stoptimesstoprefs,
+                     const vector<pair<string, vector<string>>>& shapelines,
+                     const std::unordered_map<string, int>& shaperefs,
+                     const int& precision = 6) {
 
-    std::cout << std::fixed << std::setprecision(precision);
+    ostringstream out;
+    out << std::fixed << std::setprecision(precision);
 
 
     std::vector<gtfs::trip_segment> tripSegments = fast_gtfs::bin_search::getAllStops(trip_id, stoptimesstoplines, stoptimesstoprefs);
@@ -46,19 +36,19 @@ void getTrip(const string& trip_id, const int& precision = 6) {
     }
     const size_t length = stops.size();
 
-    std::cout << "{\n";
-    std::cout << "\t\"total\": " << length << ",\n";
-    std::cout << "\t\"trip_id\": " << tx.trip_id << ",\n";
-    std::cout << "\t\"route_id\": " << tx.route_id << ",\n";
-    std::cout << "\t\"route_short_name\": \"" << bx.route_short_name << "\",\n";
-    std::cout << "\t\"route_long_name\": \"" << bx.route_long_name << "\",\n";
-    std::cout << "\t\"route_color\": \"#" << bx.route_color << "\",\n";
+    out << "{\n";
+    out << "\t\"total\": " << length << ",\n";
+    out << "\t\"trip_id\": " << tx.trip_id << ",\n";
+    out << "\t\"route_id\": " << tx.route_id << ",\n";
+    out << "\t\"route_short_name\": \"" << bx.route_short_name << "\",\n";
+    out << "\t\"route_long_name\": \"" << bx.route_long_name << "\",\n";
+    out << "\t\"route_color\": \"#" << bx.route_color << "\",\n";
 
-    std::cout << "\t\"stops\": [\n";
+    out << "\t\"stops\": [\n";
     for (int i = 0; i < length; i++) {
         const gtfs::stop& x = stops[i];
         const gtfs::trip_segment& y = tripSegments[i];
-        std::cout << "\t\t{ \"lat\": " << x.stop_lat <<
+        out << "\t\t{ \"lat\": " << x.stop_lat <<
                 ", \"lng\": " << x.stop_lon <<
                 ", \"code\": \""<< x.stop_code <<
                 "\", \"id\": \"" << x.stop_id <<
@@ -69,68 +59,20 @@ void getTrip(const string& trip_id, const int& precision = 6) {
     }
 
 
-    cout << "\t],\n";
+    out << "\t],\n";
 
     const size_t tx_length = tsx.size();
 
-    std::cout << "\t\"pos_markers\": [\n";
+    out << "\t\"pos_markers\": [\n";
     for (int i = 0; i < tx_length; i++) {
         const gtfs::shape& x = tsx[i];
-        std::cout << "\t\t{ \"lat\": " << x.shape_pt_lat <<
+        out << "\t\t{ \"lat\": " << x.shape_pt_lat <<
                 ", \"lng\": " << x.shape_pt_lon <<
                 ", \"sequence\": " << x.shape_pt_sequence <<
                 (i == (tx_length - 1) ? " }\n" : " },\n");
     }
 
-    cout << "\t]\n}\n";
+    out << "\t]\n}\n";
 
-
-}
-
-
-int main() {
-    auto inits = std::chrono::steady_clock::now();
-    fast_gtfs::bin_search::sortFile(fast_config::fast_stop_path, "stop_id", fast_config::fast_stop_stop_id);
-    fast_gtfs::bin_search::sortFile(fast_config::fast_stop_times_path, "trip_id", fast_config::fast_stop_times_trip_id);
-    fast_gtfs::bin_search::sortFile(fast_config::fast_shape_path, "shape_id", fast_config::fast_shape_shape_id);
-
-    triplines = fast_gtfs::bin_search::createMap(fast_config::fast_trip_path, "trip_id");
-    triprefs =  fast_gtfs::bin_search::generateHeaderMap(fast_config::fast_trip_path);
-
-    stoplines = fast_gtfs::bin_search::createMap(fast_config::fast_stop_stop_id, "stop_id");
-    stoprefs = fast_gtfs::bin_search::generateHeaderMap(fast_config::fast_stop_stop_id);
-
-    stoptimesstoplines = fast_gtfs::bin_search::createMap(fast_config::fast_stop_times_trip_id, "trip_id");
-    stoptimesstoprefs = fast_gtfs::bin_search::generateHeaderMap(fast_config::fast_stop_times_trip_id);
-
-    shapelines = fast_gtfs::bin_search::createMap(fast_config::fast_shape_shape_id, "shape_id");
-    shaperefs = fast_gtfs::bin_search::generateHeaderMap(fast_config::fast_shape_shape_id);
-
-    cout << "done init\n";
-
-    auto ends = std::chrono::steady_clock::now();
-
-    auto elapsed = ends - inits;
-    // 4. Convert and print the duration in various units
-    std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count()
-    << " ms\n" << std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count()
-    << " µs\n";
-
-    while (true) {
-        string a;
-        std::cin >> a;
-
-        auto start = std::chrono::steady_clock::now();
-        getTrip(a);
-        std::cout << "done\n";
-
-        auto end = std::chrono::steady_clock::now();
-
-        auto elapsed = end - start;
-        // 4. Convert and print the duration in various units
-        std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count()
-        << " ms\n" << std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count()
-        << " µs\n";
-    }
-    return 0;
+    return out.str();
 }
