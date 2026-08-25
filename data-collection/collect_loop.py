@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""Runs ./collect every 15 minutes, then logs trip delays + weather to table.csv."""
 
 import csv
 import json
