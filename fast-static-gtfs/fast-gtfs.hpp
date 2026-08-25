@@ -337,60 +337,65 @@ inline vector<gtfs::trip_segment> getDayTimesAtStop(const string& stop_id, const
 
         // required fields
         x.stop.stop_id = stop_id;
-        x.stop.trip_id = parsedCurrentLine[stoptimerefs["trip_id"]];
-        x.stop.stop_sequence = gtfs::to_integer(parsedCurrentLine[stoptimerefs["stop_sequence"]]);
+        x.stop.trip_id = k->second[stoptimerefs.at("trip_id")];
+        x.stop.stop_sequence = gtfs::to_integer(k->second[stoptimerefs.at("stop_sequence")]);
 
         // optional/conditionally required/conditionally forbidden fields
         { auto find = stoptimerefs.find("arrival_time");
-        if (find != stoptimerefs.end()) x.stop.arrival_time = gtfs::parseFormattedTime(parsedCurrentLine[find->second]); }
+        if (find != stoptimerefs.end()) x.stop.arrival_time = gtfs::parseFormattedTime(k->second[find->second]); }
 
         { auto find = stoptimerefs.find("departure_time");
-        if (find != stoptimerefs.end()) x.stop.departure_time = gtfs::parseFormattedTime(parsedCurrentLine[find->second]); }
+        if (find != stoptimerefs.end()) x.stop.departure_time = gtfs::parseFormattedTime(k->second[find->second]); }
 
         { auto find = stoptimerefs.find("location_group_id");
-        if (find != stoptimerefs.end()) x.stop.location_group_id = parsedCurrentLine[find->second]; }
+        if (find != stoptimerefs.end()) x.stop.location_group_id = k->second[find->second]; }
 
         { auto find = stoptimerefs.find("location_id");
-        if (find != stoptimerefs.end()) x.stop.location_id = parsedCurrentLine[find->second]; }
+        if (find != stoptimerefs.end()) x.stop.location_id = k->second[find->second]; }
 
         { auto find = stoptimerefs.find("stop_sequence");
-        if (find != stoptimerefs.end()) x.stop.stop_sequence = gtfs::to_integer(parsedCurrentLine[find->second]); }
+        if (find != stoptimerefs.end()) x.stop.stop_sequence = gtfs::to_integer(k->second[find->second]); }
 
         { auto find = stoptimerefs.find("stop_headsign");
-        if (find != stoptimerefs.end()) x.stop.stop_headsign = parsedCurrentLine[find->second]; }
+        if (find != stoptimerefs.end()) x.stop.stop_headsign = k->second[find->second]; }
 
         { auto find = stoptimerefs.find("start_pickup_drop_off_window");
-        if (find != stoptimerefs.end()) x.stop.start_pickup_drop_off_window = gtfs::parseFormattedTime(parsedCurrentLine[find->second]); }
+        if (find != stoptimerefs.end()) x.stop.start_pickup_drop_off_window = gtfs::parseFormattedTime(k->second[find->second]); }
 
         { auto find = stoptimerefs.find("end_pickup_drop_off_window");
-        if (find != stoptimerefs.end()) x.stop.end_pickup_drop_off_window = gtfs::parseFormattedTime(parsedCurrentLine[find->second]); }
+        if (find != stoptimerefs.end()) x.stop.end_pickup_drop_off_window = gtfs::parseFormattedTime(k->second[find->second]); }
 
         { auto find = stoptimerefs.find("pickup_type");
-        if (find != stoptimerefs.end()) x.stop.pickup_type = static_cast<gtfs::stop_time::pickup_dropoff>(gtfs::to_integer(parsedCurrentLine[find->second])); }
+        if (find != stoptimerefs.end()) x.stop.pickup_type = static_cast<gtfs::stop_time::pickup_dropoff>(gtfs::to_integer(k->second[find->second])); }
 
         { auto find = stoptimerefs.find("drop_off_type");
-        if (find != stoptimerefs.end()) x.stop.drop_off_type = static_cast<gtfs::stop_time::pickup_dropoff>(gtfs::to_integer(parsedCurrentLine[find->second])); }
+        if (find != stoptimerefs.end()) x.stop.drop_off_type = static_cast<gtfs::stop_time::pickup_dropoff>(gtfs::to_integer(k->second[find->second])); }
 
         { auto find = stoptimerefs.find("continuous_pickup");
-        if (find != stoptimerefs.end()) x.stop.continuous_pickup = static_cast<gtfs::stop_time::continuous_pickup_dropoff>(gtfs::to_integer(parsedCurrentLine[find->second])); }
+        if (find != stoptimerefs.end()) x.stop.continuous_pickup = static_cast<gtfs::stop_time::continuous_pickup_dropoff>(gtfs::to_integer(k->second[find->second])); }
 
         { auto find = stoptimerefs.find("continuous_drop_off");
-        if (find != stoptimerefs.end()) x.stop.continuous_drop_off = static_cast<gtfs::stop_time::continuous_pickup_dropoff>(gtfs::to_integer(parsedCurrentLine[find->second])); }
+        if (find != stoptimerefs.end()) x.stop.continuous_drop_off = static_cast<gtfs::stop_time::continuous_pickup_dropoff>(gtfs::to_integer(k->second[find->second])); }
 
         { auto find = stoptimerefs.find("shape_dist_traveled");
-        if (find != stoptimerefs.end()) x.stop.shape_dist_traveled = gtfs::to_float(parsedCurrentLine[find->second]); }
+        if (find != stoptimerefs.end()) x.stop.shape_dist_traveled = gtfs::to_float(k->second[find->second]); }
 
         { auto find = stoptimerefs.find("timepoint");
-        if (find != stoptimerefs.end()) x.stop.timepoint = static_cast<gtfs::stop_time::timepoint_type>(gtfs::to_integer(parsedCurrentLine[find->second])); }
+        if (find != stoptimerefs.end()) x.stop.timepoint = static_cast<gtfs::stop_time::timepoint_type>(gtfs::to_integer(k->second[find->second])); }
 
         { auto find = stoptimerefs.find("pickup_booking_rule_id");
-        if (find != stoptimerefs.end()) x.stop.pickup_booking_rule_id = parsedCurrentLine[find->second]; }
+        if (find != stoptimerefs.end()) x.stop.pickup_booking_rule_id = k->second[find->second]; }
 
         { auto find = stoptimerefs.find("drop_off_booking_rule_id");
-        if (find != stoptimerefs.end()) x.stop.drop_off_booking_rule_id = parsedCurrentLine[find->second]; }
+        if (find != stoptimerefs.end()) x.stop.drop_off_booking_rule_id = k->second[find->second]; }
 
         output.push_back(x);
     }
+
+    for (gtfs::trip_segment& k : output) {
+        k.route_id = fast_gtfs::bin_search::getTripInfo(k.stop.trip_id, triplines, triprefs).route_id;
+    }
+
     return output;
 }
 
