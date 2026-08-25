@@ -302,6 +302,22 @@
       cursor: pointer;
       flex-shrink: 0;
     }
+    .toggle-row input[type="number"].radius-input {
+      width: 52px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      padding: 2px 6px;
+      font-size: 11px;
+      outline: none;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+    .toggle-row input[type="number"].radius-input:focus {
+      border-color: var(--border2);
+      background: var(--surface3);
+    }
 
     .sidebar-section {
       display: none;
@@ -1423,6 +1439,28 @@
       border-color: rgba(var(--negative-rgb), 0.4);
       color: var(--negative);
     }
+
+    .spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid var(--border2);
+      border-top-color: var(--accent, #4f8cff);
+      border-radius: 50%;
+      animation: spinner-rotate 0.7s linear infinite;
+      vertical-align: middle;
+    }
+    .spinner-inline {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text-muted, inherit);
+      font-size: 13px;
+      padding: 4px 0;
+    }
+    @keyframes spinner-rotate {
+      to { transform: rotate(360deg); }
+    }
   </style>
 </head>
 <body>
@@ -1474,6 +1512,8 @@
           </div>
         </div>
 
+        <div id="stopLoading" class="spinner-inline" style="display:none"><span class="spinner"></span>Loading stop…</div>
+
         <div id="stopHeader" class="stop-header">
           <div class="stop-name" id="stopNameDisplay"></div>
           <div class="stop-meta" id="stopMetaDisplay"></div>
@@ -1497,12 +1537,21 @@
             </label>
           </div>
 
+          <label class="toggle-row" for="includeNearbyToggle" title="Also include any other stops within this distance of the matched stops">
+            <input type="checkbox" id="includeNearbyToggle" />
+            Include all stops within
+            <input type="number" id="includeNearbyRadius" class="radius-input" min="1" max="5000" step="1" value="200" aria-label="Radius in meters" />
+            m
+          </label>
+
           <div class="field-block stop-search-wrap">
             <label class="input-row-label" for="multiStopSearchInput">Search by name (all stops with this exact name)</label>
             <input type="text" id="multiStopSearchInput" placeholder="e.g. Bayview Ave / 16th Ave" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Search multiple stops by name" />
             <div class="stop-search-results" id="multiStopSearchResults"></div>
           </div>
         </div>
+
+        <div id="multiStopLoading" class="spinner-inline" style="display:none"><span class="spinner"></span>Loading stops…</div>
 
         <div id="multiStopHeader" class="stop-header">
           <div class="stop-name" id="multiStopNameDisplay"></div>
@@ -1672,6 +1721,8 @@
           </div>
         </div>
 
+        <div id="m-stopLoading" class="spinner-inline" style="display:none"><span class="spinner"></span>Loading stop…</div>
+
         <div id="m-stopHeader" class="stop-header">
           <div class="stop-name" id="m-stopNameDisplay"></div>
           <div class="stop-meta" id="m-stopMetaDisplay"></div>
@@ -1694,9 +1745,17 @@
               Merge reversed
             </label>
           </div>
+          <label class="toggle-row" for="m-includeNearbyToggle" title="Also include any other stops within this distance of the matched stops">
+            <input type="checkbox" id="m-includeNearbyToggle" />
+            Include all stops within
+            <input type="number" id="m-includeNearbyRadius" class="radius-input" min="1" max="5000" step="1" value="200" aria-label="Radius in meters" />
+            m
+          </label>
           <input type="text" id="m-multiStopSearchInput" placeholder="e.g. Bayview Ave / 16th Ave" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Search multiple stops by name" />
           <div class="stop-search-results" id="m-multiStopSearchResults"></div>
         </div>
+
+        <div id="m-multiStopLoading" class="spinner-inline" style="display:none"><span class="spinner"></span>Loading stops…</div>
 
         <div id="m-multiStopHeader" class="stop-header">
           <div class="stop-name" id="m-multiStopNameDisplay"></div>
@@ -1874,6 +1933,28 @@
     let currentMultiStopIds = [];
 
     // ===== UTILS =====
+    function showEls(ids, display) {
+      ids.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = display; });
+    }
+    function hideEls(ids) {
+      ids.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
+    }
+    // Keeps a spinner visible for at least `minMs` so it doesn't flash on fast
+    // (e.g. local) responses — hides it `minMs` after it was shown, not after
+    // the request resolves.
+    const SPINNER_MIN_MS = 300;
+    function withMinSpinner(spinnerIds, spinnerDisplay, promiseFn) {
+      const start = Date.now();
+      showEls(spinnerIds, spinnerDisplay);
+      const hide = () => {
+        const wait = Math.max(0, SPINNER_MIN_MS - (Date.now() - start));
+        setTimeout(() => hideEls(spinnerIds), wait);
+      };
+      return promiseFn().then(
+        result => { hide(); return result; },
+        err => { hide(); throw err; }
+      );
+    }
     function escapeHtml(s) {
       return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     }
@@ -2477,7 +2558,7 @@
         if (!section) return;
         if (grid) grid.innerHTML = '';
         if (errEl) errEl.style.display = 'none';
-        if (countEl) countEl.textContent = 'Loading…';
+        if (countEl) countEl.innerHTML = `<span class="spinner-inline"><span class="spinner"></span>Loading…</span>`;
         section.style.display = 'flex';
       });
 
@@ -2537,12 +2618,14 @@
 
     function loadStop(stopId, date) {
       date = date || todayStr();
-      apiFetch(`/api/stop/${stopId}/${date}`)
-        .then(r => r.json())
+      hideEls(['stopHeader','m-stopHeader']);
+      withMinSpinner(['stopLoading','m-stopLoading'], 'flex', () =>
+        apiFetch(`/api/stop/${stopId}/${date}`).then(r => r.json())
+      )
         .then(data => displayStop(data))
         .catch(() => {
-          ['stopHeader','m-stopHeader'].forEach(id => { const el=document.getElementById(id); if(el) el.style.display='none'; });
-          ['departuresSection','m-departuresSection'].forEach(id => { const el=document.getElementById(id); if(el) el.style.display='none'; });
+          hideEls(['stopHeader','m-stopHeader']);
+          hideEls(['departuresSection','m-departuresSection']);
         });
     }
 
@@ -2762,6 +2845,23 @@
       return true;
     }
 
+    function includeNearbyEnabled() {
+      const d = document.getElementById('includeNearbyToggle');
+      const m = document.getElementById('m-includeNearbyToggle');
+      if (d) return d.checked;
+      if (m) return m.checked;
+      return false;
+    }
+
+    function includeNearbyRadiusM() {
+      const d = document.getElementById('includeNearbyRadius');
+      const m = document.getElementById('m-includeNearbyRadius');
+      const v = parseFloat((d && d.value) || (m && m.value) || '200');
+      return Number.isFinite(v) && v > 0 ? v : 200;
+    }
+
+    const NEARBY_STOPS_FETCH_LIMIT = 100;
+
     function selectMultiStopFromSearch(match, results) {
       hideStopSearchResults(results);
 
@@ -2781,6 +2881,8 @@
       date = date || todayStr();
       const requestId = ++multiStopsRequestId;
       const mergeReversed = mergeCrossStreetsEnabled();
+      const includeNearby = includeNearbyEnabled();
+      const radiusKM = includeNearbyRadiusM() / 1000;
       const target = mergeReversed ? canonicalStopKey(stopName) : stopName.trim().toUpperCase();
 
       // The fuzzy search endpoint ranks by literal string similarity, so a
@@ -2794,7 +2896,7 @@
         if (segs.length >= 2) queries.push(segs.slice().reverse().join(' / '));
       }
 
-      Promise.all(queries.map(q => apiFetch(`/api/searchstop/${encodeURIComponent(q)}`).then(r => r.json())))
+      const run = () => Promise.all(queries.map(q => apiFetch(`/api/searchstop/${encodeURIComponent(q)}`).then(r => r.json())))
         .then(results => {
           if (requestId !== multiStopsRequestId) return; // superseded by a later search
           const candidates = new Map();
@@ -2807,12 +2909,38 @@
           if (!exact.length) { if (!isRefresh) showToast('No exact-name matches found.'); return; }
 
           return Promise.all(exact.map(m => apiFetch(`/api/stop/${m.stop_id}/${date}`).then(r => r.json())))
+            .then(exactStops => {
+              if (requestId !== multiStopsRequestId) return;
+              if (!includeNearby) return exactStops;
+
+              // Also pull in any other stops within the configured radius of
+              // each exact match — catches e.g. a bay across the street with
+              // a differently-worded name that the exact-name filter above
+              // would otherwise miss.
+              const known = new Set(exact.map(m => String(m.stop_id)));
+              return Promise.all(exactStops.filter(s => !s.error).map(s =>
+                apiFetch(`/api/nearest/${s.lat}/${s.lon}?limit=${NEARBY_STOPS_FETCH_LIMIT}`).then(r => r.json())
+              )).then(nearestResults => {
+                if (requestId !== multiStopsRequestId) return exactStops;
+                const nearby = new Map();
+                nearestResults.forEach(data => (data.nearest_stops || []).forEach(n => {
+                  if (n.distanceKM <= radiusKM && !known.has(String(n.stop_id))) nearby.set(String(n.stop_id), n);
+                }));
+                if (!nearby.size) return exactStops;
+                return Promise.all([...nearby.keys()].map(id => apiFetch(`/api/stop/${id}/${date}`).then(r => r.json())))
+                  .then(nearbyStops => [...exactStops, ...nearbyStops]);
+              });
+            })
             .then(stops => {
               if (requestId !== multiStopsRequestId) return;
               displayMultiStops(stopName, stops.filter(s => !s.error), isRefresh);
             });
         })
         .catch(() => { if (requestId === multiStopsRequestId && !isRefresh) showToast('Error searching stops.'); });
+
+      if (isRefresh) { run(); return; }
+      hideEls(['multiStopHeader', 'm-multiStopHeader']);
+      withMinSpinner(['multiStopLoading', 'm-multiStopLoading'], 'flex', run);
     }
 
     function clearMultiStopMarkers() {
@@ -3024,16 +3152,38 @@
       if (v) loadStop(v, e.target.value);
     });
 
-    // Sync "merge reversed cross-streets" toggle, and re-run the active multi-stop
-    // search so flipping it updates results immediately.
-    document.getElementById('mergeCrossStreetsToggle').addEventListener('change', e => {
-      document.getElementById('m-mergeCrossStreetsToggle').checked = e.target.checked;
-      if (currentMultiStopName) loadMultiStops(currentMultiStopName, document.getElementById('dateInput')?.value || todayStr());
-    });
-    document.getElementById('m-mergeCrossStreetsToggle').addEventListener('change', e => {
-      document.getElementById('mergeCrossStreetsToggle').checked = e.target.checked;
-      if (currentMultiStopName) loadMultiStops(currentMultiStopName, document.getElementById('m-dateInput')?.value || todayStr());
-    });
+    // Keeps a desktop/mobile pair of inputs (checkbox or number) in sync,
+    // persists the value to localStorage, and restores it on load.
+    function wireMultiStopSetting(dId, mId, storageKey, prop, onChange) {
+      const d = document.getElementById(dId);
+      const m = document.getElementById(mId);
+      const apply = val => { if (d) d[prop] = val; if (m) m[prop] = val; };
+
+      let saved = null;
+      try { saved = localStorage.getItem(storageKey); } catch (e) {}
+      if (saved !== null) apply(prop === 'checked' ? saved === '1' : saved);
+
+      const handler = e => {
+        const val = e.target[prop];
+        apply(val);
+        try { localStorage.setItem(storageKey, prop === 'checked' ? (val ? '1' : '0') : val); } catch (e) {}
+        if (onChange) onChange();
+      };
+      if (d) d.addEventListener('change', handler);
+      if (m) m.addEventListener('change', handler);
+    }
+
+    // Re-run the active multi-stop search so flipping a setting updates
+    // results immediately.
+    function reRunMultiStopSearch() {
+      if (!currentMultiStopName) return;
+      const date = document.getElementById('dateInput')?.value || document.getElementById('m-dateInput')?.value || todayStr();
+      loadMultiStops(currentMultiStopName, date);
+    }
+
+    wireMultiStopSetting('mergeCrossStreetsToggle', 'm-mergeCrossStreetsToggle', 'gtfs-merge-cross-streets', 'checked', reRunMultiStopSearch);
+    wireMultiStopSetting('includeNearbyToggle', 'm-includeNearbyToggle', 'gtfs-include-nearby', 'checked', reRunMultiStopSearch);
+    wireMultiStopSetting('includeNearbyRadius', 'm-includeNearbyRadius', 'gtfs-include-nearby-radius', 'value', reRunMultiStopSearch);
 
     // ===== NEAREST STOPS =====
     function handleFindNearest(latId, lonId) {

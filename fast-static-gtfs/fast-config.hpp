@@ -14,6 +14,7 @@ namespace fast_config {
     string fast_stop_times_trip_id = fast_root + "stop_times_trip_id.txt";
     string fast_shape_path = fast_root + "shapes.txt";
     string fast_shape_shape_id = fast_root + "shapes_shape_id.txt";
+    string fast_stop_times_stop_id = fast_root + "stop_times_stop_id.txt";
 
 }
 

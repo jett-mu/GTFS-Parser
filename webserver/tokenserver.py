@@ -22,7 +22,7 @@ def require_token(f):
 @require_token
 def get_trip(trip_id):
     try:
-        result = subprocess.run(['./tools/tripjson', trip_id], capture_output=True, text=True)
+        result = subprocess.run(['curl', 'http://localhost:5016/api/trip/' + trip_id], capture_output=True, text=True)
         if result.returncode != 0:
             return jsonify({'error': result.stderr}), 500
         data = json.loads(result.stdout)
