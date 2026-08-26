@@ -8,6 +8,12 @@ std::unordered_map<string, int> stoptimesstoprefs;
 vector<pair<string, vector<string>>> triptriplines;
 std::unordered_map<string, int> triptriprefs;
 
+vector<pair<string, vector<string>>> calendarservicelines;
+std::unordered_map<string, int> calendarservicerefs;
+
+vector<pair<string, vector<string>>> calendardatesservicelines;
+std::unordered_map<string, int> calendardatesservicerefs;
+
 int main() {
     fast_gtfs::bin_search::sortFile(fast_config::fast_stop_times_path, "stop_id",fast_config::fast_stop_times_stop_id);
 
@@ -19,9 +25,21 @@ int main() {
     triptriplines = fast_gtfs::bin_search::createMap(fast_config::fast_trip_trip_id, "trip_id");
     triptriprefs = fast_gtfs::bin_search::generateHeaderMap(fast_config::fast_trip_trip_id);
 
+    fast_gtfs::bin_search::sortFile(fast_config::fast_calendar_path, "service_id", fast_config::fast_calendar_service_id);
+
+    calendarservicelines = fast_gtfs::bin_search::createMap(fast_config::fast_calendar_service_id, "service_id");
+    calendarservicerefs = fast_gtfs::bin_search::generateHeaderMap(fast_config::fast_calendar_service_id);
+
+    fast_gtfs::bin_search::sortFile(fast_config::fast_calendar_dates_path, "service_id", fast_config::fast_calendar_dates_service_id);
+
+    calendardatesservicelines = fast_gtfs::bin_search::createMap(fast_config::fast_calendar_dates_service_id, "service_id");
+    calendardatesservicerefs = fast_gtfs::bin_search::generateHeaderMap(fast_config::fast_calendar_dates_service_id);
+
     auto start = std::chrono::steady_clock::now();
 
-    vector<gtfs::trip_segment> a = fast_gtfs::bin_search::getDayTimesAtStop("9841", 2026, 8, 25,stoptimesstoplines, stoptimesstoprefs,  triptriplines, triptriprefs);
+    vector<gtfs::trip_segment> a = fast_gtfs::bin_search::getDayTimesAtStop("9841", 2026, 8, 25,
+        stoptimesstoplines, stoptimesstoprefs, triptriplines, triptriprefs,
+        calendarservicelines, calendarservicerefs, calendardatesservicelines, calendardatesservicerefs);
 
     auto elapsed = std::chrono::steady_clock::now() - start;
 

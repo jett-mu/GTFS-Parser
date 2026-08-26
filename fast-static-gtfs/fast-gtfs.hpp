@@ -151,6 +151,61 @@ inline gtfs::stop getStopInfo(const string& stop_id, const vector<pair<string, v
 
     return output;
 }
+inline gtfs::route getRouteInfo(const string& route_id, const vector<pair<string, vector<string>>>& lines, const std::unordered_map<string, int>& refs) { // routes.txt by route_id
+    gtfs::route output;
+    output.route_id = "-1";
+
+
+    auto route_index = std::lower_bound(lines.begin(), lines.end(), route_id,
+        [](const std::pair<std::string, std::vector<string>>& element, const std::string& key) {
+                return element.first < key;
+        });
+
+    if (route_index == lines.end() || route_index->first != route_id) return output;
+
+    // required fields
+    output.route_id = route_id;
+    output.route_type = static_cast<gtfs::route::type>(gtfs::to_integer(route_index->second[refs.at("route_type")]));
+
+    // optional/conditionally required/conditionally forbidden fields
+    { auto find = refs.find("agency_id");
+    if (find != refs.end()) output.agency_id = route_index->second[find->second]; }
+
+    { auto find = refs.find("route_short_name");
+    if (find != refs.end()) output.route_short_name = route_index->second[find->second]; }
+
+    { auto find = refs.find("route_long_name");
+    if (find != refs.end()) output.route_long_name = route_index->second[find->second]; }
+
+    { auto find = refs.find("route_desc");
+    if (find != refs.end()) output.route_desc = route_index->second[find->second]; }
+
+    { auto find = refs.find("route_url");
+    if (find != refs.end()) output.route_url = route_index->second[find->second]; }
+
+    { auto find = refs.find("route_color");
+    if (find != refs.end()) output.route_color = route_index->second[find->second]; }
+
+    { auto find = refs.find("route_text_color");
+    if (find != refs.end()) output.route_text_color = route_index->second[find->second]; }
+
+    { auto find = refs.find("route_sort_order");
+    if (find != refs.end()) output.route_sort_order = (route_index->second[find->second].empty() || route_index->second[find->second] == " ") ? 25565 : gtfs::to_integer(route_index->second[find->second]); }
+
+    { auto find = refs.find("continuous_pickup");
+    if (find != refs.end()) output.continuous_pickup = static_cast<gtfs::route::continuous_pickup_dropoff>(gtfs::to_integer(route_index->second[find->second])); }
+
+    { auto find = refs.find("continuous_drop_off");
+    if (find != refs.end()) output.continuous_drop_off = static_cast<gtfs::route::continuous_pickup_dropoff>(gtfs::to_integer(route_index->second[find->second])); }
+
+    { auto find = refs.find("network_id");
+    if (find != refs.end()) output.network_id = route_index->second[find->second]; }
+
+    { auto find = refs.find("cemv_support");
+    if (find != refs.end()) output.cemv_support = static_cast<gtfs::route::cemv>(gtfs::to_integer(route_index->second[find->second])); }
+
+    return output;
+}
 inline gtfs::trip getTripInfo(const string& trip_id, const vector<pair<string, vector<string>>>& lines, const std::unordered_map<string, int>& refs) { // trips.txt by trip_id
     gtfs::trip output;
     output.trip_id = "-1";

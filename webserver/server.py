@@ -22,7 +22,7 @@ def get_trip(trip_id):
 def get_stop(stop_id, date):
     try:
         year, month, day = date.split('-')
-        result = subprocess.run(['./tools/stopjson', stop_id, year, month, day], capture_output=True, text=True)
+        result = subprocess.run(['curl', f"http://localhost:5016/api/stop/{stop_id}/{year}/{month}/{day}/"], capture_output=True, text=True)
         if result.returncode != 0:
             return jsonify({'error': result.stderr}), 500
         data = json.loads(result.stdout)
