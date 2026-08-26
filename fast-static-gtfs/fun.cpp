@@ -16,12 +16,12 @@ int main() {
 
     fast_gtfs::bin_search::sortFile(fast_config::fast_trip_path, "trip_id",fast_config::fast_trip_trip_id);
 
-    triptriplines = fast_gtfs::bin_search::createMap(fast_config::fast_trip_trip_id, "stop_id");
+    triptriplines = fast_gtfs::bin_search::createMap(fast_config::fast_trip_trip_id, "trip_id");
     triptriprefs = fast_gtfs::bin_search::generateHeaderMap(fast_config::fast_trip_trip_id);
 
     auto start = std::chrono::steady_clock::now();
 
-    vector<gtfs::trip_segment> a = fast_gtfs::bin_search::getDayTimesAtStop("6769", 2026, 8, 25,stoptimesstoplines, stoptimesstoprefs,  triptriplines, triptriprefs);
+    vector<gtfs::trip_segment> a = fast_gtfs::bin_search::getDayTimesAtStop("9841", 2026, 8, 25,stoptimesstoplines, stoptimesstoprefs,  triptriplines, triptriprefs);
 
     auto elapsed = std::chrono::steady_clock::now() - start;
 

@@ -315,9 +315,75 @@ inline vector<gtfs::shape> getShapeInfo(const string& shape_id, const vector<pai
 
     return output;
 }
+inline bool isTripValid(const string& trip_id, const int& year, const int& month, const int& day,
+                        const vector<pair<string, vector<string>>>& triplines, const std::unordered_map<string, int>& triprefs,
+                        const vector<pair<string, vector<string>>>& calendarlines, const std::unordered_map<string, int>& calendarrefs,
+                        const vector<pair<string, vector<string>>>& calendardatelines, const std::unordered_map<string, int>& calendardaterefs,
+                        const bool noException = false) { // requirements: trips.txt by trip_id, calendar.txt by service_id, and if noException is false, calendar_dates.txt by service_id
+    bool output = false;
+
+    string constructedDate = to_string(year) +
+                            (month < 10 ? "0" + to_string(month) : to_string(month)) +
+                            (day < 10 ? "0" + to_string(day) : to_string(day));
+
+    gtfs::week dayOfWeek = gtfs::convertDateToWeek(year, month, day);
+    string service_id = fast_gtfs::bin_search::getTripInfo(trip_id, triplines, triprefs).service_id;
+
+    auto calendarIndex = std::lower_bound(calendarlines.begin(), calendarlines.end(), service_id,
+        [](const std::pair<std::string, std::vector<string>>& element, const std::string& key) {
+            return element.first < key;
+        });
+
+    if (calendarIndex != calendarlines.end() && calendarIndex->first == service_id) {
+        string test;
+
+        switch (static_cast<int>(dayOfWeek)) {
+            case 0: test = "monday"; break;
+            case 1: test = "tuesday"; break;
+            case 2: test = "wednesday"; break;
+            case 3: test = "thursday"; break;
+            case 4: test = "friday"; break;
+            case 5: test = "saturday"; break;
+            case 6: test = "sunday"; break;
+            default:
+                cerr << "dayOfWeek is invalid or uninitialized\n";
+                return false;
+        }
+
+        if (gtfs::parseFormattedDate(calendarIndex->second[calendarrefs.at("start_date")]) > gtfs::calendar_day(year, month, day)
+            || gtfs::parseFormattedDate(calendarIndex->second[calendarrefs.at("end_date")]) < gtfs::calendar_day(year, month, day)) {
+            output = false;
+        } else if (static_cast<bool>(gtfs::to_integer(calendarIndex->second[calendarrefs.at(test)]))) {
+            output = true;
+        }
+    }
+
+    if (noException) return output;
+
+    auto calendarDateLower = std::lower_bound(calendardatelines.begin(), calendardatelines.end(), service_id,
+        [](const std::pair<std::string, std::vector<string>>& element, const std::string& key) {
+            return element.first < key;
+        });
+
+    auto calendarDateUpper = std::upper_bound(calendardatelines.begin(), calendardatelines.end(), service_id,
+        [](const std::string& key, const std::pair<std::string, std::vector<string>>& element) {
+            return key < element.first;
+        });
+
+    for (auto k = calendarDateLower; k != calendarDateUpper; ++k) {
+        if (k->second[calendardaterefs.at("date")] == constructedDate) {
+            output = (k->second[calendardaterefs.at("exception_type")] == "1");
+        }
+    }
+
+    return output;
+}
 inline vector<gtfs::trip_segment> getDayTimesAtStop(const string& stop_id, const int& year, const int& month, const int& day,
                                                     const vector<pair<string, vector<string>>>& stoptimelines, const std::unordered_map<string, int>& stoptimerefs,
-                                                    const vector<pair<string, vector<string>>>& triplines, const std::unordered_map<string, int>& triprefs) { // stop_times.txt by stop_id, routes.txt by trip_id
+                                                    const vector<pair<string, vector<string>>>& triplines, const std::unordered_map<string, int>& triprefs,
+                                                    const vector<pair<string, vector<string>>>& calendarlines, const std::unordered_map<string, int>& calendarrefs,
+                                                    const vector<pair<string, vector<string>>>& calendardatelines, const std::unordered_map<string, int>& calendardaterefs,
+                                                    const bool noException = false) { // stop_times.txt by stop_id, trips.txt by trip_id, calendar.txt by service_id, calendar_dates.txt by service_id
     vector<gtfs::trip_segment> output;
     auto stopTimeLower = std::lower_bound(stoptimelines.begin(), stoptimelines.end(), stop_id,
     [](const std::pair<std::string, std::vector<string>>& element, const std::string& key) {
@@ -395,6 +461,12 @@ inline vector<gtfs::trip_segment> getDayTimesAtStop(const string& stop_id, const
     for (gtfs::trip_segment& k : output) {
         k.route_id = fast_gtfs::bin_search::getTripInfo(k.stop.trip_id, triplines, triprefs).route_id;
     }
+
+    output.erase(std::remove_if(output.begin(), output.end(),
+        [&](const gtfs::trip_segment& x) {
+            return !fast_gtfs::bin_search::isTripValid(x.stop.trip_id, year, month, day,
+                triplines, triprefs, calendarlines, calendarrefs, calendardatelines, calendardaterefs, noException);
+        }), output.end());
 
     return output;
 }
