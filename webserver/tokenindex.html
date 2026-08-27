@@ -17,19 +17,19 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
     :root {
-      --radius: 10px;
-      --card-radius: 8px;
+      --radius: 4px;
+      --card-radius: 3px;
       --sidebar-w: 380px;
       --sidebar-transition: 0.32s cubic-bezier(0.16,1,0.3,1);
       --transition: 0.18s ease;
       --safe-bottom: env(safe-area-inset-bottom, 0px);
       --safe-top: env(safe-area-inset-top, 0px);
 
-      --font-display: 'Archivo', sans-serif;
-      --font-body: 'IBM Plex Sans', sans-serif;
+      --font-display: 'Oswald', sans-serif;
+      --font-body: 'Inter', sans-serif;
       --font-mono: 'IBM Plex Mono', monospace;
 
       /* 4px spacing scale */
@@ -42,76 +42,76 @@
       --space-8: 32px;
     }
 
-    /* ===== DARK THEME (default) — cool-tinted neutrals, amber accent ===== */
+    /* ===== DARK THEME (default) — inverted transit-map poster: ink paper, red/blue/green/amber system colors ===== */
     :root, :root[data-theme="dark"] {
-      --bg: #0a0b0d;
-      --surface: #111318;
-      --surface2: #191c22;
-      --surface3: #22262e;
-      --border: #2b2f38;
-      --border2: #3d434f;
+      --bg: #15140f;
+      --surface: #1d1c15;
+      --surface2: #24231a;
+      --surface3: #2d2b1f;
+      --border: rgba(250,250,247,0.14);
+      --border2: rgba(250,250,247,0.28);
 
-      --text: #e9edf5;
-      --text-muted: #a7aec0;
-      --text-dim: #838ba0;
+      --text: #FAFAF7;
+      --text-muted: rgba(250,250,247,0.72);
+      --text-dim: rgba(250,250,247,0.50);
 
-      --accent: #e2993f;
-      --accent-rgb: 226,153,63;
-      --accent2: #c7cbd6;
-      --accent2-rgb: 199,203,214;
-      --accent3: #57ade0;
-      --accent3-rgb: 87,173,224;
-      --positive: #3dd68c;
-      --positive-rgb: 61,214,140;
-      --negative: #e5484d;
-      --negative-rgb: 229,72,77;
-      --neutral: #bdbdbd;
+      --accent: #6FA0E8;
+      --accent-rgb: 111,160,232;
+      --accent2: #4FA876;
+      --accent2-rgb: 79,168,118;
+      --accent3: #E8A93B;
+      --accent3-rgb: 232,169,59;
+      --positive: #4FA876;
+      --positive-rgb: 79,168,118;
+      --negative: #E8674B;
+      --negative-rgb: 232,103,75;
+      --neutral: #a9a696;
 
-      --sheet-handle-color: #3a3a3a;
+      --sheet-handle-color: rgba(250,250,247,0.28);
       color-scheme: dark;
 
-      --shadow-1: 0 2px 8px rgba(0,0,0,0.5);
-      --shadow-2: 0 4px 12px rgba(0,0,0,0.3);
-      --shadow-3: 0 4px 20px rgba(0,0,0,0.5);
-      --shadow-sidebar: 0 4px 24px rgba(0,0,0,0.6), 0 1px 0 rgba(255,255,255,0.03) inset;
-      --shadow-sheet: 0 -4px 32px rgba(0,0,0,0.7);
-      --map-overlay-bg: rgba(10,11,13,0.75);
+      --shadow-1: 2px 2px 0 rgba(0,0,0,0.4);
+      --shadow-2: 4px 4px 0 rgba(0,0,0,0.4);
+      --shadow-3: 6px 6px 0 rgba(0,0,0,0.45);
+      --shadow-sidebar: 2px 0 0 rgba(0,0,0,0.35);
+      --shadow-sheet: 0 -3px 0 rgba(0,0,0,0.4);
+      --map-overlay-bg: rgba(21,20,15,0.8);
     }
 
-    /* ===== LIGHT THEME — cool-tinted neutrals, amber accent ===== */
+    /* ===== LIGHT THEME — cream paper, ink text, red/blue/green/amber system colors ===== */
     :root[data-theme="light"] {
-      --bg: #eef1f6;
+      --bg: #FAFAF7;
       --surface: #ffffff;
-      --surface2: #f3f5f9;
-      --surface3: #e8ebf1;
-      --border: #dde2ea;
-      --border2: #c5cbd6;
+      --surface2: #f4f1ea;
+      --surface3: #eae5d9;
+      --border: rgba(26,26,26,0.15);
+      --border2: rgba(26,26,26,0.32);
 
-      --text: #171a20;
-      --text-muted: #454d5c;
-      --text-dim: #626a7a;
+      --text: #1A1A1A;
+      --text-muted: rgba(26,26,26,0.68);
+      --text-dim: rgba(26,26,26,0.50);
 
-      --accent: #a15b12;
-      --accent-rgb: 161,91,18;
-      --accent2: #5b6472;
-      --accent2-rgb: 91,100,114;
-      --accent3: #1c6fb0;
-      --accent3-rgb: 28,111,176;
-      --positive: #16824c;
-      --positive-rgb: 22,130,76;
-      --negative: #c0292e;
-      --negative-rgb: 192,41,46;
-      --neutral: #6b7280;
+      --accent: #2B5FAD;
+      --accent-rgb: 43,95,173;
+      --accent2: #2F7B4F;
+      --accent2-rgb: 47,123,79;
+      --accent3: #A9720F;
+      --accent3-rgb: 169,114,15;
+      --positive: #2F7B4F;
+      --positive-rgb: 47,123,79;
+      --negative: #C23B24;
+      --negative-rgb: 194,59,36;
+      --neutral: #6b6b63;
 
-      --sheet-handle-color: #c5cbd6;
+      --sheet-handle-color: rgba(26,26,26,0.24);
       color-scheme: light;
 
-      --shadow-1: 0 2px 6px rgba(23,26,32,0.12);
-      --shadow-2: 0 4px 10px rgba(23,26,32,0.10);
-      --shadow-3: 0 4px 16px rgba(23,26,32,0.16);
-      --shadow-sidebar: 0 4px 20px rgba(23,26,32,0.12), 0 1px 0 rgba(255,255,255,0.6) inset;
-      --shadow-sheet: 0 -4px 24px rgba(23,26,32,0.14);
-      --map-overlay-bg: rgba(255,255,255,0.85);
+      --shadow-1: 2px 2px 0 rgba(26,26,26,0.10);
+      --shadow-2: 4px 4px 0 rgba(26,26,26,0.10);
+      --shadow-3: 6px 6px 0 rgba(26,26,26,0.12);
+      --shadow-sidebar: 2px 0 0 rgba(26,26,26,0.06);
+      --shadow-sheet: 0 -3px 0 rgba(26,26,26,0.10);
+      --map-overlay-bg: rgba(250,250,247,0.88);
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
@@ -226,7 +226,8 @@
       font-family: var(--font-display);
       font-size: 15.5px;
       font-weight: 700;
-      letter-spacing: -0.01em;
+      text-transform: uppercase;
+      letter-spacing: 0.01em;
       color: var(--text);
       line-height: 1.2;
     }
@@ -275,6 +276,8 @@
       font-family: var(--font-display);
       font-size: 13px;
       font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
       color: var(--text);
     }
 
@@ -352,6 +355,10 @@
     }
     .sb-tab:hover { background: none; color: var(--text-muted); }
     .sb-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .sb-tab.active[data-sb-tab="sb-tab-stop"]      { color: var(--negative); border-bottom-color: var(--negative); }
+    .sb-tab.active[data-sb-tab="sb-tab-triproute"] { color: var(--accent);   border-bottom-color: var(--accent); }
+    .sb-tab.active[data-sb-tab="sb-tab-discover"]  { color: var(--accent2); border-bottom-color: var(--accent2); }
+    .sb-tab.active[data-sb-tab="sb-tab-more"]      { color: var(--accent3); border-bottom-color: var(--accent3); }
 
     #sidebar-body::-webkit-scrollbar { width: 3px; }
     #sidebar-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
@@ -462,9 +469,55 @@
 
     .m-tab:hover { color: var(--text-muted); }
     .m-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .m-tab.active[data-tab="m-tab-stop"]   { color: var(--negative); border-bottom-color: var(--negative); }
+    .m-tab.active[data-tab="m-tab-trip"]   { color: var(--accent);   border-bottom-color: var(--accent); }
+    .m-tab.active[data-tab="m-tab-route"]  { color: var(--accent);   border-bottom-color: var(--accent); }
+    .m-tab.active[data-tab="m-tab-nearby"] { color: var(--accent2);  border-bottom-color: var(--accent2); }
+    .m-tab.active[data-tab="m-tab-more"]   { color: var(--accent3);  border-bottom-color: var(--accent3); }
 
     .tab-panel { display: none; }
     .tab-panel.active { display: flex; flex-direction: column; gap: 12px; }
+
+    /* ===== TAB-SCOPED ACCENT =====
+       Every element that colors itself via var(--accent)/var(--accent-rgb) —
+       buttons, spinners, checkboxes, focus rings, badges — picks up the
+       showcase color of whichever tab it lives in. Trip/route panels keep
+       the default blue --accent, so no override needed there. */
+    #sb-tab-stop, #m-tab-stop {
+      --accent: var(--negative);
+      --accent-rgb: var(--negative-rgb);
+    }
+    #sb-tab-discover, #m-tab-nearby {
+      --accent: var(--accent2);
+      --accent-rgb: var(--accent2-rgb);
+    }
+    #sb-tab-more, #m-tab-more {
+      --accent: var(--accent3);
+      --accent-rgb: var(--accent3-rgb);
+    }
+
+    /* Buttons flagged with .tab-accent-btn pick up their tab's scoped --accent.
+       (the extra class beats each button variant's own specificity) */
+    button.secondary.tab-accent-btn {
+      background: rgba(var(--accent-rgb), 0.12);
+      border-color: rgba(var(--accent-rgb), 0.35);
+      color: var(--accent);
+    }
+    button.secondary.tab-accent-btn:hover {
+      background: rgba(var(--accent-rgb), 0.2);
+      border-color: rgba(var(--accent-rgb), 0.5);
+      color: var(--accent);
+    }
+    button.pick-mode-btn.tab-accent-btn:not(.active) {
+      background: rgba(var(--accent-rgb), 0.12);
+      border-color: rgba(var(--accent-rgb), 0.35);
+      color: var(--accent);
+    }
+    button.pick-mode-btn.tab-accent-btn:not(.active):hover {
+      background: rgba(var(--accent-rgb), 0.2);
+      border-color: rgba(var(--accent-rgb), 0.5);
+      color: var(--accent);
+    }
 
     /* ===== MAP CONTROLS (mobile) ===== */
     #map-controls {
@@ -568,7 +621,7 @@
       touch-action: manipulation;
     }
 
-    button:hover { background: #2a2a2a; border-color: var(--border2); }
+    button:hover { background: var(--surface3); border-color: var(--border2); }
     button:active { transform: scale(0.97); }
     button:disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
 
@@ -677,6 +730,8 @@
       font-family: var(--font-display);
       font-size: 13px;
       font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
       color: var(--text);
       margin-bottom: 7px;
     }
@@ -988,6 +1043,8 @@
       font-family: var(--font-display);
       font-size: 13px;
       font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
       color: var(--accent3);
     }
 
@@ -1445,7 +1502,7 @@
       width: 16px;
       height: 16px;
       border: 2px solid var(--border2);
-      border-top-color: var(--accent, #4f8cff);
+      border-top-color: var(--accent, #2B5FAD);
       border-radius: 50%;
       animation: spinner-rotate 0.7s linear infinite;
       vertical-align: middle;
@@ -1461,6 +1518,52 @@
     @keyframes spinner-rotate {
       to { transform: rotate(360deg); }
     }
+
+    /* ===== SKELETON LOADING ===== */
+    @keyframes skeleton-shimmer {
+      0%   { background-position: -120% 0; }
+      100% { background-position: 220% 0; }
+    }
+    .skel-block {
+      border-radius: 4px;
+      background: linear-gradient(90deg, var(--surface3) 25%, var(--border2) 50%, var(--surface3) 75%);
+      background-size: 250% 100%;
+      animation: skeleton-shimmer 1.3s ease-in-out infinite;
+    }
+
+    /* Mirrors the real .dep-card's exact padding/gap/type-scale so the loading
+       state doesn't jump in size once real departures render — used for the
+       stop view's departures list and the nearby departure board. */
+    .skel-dep-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--card-radius);
+      padding: 9px 11px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .skel-dep-card .skel-row-top { display: flex; align-items: center; justify-content: space-between; }
+    .skel-dep-card .skel-route-pill { width: 46px; height: 19px; border-radius: 20px; }
+    .skel-dep-card .skel-row-time { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+    .skel-dep-card .skel-time-big { width: 76px; height: 19px; }
+    .skel-dep-card .skel-eta-pill { width: 48px; height: 17px; border-radius: 20px; }
+    .skel-dep-card .skel-headsign-line { height: 13px; width: 78%; }
+    .skel-dep-card .skel-row-footer { display: flex; padding-top: 5px; margin-top: 1px; border-top: 1px solid var(--border); }
+    .skel-dep-card .skel-trip-line { height: 11px; width: 38%; }
+
+    /* Mimics an .rt-trip-card — used for the route search trip grid. */
+    .skel-trip-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--card-radius);
+      padding: 9px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+    .skel-trip-card .skel-line-a { height: 13px; width: 60%; }
+    .skel-trip-card .skel-line-b { height: 10px; width: 85%; }
   </style>
 </head>
 <body>
@@ -1472,7 +1575,6 @@
           <div id="sidebar-header-left">
             <div id="sidebar-header-titles">
               <h1>GTFS Parser</h1>
-              <p id="dockSubtitle">Trip, stop &amp; route inspector</p>
             </div>
           </div>
           <button class="secondary theme-toggle-btn" id="themeToggleBtn" onclick="toggleTheme()">Light theme</button>
@@ -1512,7 +1614,12 @@
           </div>
         </div>
 
-        <div id="stopLoading" class="spinner-inline" style="display:none"><span class="spinner"></span>Loading stop…</div>
+        <div id="stopLoading" class="departures-grid" style="display:none">
+          <div class="skel-dep-card"><div class="skel-row-top"><div class="skel-block skel-route-pill"></div></div><div class="skel-row-time"><div class="skel-block skel-time-big"></div><div class="skel-block skel-eta-pill"></div></div><div class="skel-block skel-headsign-line"></div><div class="skel-row-footer"><div class="skel-block skel-trip-line"></div></div></div>
+          <div class="skel-dep-card"><div class="skel-row-top"><div class="skel-block skel-route-pill"></div></div><div class="skel-row-time"><div class="skel-block skel-time-big"></div><div class="skel-block skel-eta-pill"></div></div><div class="skel-block skel-headsign-line"></div><div class="skel-row-footer"><div class="skel-block skel-trip-line"></div></div></div>
+          <div class="skel-dep-card"><div class="skel-row-top"><div class="skel-block skel-route-pill"></div></div><div class="skel-row-time"><div class="skel-block skel-time-big"></div><div class="skel-block skel-eta-pill"></div></div><div class="skel-block skel-headsign-line"></div><div class="skel-row-footer"><div class="skel-block skel-trip-line"></div></div></div>
+          <div class="skel-dep-card"><div class="skel-row-top"><div class="skel-block skel-route-pill"></div></div><div class="skel-row-time"><div class="skel-block skel-time-big"></div><div class="skel-block skel-eta-pill"></div></div><div class="skel-block skel-headsign-line"></div><div class="skel-row-footer"><div class="skel-block skel-trip-line"></div></div></div>
+        </div>
 
         <div id="stopHeader" class="stop-header">
           <div class="stop-name" id="stopNameDisplay"></div>
@@ -1551,7 +1658,11 @@
           </div>
         </div>
 
-        <div id="multiStopLoading" class="spinner-inline" style="display:none"><span class="spinner"></span>Loading stops…</div>
+        <div id="multiStopLoading" class="departures-grid" style="display:none">
+          <div class="skel-dep-card"><div class="skel-row-top"><div class="skel-block skel-route-pill"></div></div><div class="skel-row-time"><div class="skel-block skel-time-big"></div><div class="skel-block skel-eta-pill"></div></div><div class="skel-block skel-headsign-line"></div><div class="skel-row-footer"><div class="skel-block skel-trip-line"></div></div></div>
+          <div class="skel-dep-card"><div class="skel-row-top"><div class="skel-block skel-route-pill"></div></div><div class="skel-row-time"><div class="skel-block skel-time-big"></div><div class="skel-block skel-eta-pill"></div></div><div class="skel-block skel-headsign-line"></div><div class="skel-row-footer"><div class="skel-block skel-trip-line"></div></div></div>
+          <div class="skel-dep-card"><div class="skel-row-top"><div class="skel-block skel-route-pill"></div></div><div class="skel-row-time"><div class="skel-block skel-time-big"></div><div class="skel-block skel-eta-pill"></div></div><div class="skel-block skel-headsign-line"></div><div class="skel-row-footer"><div class="skel-block skel-trip-line"></div></div></div>
+        </div>
 
         <div id="multiStopHeader" class="stop-header">
           <div class="stop-name" id="multiStopNameDisplay"></div>
@@ -1637,11 +1748,11 @@
             <input type="text" id="lonInput" inputmode="decimal" placeholder="Longitude" aria-label="Longitude" />
           </div>
           <div class="input-group">
-            <button class="secondary" style="flex:1" onclick="handleFindNearest('latInput','lonInput')">Search nearby</button>
-            <button class="secondary" style="flex:1" onclick="useMyLocation('latInput','lonInput')">Use my location</button>
+            <button class="secondary tab-accent-btn" style="flex:1" onclick="handleFindNearest('latInput','lonInput')">Search nearby</button>
+            <button class="secondary tab-accent-btn" style="flex:1" onclick="useMyLocation('latInput','lonInput')">Use my location</button>
           </div>
-          <button class="secondary" style="width:100%" onclick="showUserLocation()">Show my location on map</button>
-          <button class="pick-mode-btn" id="pickModeBtn" onclick="setPickMode(!pickModeActive)">Pick a point on the map</button>
+          <button class="secondary tab-accent-btn" style="width:100%" onclick="showUserLocation()">Show my location on map</button>
+          <button class="pick-mode-btn tab-accent-btn" id="pickModeBtn" onclick="setPickMode(!pickModeActive)">Pick a point on the map</button>
         </div>
 
         <div id="nearestStopsInfo"></div>
@@ -1650,7 +1761,7 @@
       <div class="sidebar-section" id="sb-tab-more">
         <div class="panel">
           <div class="panel-heading">Extra features</div>
-          <button class="secondary" style="width:100%" onclick="openDepartureBoard()">Departure board</button>
+          <button class="secondary tab-accent-btn" style="width:100%" onclick="openDepartureBoard()">Departure board</button>
         </div>
       </div>
         </div>
@@ -1721,7 +1832,12 @@
           </div>
         </div>
 
-        <div id="m-stopLoading" class="spinner-inline" style="display:none"><span class="spinner"></span>Loading stop…</div>
+        <div id="m-stopLoading" class="departures-grid" style="display:none">
+          <div class="skel-dep-card"><div class="skel-row-top"><div class="skel-block skel-route-pill"></div></div><div class="skel-row-time"><div class="skel-block skel-time-big"></div><div class="skel-block skel-eta-pill"></div></div><div class="skel-block skel-headsign-line"></div><div class="skel-row-footer"><div class="skel-block skel-trip-line"></div></div></div>
+          <div class="skel-dep-card"><div class="skel-row-top"><div class="skel-block skel-route-pill"></div></div><div class="skel-row-time"><div class="skel-block skel-time-big"></div><div class="skel-block skel-eta-pill"></div></div><div class="skel-block skel-headsign-line"></div><div class="skel-row-footer"><div class="skel-block skel-trip-line"></div></div></div>
+          <div class="skel-dep-card"><div class="skel-row-top"><div class="skel-block skel-route-pill"></div></div><div class="skel-row-time"><div class="skel-block skel-time-big"></div><div class="skel-block skel-eta-pill"></div></div><div class="skel-block skel-headsign-line"></div><div class="skel-row-footer"><div class="skel-block skel-trip-line"></div></div></div>
+          <div class="skel-dep-card"><div class="skel-row-top"><div class="skel-block skel-route-pill"></div></div><div class="skel-row-time"><div class="skel-block skel-time-big"></div><div class="skel-block skel-eta-pill"></div></div><div class="skel-block skel-headsign-line"></div><div class="skel-row-footer"><div class="skel-block skel-trip-line"></div></div></div>
+        </div>
 
         <div id="m-stopHeader" class="stop-header">
           <div class="stop-name" id="m-stopNameDisplay"></div>
@@ -1755,7 +1871,11 @@
           <div class="stop-search-results" id="m-multiStopSearchResults"></div>
         </div>
 
-        <div id="m-multiStopLoading" class="spinner-inline" style="display:none"><span class="spinner"></span>Loading stops…</div>
+        <div id="m-multiStopLoading" class="departures-grid" style="display:none">
+          <div class="skel-dep-card"><div class="skel-row-top"><div class="skel-block skel-route-pill"></div></div><div class="skel-row-time"><div class="skel-block skel-time-big"></div><div class="skel-block skel-eta-pill"></div></div><div class="skel-block skel-headsign-line"></div><div class="skel-row-footer"><div class="skel-block skel-trip-line"></div></div></div>
+          <div class="skel-dep-card"><div class="skel-row-top"><div class="skel-block skel-route-pill"></div></div><div class="skel-row-time"><div class="skel-block skel-time-big"></div><div class="skel-block skel-eta-pill"></div></div><div class="skel-block skel-headsign-line"></div><div class="skel-row-footer"><div class="skel-block skel-trip-line"></div></div></div>
+          <div class="skel-dep-card"><div class="skel-row-top"><div class="skel-block skel-route-pill"></div></div><div class="skel-row-time"><div class="skel-block skel-time-big"></div><div class="skel-block skel-eta-pill"></div></div><div class="skel-block skel-headsign-line"></div><div class="skel-row-footer"><div class="skel-block skel-trip-line"></div></div></div>
+        </div>
 
         <div id="m-multiStopHeader" class="stop-header">
           <div class="stop-name" id="m-multiStopNameDisplay"></div>
@@ -1842,10 +1962,10 @@
             <input type="text" id="m-lonInput" inputmode="decimal" placeholder="Longitude" aria-label="Longitude" />
           </div>
           <div class="input-group" style="margin-top:5px">
-            <button class="secondary" style="flex:1" onclick="handleFindNearest('m-latInput','m-lonInput')">Search nearby</button>
-            <button class="secondary" style="flex:1" onclick="useMyLocation('m-latInput','m-lonInput',true)">Use my location</button>
+            <button class="secondary tab-accent-btn" style="flex:1" onclick="handleFindNearest('m-latInput','m-lonInput')">Search nearby</button>
+            <button class="secondary tab-accent-btn" style="flex:1" onclick="useMyLocation('m-latInput','m-lonInput',true)">Use my location</button>
           </div>
-          <button class="secondary" style="width:100%;margin-top:5px" onclick="showUserLocation()">Show my location on map</button>
+          <button class="secondary tab-accent-btn" style="width:100%;margin-top:5px" onclick="showUserLocation()">Show my location on map</button>
         </div>
         <div id="m-nearestStopsInfo"></div>
       </div>
@@ -1853,7 +1973,7 @@
       <!-- MORE TAB -->
       <div class="tab-panel" id="m-tab-more">
         <div class="field-block">
-          <button class="secondary" style="width:100%" onclick="openDepartureBoard()">Departure board</button>
+          <button class="secondary tab-accent-btn" style="width:100%" onclick="openDepartureBoard()">Departure board</button>
         </div>
       </div>
 
@@ -1957,6 +2077,13 @@
     }
     function escapeHtml(s) {
       return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    function skeletonDepCards(n) {
+      return `<div class="skel-dep-card"><div class="skel-row-top"><div class="skel-block skel-route-pill"></div></div><div class="skel-row-time"><div class="skel-block skel-time-big"></div><div class="skel-block skel-eta-pill"></div></div><div class="skel-block skel-headsign-line"></div><div class="skel-row-footer"><div class="skel-block skel-trip-line"></div></div></div>`.repeat(n);
+    }
+    function skeletonTripCards(n) {
+      return `<div class="skel-trip-card"><div class="skel-block skel-line-a"></div><div class="skel-block skel-line-b"></div></div>`.repeat(n);
     }
     const token = new URLSearchParams(window.location.search).get('token');
 
@@ -2556,9 +2683,9 @@
         const errEl   = document.getElementById(p + 'routeTripsError');
         const countEl = document.getElementById(p + 'routeTripsCount');
         if (!section) return;
-        if (grid) grid.innerHTML = '';
+        if (grid) grid.innerHTML = skeletonTripCards(4);
         if (errEl) errEl.style.display = 'none';
-        if (countEl) countEl.innerHTML = `<span class="spinner-inline"><span class="spinner"></span>Loading…</span>`;
+        if (countEl) countEl.textContent = '';
         section.style.display = 'flex';
       });
 
@@ -2567,8 +2694,10 @@
         .then(data => renderRouteTrips(data, routeId))
         .catch(err => {
           ['','m-'].forEach(p => {
+            const grid    = document.getElementById(p + 'routeTripsGrid');
             const countEl = document.getElementById(p + 'routeTripsCount');
             const errEl   = document.getElementById(p + 'routeTripsError');
+            if (grid) grid.innerHTML = '';
             if (countEl) countEl.textContent = '';
             if (errEl) { errEl.textContent = `Error: ${err.message}`; errEl.style.display = 'block'; }
           });
@@ -2983,9 +3112,10 @@
       startMultiDepsRefresh();
 
       clearMultiStopMarkers();
+      const multiStopColor = getComputedStyle(document.documentElement).getPropertyValue('--negative').trim();
       multiStopMarkers = stops.map(s => {
         const m = L.circleMarker([s.lat, s.lon], {
-          color: '#7c5cff', fillColor: '#7c5cff', fillOpacity: 0.75, radius: 8, weight: 2
+          color: multiStopColor, fillColor: multiStopColor, fillOpacity: 0.75, radius: 8, weight: 2
         }).addTo(map);
         m.bindPopup(`<b>${s.stop_name}</b><br>Stop ID: ${s.stop_id}`);
         return m;
@@ -3264,9 +3394,10 @@
       });
 
       if (data.nearest_stops.length) {
+        const nearestStopColor = getComputedStyle(document.documentElement).getPropertyValue('--accent2').trim();
         data.nearest_stops.forEach(stop => {
           const m = L.circleMarker([stop.stop_lat,stop.stop_lon],{
-            color:'#e05555',fillColor:'#e05555',fillOpacity:0.7,radius:7,weight:2
+            color:nearestStopColor,fillColor:nearestStopColor,fillOpacity:0.7,radius:7,weight:2
           }).addTo(map);
           m.bindPopup(`Stop ${stop.stop_id} · ${stop.distanceKM.toFixed(2)} km`);
           window.nearestStopsMarkers.push(m);
@@ -3348,7 +3479,7 @@
 
       if (boardLat == null) {
         const grid = document.getElementById('boardGrid');
-        grid.innerHTML = '';
+        grid.innerHTML = skeletonDepCards(5);
         grid.dataset.tripKey = '';
         sub.textContent = 'Locating you…';
       }
@@ -3357,7 +3488,12 @@
         boardLat = pos.coords.latitude;
         boardLon = pos.coords.longitude;
         fetchDepartureBoard();
-      }, () => { if (boardLat == null) sub.textContent = 'Unable to get your location.'; });
+      }, () => {
+        if (boardLat == null) {
+          sub.textContent = 'Unable to get your location.';
+          document.getElementById('boardGrid').innerHTML = '';
+        }
+      });
     }
 
     function fetchDepartureBoard() {
@@ -3396,7 +3532,10 @@
           ]).then(([sd, info]) => ({ ...sd, _distanceKM: s.distanceKM, _stopName: info.stop_name || sd.stop_name, _stopCode: info.stop_code }))
           )).then(stopDatas => renderDepartureBoard(stopDatas.filter(s => !s.error)));
         })
-        .catch(() => { sub.textContent = 'Error loading departure board.'; });
+        .catch(() => {
+          sub.textContent = 'Error loading departure board.';
+          document.getElementById('boardGrid').innerHTML = '';
+        });
     }
 
     function renderDepartureBoard(stopDatas) {
