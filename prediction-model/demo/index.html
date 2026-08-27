@@ -286,9 +286,110 @@
     text-transform: uppercase;
     letter-spacing: 0.1em;
   }
+
+  /* ===== INTRO OVERLAY ===== */
+  #intro-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    background: var(--bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    opacity: 1;
+    transition: opacity 0.45s ease;
+  }
+
+  #intro-overlay.intro-hidden {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .intro-card {
+    max-width: 460px;
+    width: 100%;
+    background: var(--panel);
+    border: 1.5px solid var(--border);
+    box-shadow: 8px 8px 0 rgba(26,26,26,0.1);
+    padding: 2rem 1.75rem;
+    text-align: center;
+    opacity: 0;
+    transform: translateY(14px) scale(0.98);
+    animation: intro-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) 0.1s forwards;
+  }
+
+  .intro-eyebrow {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 0.6rem;
+    opacity: 0;
+    animation: intro-in 0.5s ease 0.35s forwards;
+  }
+
+  .intro-title {
+    font-family: 'Oswald', sans-serif;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: -0.01em;
+    font-size: 1.7rem;
+    line-height: 1.15;
+    margin: 0 0 0.85rem;
+    opacity: 0;
+    animation: intro-in 0.5s ease 0.45s forwards;
+  }
+
+  .intro-desc {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    color: var(--text);
+    margin: 0 0 1.5rem;
+    opacity: 0;
+    animation: intro-in 0.5s ease 0.55s forwards;
+  }
+
+  .intro-desc strong { color: var(--accent); }
+
+  #intro-enter {
+    opacity: 0;
+    animation: intro-in 0.5s ease 0.65s forwards;
+  }
+
+  #intro-enter:hover {
+    transform: translate(-2px, -2px) scale(1);
+  }
+
+  @keyframes intro-in {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    #intro-overlay, .intro-card, .intro-eyebrow, .intro-title, .intro-desc, #intro-enter {
+      animation: none !important;
+      transition: none !important;
+      opacity: 1 !important;
+      transform: none !important;
+    }
+  }
 </style>
 </head>
 <body>
+<div id="intro-overlay">
+  <div class="intro-card">
+    <p class="intro-eyebrow">Route 601 &middot; YRT VIVA BLUE</p>
+    <h2 class="intro-title">Live delay inference, from the GBDT model</h2>
+    <p class="intro-desc">
+      This demo runs a <strong>HistGradientBoostingRegressor</strong> against live GTFS-Realtime
+      feeds to predict arrival delay for YRT VIVA Blue (route 601). 
+    </p>
+    <button type="button" id="intro-enter">Enter demo</button>
+  </div>
+</div>
 <main>
   <h1>GBDT Inference for YRT VIVA BLUE (route_id 601)</h1>
   <p class="subtitle">LIVE INFERENCE model.pkl (HistGradientBoostingRegressor)</p>
@@ -345,6 +446,38 @@
 </section>
 
 <script>
+// ===== INTRO OVERLAY =====
+(function initIntro() {
+  const INTRO_KEY = "route601IntroSeen";
+  const overlay = document.getElementById("intro-overlay");
+  const enterBtn = document.getElementById("intro-enter");
+
+  let seen = false;
+  try { seen = localStorage.getItem(INTRO_KEY) === "1"; } catch (err) { /* storage unavailable */ }
+
+  if (seen) {
+    overlay.remove();
+    return;
+  }
+
+  function dismissIntro() {
+    try { localStorage.setItem(INTRO_KEY, "1"); } catch (err) { /* storage unavailable */ }
+    overlay.classList.add("intro-hidden");
+    overlay.addEventListener("transitionend", () => overlay.remove(), { once: true });
+  }
+
+  enterBtn.addEventListener("click", dismissIntro);
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) dismissIntro();
+  });
+  document.addEventListener("keydown", function escToDismiss(e) {
+    if (e.key === "Escape") {
+      dismissIntro();
+      document.removeEventListener("keydown", escToDismiss);
+    }
+  });
+})();
+
 const API_TOKEN = window.DEMO_TOKEN || "";
 
 function apiFetch(url, options = {}) {
@@ -525,7 +658,7 @@ function delayColor(delay) {
 
 // Matches gtfs_rt.py's OUTLIER_MIN_DELAY_SECONDS / OUTLIER_MAX_DELAY_SECONDS.
 const OUTLIER_MIN_DELAY_SECS = -10 * 60;
-const OUTLIER_MAX_DELAY_SECS = 15 * 60;
+const OUTLIER_MAX_DELAY_SECS = 10 * 60;
 
 function delayText(delay) {
   if (delay === null || delay === undefined) return "no data";

@@ -18,7 +18,7 @@ MAX_AGE_SECONDS = 15
 # likely to be a legitimate multi-minute swing than a "late" one (traffic,
 # detours), so it's flagged sooner.
 OUTLIER_MIN_DELAY_SECONDS = -10 * 60
-OUTLIER_MAX_DELAY_SECONDS = 15 * 60
+OUTLIER_MAX_DELAY_SECONDS = 10 * 60
 
 _cache = {}  # url -> (fetched_at, FeedMessage)
 
