@@ -1,5 +1,8 @@
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
+
+from infer import predict_delay
 
 DATA_FILE = "combined_processed.csv"
 
@@ -22,7 +25,14 @@ hour_ticks = [
 hour_labels = [label for _ in range(len(DAYS)) for label in RUSH_HOURS.keys()]
 
 fig, ax = plt.subplots(figsize=(14, 5))
-ax.scatter(df["secs_since_last_monday_0000"], df["delay"], s=8, alpha=0.5)
+ax.scatter(df["secs_since_last_monday_0000"], df["delay"], s=8, alpha=0.5, label="observed")
+
+pred_secs = np.linspace(0, 7 * DAY_SECONDS, 500)
+pred_delay = [
+    predict_delay(s, None, None, is_weekend=1.0 if (s // DAY_SECONDS) >= 5 else 0.0)
+    for s in pred_secs
+]
+ax.plot(pred_secs, pred_delay, color="red", linewidth=2, label="predicted (lags unknown)")
 
 ax.set_xticks(day_ticks)
 ax.set_xticklabels(day_labels)
@@ -38,6 +48,7 @@ ax.set_xlabel("time of week")
 ax.set_ylabel("median delay (s)")
 ax.set_title("median delay vs time of week route 601 yrt")
 ax.axhline(0, color="gray", linewidth=0.8)
+ax.legend(loc="upper right")
 plt.tight_layout()
 plt.savefig("delay_vs_unix_timestamp.png")
 plt.show()

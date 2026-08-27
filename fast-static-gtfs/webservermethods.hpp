@@ -95,7 +95,7 @@ inline string getStopDayTimes(const string& stop_id, const int& year, const int&
 
     ostringstream out;
 
-    gtfs::stop st = fast_gtfs::bin_search::getStopInfo(stop_id, stoplines, stoprefs);
+    const gtfs::stop st = fast_gtfs::bin_search::getStopInfo(stop_id, stoplines, stoprefs);
 
     std::vector<gtfs::trip_segment> segments = fast_gtfs::bin_search::getDayTimesAtStop(stop_id, year, month, day,
         stoptimesstopidlines, stoptimesstopidrefs, triplines, triprefs,

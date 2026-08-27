@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>route 601 delay predictor</title>
+<style>
+  :root {
+    color-scheme: light only;
+    --bg: #FFFFFF;
+    --panel: #F5F5F5;
+    --border: #E0E0E0;
+    --text: #222222;
+    --muted: #757575;
+    --accent: #404040;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    padding: 2.5rem 1.5rem;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    display: flex;
+    justify-content: center;
+  }
+
+  main {
+    width: 100%;
+    max-width: 480px;
+  }
+
+  h1 {
+    margin: 0 0 0.25rem;
+    font-size: 1.4rem;
+    font-weight: 600;
+  }
+
+  .subtitle {
+    margin: 0 0 1.5rem;
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 0.9rem;
+  }
+
+  .row-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-bottom: 0.4rem;
+  }
+
+  .row-label span:last-child {
+    color: var(--text);
+    font-weight: 600;
+  }
+
+  input[type="range"] {
+    width: 100%;
+    accent-color: var(--accent);
+  }
+
+  label {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-top: 0.6rem;
+  }
+
+  button {
+    width: 100%;
+    padding: 0.6rem;
+    background: var(--accent);
+    color: #FFFFFF;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  button:hover { background: #2b2b2b; }
+
+  .result-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.25rem;
+    text-align: center;
+  }
+
+  .result-value {
+    font-size: 2rem;
+    font-weight: 700;
+  }
+
+  .result-label {
+    color: var(--muted);
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>route 601 delay predictor</h1>
+  <p class="subtitle">live inference against model.pkl (HistGradientBoostingRegressor)</p>
+
+  <div class="card">
+    <div class="row-label"><span>day of week</span><span id="day-readout">Mon</span></div>
+    <input type="range" id="day" min="0" max="6" step="1" value="0">
+
+    <div class="row-label" style="margin-top: 1rem;"><span>time of day</span><span id="time-readout">12:00</span></div>
+    <input type="range" id="time" min="0" max="86099" step="300" value="43200">
+
+    <label><input type="checkbox" id="weekend"> is weekend</label>
+  </div>
+
+  <div class="card">
+    <button type="button" id="use-now">use current time</button>
+  </div>
+
+  <div class="card">
+    <div class="row-label"><span>delay 10 min ago (same vehicle)</span><span id="lag10-readout">0s</span></div>
+    <input type="range" id="lag10" min="-300" max="300" step="1" value="0">
+    <label><input type="checkbox" id="lag10-unknown"> unknown / no data yet</label>
+
+    <div class="row-label" style="margin-top: 1rem;"><span>delay 30 min ago (same vehicle)</span><span id="lag30-readout">0s</span></div>
+    <input type="range" id="lag30" min="-300" max="300" step="1" value="0">
+    <label><input type="checkbox" id="lag30-unknown"> unknown / no data yet</label>
+  </div>
+
+  <div class="result-card">
+    <div class="result-value" id="result-value">&mdash;</div>
+    <div class="result-label" id="result-label"></div>
+  </div>
+
+  <div class="card" style="text-align: center; margin-top: 0.9rem;">
+    <div class="row-label"><span>current median delay (live, route 601)</span></div>
+    <div class="result-value" id="median-delay-value" style="font-size: 1.4rem;">&mdash;</div>
+    <div class="result-label" id="median-delay-label"></div>
+  </div>
+</main>
+
+<script>
+const DAY_SECONDS = 24 * 3600;
+const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+const dayEl = document.getElementById("day");
+const timeEl = document.getElementById("time");
+const weekendEl = document.getElementById("weekend");
+const lag10El = document.getElementById("lag10");
+const lag30El = document.getElementById("lag30");
+const lag10UnknownEl = document.getElementById("lag10-unknown");
+const lag30UnknownEl = document.getElementById("lag30-unknown");
+const useNowEl = document.getElementById("use-now");
+
+const dayReadout = document.getElementById("day-readout");
+const timeReadout = document.getElementById("time-readout");
+const lag10Readout = document.getElementById("lag10-readout");
+const lag30Readout = document.getElementById("lag30-readout");
+
+const resultValueEl = document.getElementById("result-value");
+const resultLabelEl = document.getElementById("result-label");
+
+function formatTimeOfDay(secs) {
+  const h = String(Math.floor(secs / 3600)).padStart(2, "0");
+  const m = String(Math.floor((secs % 3600) / 60)).padStart(2, "0");
+  return `${h}:${m}`;
+}
+
+function secsSinceMonday() {
+  return Number(dayEl.value) * DAY_SECONDS + Number(timeEl.value);
+}
+
+function syncWeekendFromDay() {
+  const day = Number(dayEl.value);
+  weekendEl.checked = day === 5 || day === 6;
+}
+
+function formatDuration(seconds) {
+  const sign = seconds < 0 ? "-" : "";
+  const abs = Math.round(Math.abs(seconds));
+  const m = Math.floor(abs / 60);
+  const s = abs % 60;
+  return m > 0 ? `${sign}${m}m ${s}s` : `${sign}${s}s`;
+}
+
+const THROTTLE_MS = 120;
+let throttleHandle = null;
+let lastFetchAt = 0;
+let requestSeq = 0;
+
+function scheduleUpdate() {
+  dayReadout.textContent = DAYS[Number(dayEl.value)];
+  timeReadout.textContent = formatTimeOfDay(Number(timeEl.value));
+  lag10Readout.textContent = lag10UnknownEl.checked ? "unknown" : formatDuration(Number(lag10El.value));
+  lag30Readout.textContent = lag30UnknownEl.checked ? "unknown" : formatDuration(Number(lag30El.value));
+  lag10El.disabled = lag10UnknownEl.checked;
+  lag30El.disabled = lag30UnknownEl.checked;
+
+  const elapsed = performance.now() - lastFetchAt;
+  clearTimeout(throttleHandle);
+  if (elapsed >= THROTTLE_MS) {
+    fetchPrediction();
+  } else {
+    throttleHandle = setTimeout(fetchPrediction, THROTTLE_MS - elapsed);
+  }
+}
+
+async function fetchPrediction() {
+  lastFetchAt = performance.now();
+  const seq = ++requestSeq;
+
+  const params = new URLSearchParams({
+    secs: secsSinceMonday(),
+    weekend: weekendEl.checked ? "1" : "0",
+  });
+  if (!lag10UnknownEl.checked) params.set("lag10", lag10El.value);
+  if (!lag30UnknownEl.checked) params.set("lag30", lag30El.value);
+
+  try {
+    const res = await fetch(`/api/predict?${params.toString()}`);
+    if (!res.ok) throw new Error(await res.text());
+    const data = await res.json();
+    if (seq !== requestSeq) return; // a newer request already superseded this one
+    const delay = data.delay;
+    resultValueEl.textContent = `${delay >= 0 ? "+" : ""}${formatDuration(delay)}`;
+    resultLabelEl.textContent = delay >= 0 ? "late" : "early";
+  } catch (err) {
+    if (seq !== requestSeq) return;
+    resultValueEl.textContent = "error";
+    resultLabelEl.textContent = "prediction failed";
+  }
+}
+
+function setToCurrentTime() {
+  const now = new Date();
+  const day = (now.getDay() + 6) % 7; // JS: 0=Sun..6=Sat -> 0=Mon..6=Sun
+  const secsOfDay = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+  const snapped = Math.min(Number(timeEl.max), Math.round(secsOfDay / 300) * 300);
+
+  dayEl.value = day;
+  timeEl.value = snapped;
+  syncWeekendFromDay();
+  scheduleUpdate();
+}
+
+const medianDelayValueEl = document.getElementById("median-delay-value");
+const medianDelayLabelEl = document.getElementById("median-delay-label");
+
+async function fetchMedianDelay() {
+  try {
+    const res = await fetch("/api/median-delay");
+    if (!res.ok) throw new Error(await res.text());
+    const data = await res.json();
+    if (data.median_delay === null) {
+      medianDelayValueEl.textContent = "n/a";
+      medianDelayLabelEl.textContent = "no live trips right now";
+      return;
+    }
+    const delay = data.median_delay;
+    medianDelayValueEl.textContent = `${delay >= 0 ? "+" : ""}${formatDuration(delay)}`;
+    medianDelayLabelEl.textContent = `${delay >= 0 ? "late" : "early"} · ${data.sample_count} trip(s)`;
+  } catch (err) {
+    medianDelayValueEl.textContent = "error";
+    medianDelayLabelEl.textContent = "fetch failed";
+  }
+}
+
+const MEDIAN_DELAY_POLL_MS = 20000;
+fetchMedianDelay();
+setInterval(fetchMedianDelay, MEDIAN_DELAY_POLL_MS);
+
+dayEl.addEventListener("input", () => { syncWeekendFromDay(); scheduleUpdate(); });
+timeEl.addEventListener("input", scheduleUpdate);
+weekendEl.addEventListener("input", scheduleUpdate);
+lag10El.addEventListener("input", scheduleUpdate);
+lag30El.addEventListener("input", scheduleUpdate);
+lag10UnknownEl.addEventListener("change", scheduleUpdate);
+lag30UnknownEl.addEventListener("change", scheduleUpdate);
+useNowEl.addEventListener("click", setToCurrentTime);
+
+syncWeekendFromDay();
+scheduleUpdate();
+</script>
+</body>
+</html>
