@@ -119,10 +119,6 @@ def favicon():
 def index():
     return send_from_directory('.', 'index.html')
 
-@app.route('/<path:path>')
-def static_files(path):
-    return send_from_directory('.', path)
-
 # OPTIONAL: OFFLINE TILES
 @app.route('/tiles/<int:z>/<int:x>/<int:y>.png')
 def tiles(z, x, y):
