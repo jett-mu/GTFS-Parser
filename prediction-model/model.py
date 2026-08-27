@@ -9,14 +9,6 @@ from sklearn.metrics import mean_absolute_error
 DATA_FILE = "combined_processed.csv"
 WEIGHTS_PATH = "model.pkl"
 
-# Weather columns (temperature/precipitation/rain/etc.) were tested and dropped:
-# cross-validated MAE got WORSE with them included (51.2) than a plain "predict the
-# mean" baseline (48.9). route_id/service_id/is_holiday are constant or redundant with
-# day_of_week/is_weekend in this dataset, so they're excluded too.
-# delay_lag_10m/30m (same block_id, i.e. same physical vehicle) correlate with delay
-# (0.18 / 0.10) far more than any weather column did, so they're kept as real features.
-# HistGradientBoostingRegressor handles their NaNs (no lag available yet in a block)
-# natively via missing-value-aware splits, so they're passed through unfilled.
 LAG_COLUMNS = ["delay_lag_10m", "delay_lag_30m"]
 BINARY_COLUMNS = ["is_weekend"]
 OUTPUT_COLUMN = "delay"

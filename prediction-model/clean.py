@@ -37,11 +37,6 @@ ROLLING_WINDOWS = {
 }
 WEATHER_COLS = ["rain", "snowfall", "precipitation"]
 
-# Lagged delay keyed by block_id, not trip_id: a block is the sequence of trips one
-# physical vehicle runs in a day, and pings land on a ~5min grid. Median observations
-# per group in this dataset are ~54/trip_id vs ~782/block_id, so trip_id-level lookback
-# is mostly missing data while block_id also captures a vehicle's lateness carrying over
-# between trips (which trip_id can't, since it resets at each trip boundary).
 LAG_WINDOWS = {"10m": 10, "30m": 30}
 LAG_TOLERANCE = pd.Timedelta("3min")
 

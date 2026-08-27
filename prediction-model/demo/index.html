@@ -4,15 +4,25 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>route 601 delay predictor</title>
+<link rel="icon" type="image/x-icon" href="/favicons/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicons/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicons/favicon-32x32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/favicons/apple-touch-icon.png">
+<link rel="manifest" href="/favicons/site.webmanifest">
+<meta name="theme-color" content="#2B5FAD">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
   :root {
     color-scheme: light only;
-    --bg: #FFFFFF;
-    --panel: #F5F5F5;
-    --border: #E0E0E0;
-    --text: #222222;
-    --muted: #757575;
-    --accent: #404040;
+    --bg: #FAFAF7;
+    --panel: #FAFAF7;
+    --border: #1A1A1A;
+    --text: #1A1A1A;
+    --muted: rgba(26,26,26,0.55);
+    --accent: #2B5FAD;
   }
 
   * { box-sizing: border-box; }
@@ -22,47 +32,199 @@
     padding: 2.5rem 1.5rem;
     background: var(--bg);
     color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
     justify-content: center;
+    gap: 1.75rem;
   }
 
   main {
     width: 100%;
     max-width: 480px;
+    flex: 0 0 auto;
+  }
+
+  .map-section {
+    width: 100%;
+    max-width: 900px;
+    flex: 1 1 640px;
+  }
+
+  .map-shell {
+    display: flex;
+    height: 560px;
+    background: var(--panel);
+    border: 1.5px solid var(--border);
+    box-shadow: 6px 6px 0 rgba(26,26,26,0.08);
+    overflow: hidden;
+  }
+
+  .trip-sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    overflow-y: auto;
+    border-right: 1.5px solid var(--border);
+    background: var(--panel);
+  }
+
+  .trip-sidebar-header {
+    position: sticky;
+    top: 0;
+    background: var(--panel);
+    padding: 0.85rem 1rem 0.6rem;
+    border-bottom: 1px solid rgba(26,26,26,0.12);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .trip-card {
+    padding: 0.65rem 1rem;
+    border-bottom: 1px solid rgba(26,26,26,0.1);
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    transition: background 0.12s ease;
+  }
+
+  .trip-card:hover { background: rgba(43,95,173,0.06); }
+
+  .trip-card.active {
+    background: rgba(43,95,173,0.12);
+    box-shadow: inset 3px 0 0 var(--accent);
+  }
+
+  .trip-card-top {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.3rem 0.5rem;
+  }
+
+  .trip-card-id {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.78rem;
+    font-weight: 600;
+  }
+
+  .trip-card-sub {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.68rem;
+    color: var(--muted);
+  }
+
+  .delay-badge {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.68rem;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 10px;
+    color: #FAFAF7;
+    white-space: nowrap;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .empty-note {
+    padding: 1rem;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.78rem;
+    color: var(--muted);
+  }
+
+  #vehicle-map {
+    flex: 1;
+    min-height: 320px;
+  }
+
+  .bus-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid #1A1A1A;
+    box-shadow: 0 1px 3px rgba(26,26,26,0.4);
+  }
+
+  @media (max-width: 860px) {
+    .map-shell { flex-direction: column; height: auto; }
+    .trip-sidebar { width: 100%; max-height: 220px; border-right: none; border-bottom: 1.5px solid var(--border); }
+    #vehicle-map { height: 380px; }
   }
 
   h1 {
-    margin: 0 0 0.25rem;
-    font-size: 1.4rem;
-    font-weight: 600;
+    margin: 0 0 0.35rem;
+    font-family: 'Oswald', sans-serif;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: -0.01em;
+    font-size: 1.9rem;
+    line-height: 1;
   }
 
   .subtitle {
     margin: 0 0 1.5rem;
+    font-family: 'IBM Plex Mono', monospace;
     color: var(--muted);
-    font-size: 0.9rem;
+    font-size: 0.8rem;
   }
 
   .card {
     background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 10px;
+    border: 1.5px solid var(--border);
+    border-radius: 0;
     padding: 1rem 1.25rem;
-    margin-bottom: 0.9rem;
+    margin-bottom: 1.1rem;
+    box-shadow: 6px 6px 0 rgba(26,26,26,0.08);
+  }
+
+  .removed-trips-title {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 0.35rem;
+  }
+
+  .removed-trips-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.5rem;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.72rem;
+    padding: 0.2rem 0;
+    color: var(--text);
+  }
+
+  .removed-trips-row span:last-child {
+    color: #D6432B;
+    font-weight: 600;
+    white-space: nowrap;
   }
 
   .row-label {
     display: flex;
     justify-content: space-between;
-    font-size: 0.85rem;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.78rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
     color: var(--muted);
-    margin-bottom: 0.4rem;
+    margin-bottom: 0.5rem;
   }
 
   .row-label span:last-child {
     color: var(--text);
     font-weight: 600;
+    text-transform: none;
+    letter-spacing: normal;
   }
 
   input[type="range"] {
@@ -74,50 +236,62 @@
     display: flex;
     align-items: center;
     gap: 0.4rem;
-    font-size: 0.85rem;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.78rem;
     color: var(--muted);
     margin-top: 0.6rem;
   }
 
   button {
     width: 100%;
-    padding: 0.6rem;
+    padding: 0.65rem;
     background: var(--accent);
-    color: #FFFFFF;
-    border: none;
-    border-radius: 8px;
-    font-size: 0.9rem;
+    color: #FAFAF7;
+    border: 1.5px solid var(--border);
+    border-radius: 0;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.85rem;
     font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
     cursor: pointer;
+    box-shadow: 4px 4px 0 rgba(26,26,26,0.15);
+    transition: transform 0.1s ease, box-shadow 0.1s ease;
   }
 
-  button:hover { background: #2b2b2b; }
+  button:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: 6px 6px 0 rgba(26,26,26,0.15);
+  }
 
   .result-card {
     background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 10px;
+    border: 1.5px solid var(--border);
+    border-radius: 0;
     padding: 1.25rem;
     text-align: center;
+    box-shadow: 6px 6px 0 rgba(26,26,26,0.08);
   }
 
   .result-value {
-    font-size: 2rem;
+    font-family: 'Oswald', sans-serif;
+    font-size: 2.2rem;
     font-weight: 700;
   }
 
   .result-label {
+    font-family: 'IBM Plex Mono', monospace;
     color: var(--muted);
-    font-size: 0.9rem;
+    font-size: 0.78rem;
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.1em;
   }
 </style>
 </head>
 <body>
 <main>
-  <h1>route 601 delay predictor</h1>
-  <p class="subtitle">live inference against model.pkl (HistGradientBoostingRegressor)</p>
+  <h1>GBDT Inference for YRT VIVA BLUE (route_id 601)</h1>
+  <p class="subtitle">LIVE INFERENCE model.pkl (HistGradientBoostingRegressor)</p>
 
   <div class="card">
     <div class="row-label"><span>day of week</span><span id="day-readout">Mon</span></div>
@@ -136,11 +310,11 @@
   <div class="card">
     <div class="row-label"><span>delay 10 min ago (same vehicle)</span><span id="lag10-readout">0s</span></div>
     <input type="range" id="lag10" min="-300" max="300" step="1" value="0">
-    <label><input type="checkbox" id="lag10-unknown"> unknown / no data yet</label>
+    <label><input type="checkbox" id="lag10-unknown" checked> unknown / no data yet</label>
 
     <div class="row-label" style="margin-top: 1rem;"><span>delay 30 min ago (same vehicle)</span><span id="lag30-readout">0s</span></div>
     <input type="range" id="lag30" min="-300" max="300" step="1" value="0">
-    <label><input type="checkbox" id="lag30-unknown"> unknown / no data yet</label>
+    <label><input type="checkbox" id="lag30-unknown" checked> unknown / no data yet</label>
   </div>
 
   <div class="result-card">
@@ -149,13 +323,36 @@
   </div>
 
   <div class="card" style="text-align: center; margin-top: 0.9rem;">
-    <div class="row-label"><span>current median delay (live, route 601)</span></div>
-    <div class="result-value" id="median-delay-value" style="font-size: 1.4rem;">&mdash;</div>
-    <div class="result-label" id="median-delay-label"></div>
+    <div class="row-label"><span>current mean delay (live, route 601)</span></div>
+    <div class="result-value" id="mean-delay-value" style="font-size: 1.4rem;">&mdash;</div>
+    <div class="result-label" id="mean-delay-label"></div>
+    <div class="result-label" id="mean-delay-age" style="margin-top: 0.3rem;"></div>
+    <div id="removed-trips" style="margin-top: 0.7rem;"></div>
   </div>
 </main>
 
+<section class="map-section">
+  <div class="map-shell">
+    <div class="trip-sidebar">
+      <div class="trip-sidebar-header">
+        <div>Active trips route 601</div>
+        <div id="vehicle-feed-age" style="margin-top: 0.15rem; text-transform: none; letter-spacing: normal;"></div>
+      </div>
+      <div id="trip-list"></div>
+    </div>
+    <div id="vehicle-map"></div>
+  </div>
+</section>
+
 <script>
+const API_TOKEN = window.DEMO_TOKEN || "";
+
+function apiFetch(url, options = {}) {
+  if (!API_TOKEN) return fetch(url, options);
+  const headers = Object.assign({}, options.headers || {}, { "X-Auth-Token": API_TOKEN });
+  return fetch(url, Object.assign({}, options, { headers }));
+}
+
 const DAY_SECONDS = 24 * 3600;
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -233,7 +430,7 @@ async function fetchPrediction() {
   if (!lag30UnknownEl.checked) params.set("lag30", lag30El.value);
 
   try {
-    const res = await fetch(`/api/predict?${params.toString()}`);
+    const res = await apiFetch(`/api/predict?${params.toString()}`);
     if (!res.ok) throw new Error(await res.text());
     const data = await res.json();
     if (seq !== requestSeq) return; // a newer request already superseded this one
@@ -259,31 +456,50 @@ function setToCurrentTime() {
   scheduleUpdate();
 }
 
-const medianDelayValueEl = document.getElementById("median-delay-value");
-const medianDelayLabelEl = document.getElementById("median-delay-label");
+const meanDelayValueEl = document.getElementById("mean-delay-value");
+const meanDelayLabelEl = document.getElementById("mean-delay-label");
+const meanDelayAgeEl = document.getElementById("mean-delay-age");
 
-async function fetchMedianDelay() {
+let lastMeanDelayFetchAt = null;
+
+function formatAge(seconds) {
+  if (seconds < 1) return "just now";
+  if (seconds < 60) return `updated ${seconds}s ago`;
+  const m = Math.floor(seconds / 60);
+  return `updated ${m}m ${seconds % 60}s ago`;
+}
+
+function tickMeanDelayAge() {
+  if (lastMeanDelayFetchAt === null) return;
+  const seconds = Math.floor((Date.now() - lastMeanDelayFetchAt) / 1000);
+  meanDelayAgeEl.textContent = formatAge(seconds);
+}
+
+async function fetchMeanDelay() {
   try {
-    const res = await fetch("/api/median-delay");
+    const res = await apiFetch("/api/mean-delay");
     if (!res.ok) throw new Error(await res.text());
     const data = await res.json();
-    if (data.median_delay === null) {
-      medianDelayValueEl.textContent = "n/a";
-      medianDelayLabelEl.textContent = "no live trips right now";
+    lastMeanDelayFetchAt = Date.now();
+    tickMeanDelayAge();
+    if (data.mean_delay === null) {
+      meanDelayValueEl.textContent = "n/a";
+      meanDelayLabelEl.textContent = "no live trips right now";
       return;
     }
-    const delay = data.median_delay;
-    medianDelayValueEl.textContent = `${delay >= 0 ? "+" : ""}${formatDuration(delay)}`;
-    medianDelayLabelEl.textContent = `${delay >= 0 ? "late" : "early"} · ${data.sample_count} trip(s)`;
+    const delay = data.mean_delay;
+    meanDelayValueEl.textContent = `${delay >= 0 ? "+" : ""}${formatDuration(delay)}`;
+    meanDelayLabelEl.textContent = `${delay >= 0 ? "late" : "early"} ${data.sample_count} trip(s)`;
   } catch (err) {
-    medianDelayValueEl.textContent = "error";
-    medianDelayLabelEl.textContent = "fetch failed";
+    meanDelayValueEl.textContent = "error";
+    meanDelayLabelEl.textContent = "fetch failed";
   }
 }
 
-const MEDIAN_DELAY_POLL_MS = 20000;
-fetchMedianDelay();
-setInterval(fetchMedianDelay, MEDIAN_DELAY_POLL_MS);
+const MEAN_DELAY_POLL_MS = 20000;
+fetchMeanDelay();
+setInterval(fetchMeanDelay, MEAN_DELAY_POLL_MS);
+setInterval(tickMeanDelayAge, 1000);
 
 dayEl.addEventListener("input", () => { syncWeekendFromDay(); scheduleUpdate(); });
 timeEl.addEventListener("input", scheduleUpdate);
@@ -296,6 +512,219 @@ useNowEl.addEventListener("click", setToCurrentTime);
 
 syncWeekendFromDay();
 scheduleUpdate();
+
+// ===== VEHICLE MAP =====
+const DELAY_COLORS = { onTime: "#2F7B4F", late: "#E8A93B", veryLate: "#D6432B", unknown: "rgba(26,26,26,0.35)" };
+
+function delayColor(delay) {
+  if (delay === null || delay === undefined) return DELAY_COLORS.unknown;
+  if (delay <= 60) return DELAY_COLORS.onTime;
+  if (delay <= 300) return DELAY_COLORS.late;
+  return DELAY_COLORS.veryLate;
+}
+
+// Matches gtfs_rt.py's OUTLIER_MIN_DELAY_SECONDS / OUTLIER_MAX_DELAY_SECONDS.
+const OUTLIER_MIN_DELAY_SECS = -10 * 60;
+const OUTLIER_MAX_DELAY_SECS = 15 * 60;
+
+function delayText(delay) {
+  if (delay === null || delay === undefined) return "no data";
+  return `${delay >= 0 ? "+" : ""}${formatDuration(delay)} ${delay >= 0 ? "late" : "early"}`;
+}
+
+function isOutlier(delay) {
+  return delay !== null && delay !== undefined &&
+    (delay < OUTLIER_MIN_DELAY_SECS || delay > OUTLIER_MAX_DELAY_SECS);
+}
+
+// Sidebar-only text: matches what gtfs_rt.py excludes from the mean, so the
+// card explains why this trip isn't affecting that number.
+function sidebarDelayText(delay) {
+  if (isOutlier(delay)) return `removed (${delayText(delay)})`;
+  return delayText(delay);
+}
+
+let vehicleMap = null;
+let vehicleMarkers = {}; // trip_id -> L.CircleMarker
+let shapePolyline = null;
+let activeShapeTripId = null;
+let selectedTripId = null;
+
+function initVehicleMap() {
+  vehicleMap = L.map('vehicle-map').setView([43.9, -79.44], 11);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(vehicleMap);
+}
+
+function renderTripList(vehicles) {
+  const listEl = document.getElementById("trip-list");
+  if (!vehicles.length) {
+    listEl.innerHTML = '<div class="empty-note">no route 601 vehicles reporting right now</div>';
+    return;
+  }
+  listEl.innerHTML = "";
+  for (const v of vehicles) {
+    const card = document.createElement("div");
+    card.className = "trip-card" + (v.trip_id === selectedTripId ? " active" : "");
+    card.dataset.tripId = v.trip_id;
+
+    const top = document.createElement("div");
+    top.className = "trip-card-top";
+
+    const idEl = document.createElement("span");
+    idEl.className = "trip-card-id";
+    idEl.textContent = `trip ${v.trip_id}`;
+
+    const outlier = isOutlier(v.delay);
+
+    const badge = document.createElement("span");
+    badge.className = "delay-badge";
+    badge.style.background = outlier ? "rgba(26,26,26,0.4)" : delayColor(v.delay);
+    badge.textContent = sidebarDelayText(v.delay);
+
+    top.appendChild(idEl);
+    top.appendChild(badge);
+
+    const sub = document.createElement("div");
+    sub.className = "trip-card-sub";
+    sub.textContent = v.vehicle_id ? `vehicle ${v.vehicle_id}` : "";
+
+    card.appendChild(top);
+    if (sub.textContent) card.appendChild(sub);
+
+    card.addEventListener("click", () => selectTrip(v.trip_id));
+    listEl.appendChild(card);
+  }
+}
+
+function renderVehicleMarkers(vehicles) {
+  const seen = new Set();
+  for (const v of vehicles) {
+    seen.add(v.trip_id);
+    const color = delayColor(v.delay);
+    const icon = L.divIcon({
+      className: "",
+      html: `<div class="bus-dot" style="background:${color};"></div>`,
+      iconSize: [14, 14],
+      iconAnchor: [7, 7],
+    });
+
+    let marker = vehicleMarkers[v.trip_id];
+    if (marker) {
+      marker.setLatLng([v.lat, v.lng]);
+      marker.setIcon(icon);
+    } else {
+      marker = L.marker([v.lat, v.lng], { icon }).addTo(vehicleMap);
+      marker.on("click", () => selectTrip(v.trip_id));
+      vehicleMarkers[v.trip_id] = marker;
+    }
+    marker.bindPopup(`<b>trip ${v.trip_id}</b><br>${delayText(v.delay)}`);
+  }
+
+  for (const tripId of Object.keys(vehicleMarkers)) {
+    if (!seen.has(tripId)) {
+      vehicleMap.removeLayer(vehicleMarkers[tripId]);
+      delete vehicleMarkers[tripId];
+    }
+  }
+}
+
+async function drawTripShape(tripId) {
+  try {
+    const res = await apiFetch(`/api/trip-shape/${tripId}`);
+    if (!res.ok) throw new Error(await res.text());
+    const data = await res.json();
+    if (shapePolyline) vehicleMap.removeLayer(shapePolyline);
+    const latlngs = (data.pos_markers || []).map(p => [p.lat, p.lng]);
+    if (!latlngs.length) return;
+    shapePolyline = L.polyline(latlngs, { color: "#009CDB", weight: 4, opacity: 0.85 }).addTo(vehicleMap);
+    shapePolyline.bringToBack();
+    activeShapeTripId = tripId;
+  } catch (err) {
+    // trip may not have a resolvable shape; leave the previous overlay as-is
+  }
+}
+
+function renderRemovedTrips(vehicles) {
+  const container = document.getElementById("removed-trips");
+  const removed = vehicles.filter(v => isOutlier(v.delay));
+  if (!removed.length) {
+    container.innerHTML = "";
+    return;
+  }
+  const rows = removed
+    .map(v => `<div class="removed-trips-row"><span>trip ${v.trip_id}</span><span>${delayText(v.delay)}</span></div>`)
+    .join("");
+  container.innerHTML = `<div class="removed-trips-title">removed trips</div>${rows}`;
+}
+
+function selectTrip(tripId) {
+  selectedTripId = tripId;
+  document.querySelectorAll(".trip-card").forEach(card => {
+    card.classList.toggle("active", card.dataset.tripId === tripId);
+  });
+  const marker = vehicleMarkers[tripId];
+  if (marker) {
+    vehicleMap.panTo(marker.getLatLng());
+    marker.openPopup();
+  }
+  if (tripId !== activeShapeTripId) drawTripShape(tripId);
+}
+
+const vehicleFeedAgeEl = document.getElementById("vehicle-feed-age");
+let vehicleFeedTimestampMs = null; // the feed's own decode timestamp, not our poll time
+
+function tickVehicleFeedAge() {
+  if (vehicleFeedTimestampMs === null) return;
+  const seconds = Math.max(0, Math.floor((Date.now() - vehicleFeedTimestampMs) / 1000));
+  vehicleFeedAgeEl.textContent = formatAge(seconds);
+}
+
+async function fetchRouteVehicles() {
+  try {
+    const res = await apiFetch("/api/route-vehicles");
+    if (!res.ok) throw new Error(await res.text());
+    const data = await res.json();
+    const vehicles = data.vehicles || [];
+    if (data.feed_timestamp) {
+      vehicleFeedTimestampMs = data.feed_timestamp * 1000;
+      tickVehicleFeedAge();
+    }
+    renderTripList(vehicles);
+    renderVehicleMarkers(vehicles);
+    renderRemovedTrips(vehicles);
+
+    if (!vehicles.length) return;
+
+    // Pick a starting trip to outline in blue: the previously selected one if
+    // it's still live, otherwise a random live trip.
+    const stillLive = vehicles.some(v => v.trip_id === selectedTripId);
+    if (!stillLive) {
+      const pick = vehicles[Math.floor(Math.random() * vehicles.length)];
+      selectTrip(pick.trip_id);
+    }
+  } catch (err) {
+    document.getElementById("trip-list").innerHTML = '<div class="empty-note">failed to load vehicles</div>';
+  }
+}
+
+initVehicleMap();
+fetchRouteVehicles();
+const VEHICLE_POLL_MS = 15000;
+setInterval(fetchRouteVehicles, VEHICLE_POLL_MS);
+setInterval(tickVehicleFeedAge, 1000);
+
+// Browsers throttle setInterval to roughly once/minute in a backgrounded
+// tab (battery-saving behavior, not something we can override) -- so a 15s
+// poll can silently degrade to ~60s while you're not looking. Force a fresh
+// fetch the instant the tab regains focus so it's never stale when you look.
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) {
+    fetchRouteVehicles();
+    fetchMeanDelay();
+  }
+});
 </script>
 </body>
 </html>

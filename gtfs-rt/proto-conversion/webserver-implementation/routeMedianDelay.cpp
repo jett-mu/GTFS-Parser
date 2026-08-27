@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <algorithm>
+#include <cstdlib>
 #include "../transit-files/gtfs-realtime.pb.h"
 #include "../../../static-gtfs/gtfs.hpp"
 #include "../../../static-gtfs/config.hpp"
@@ -42,7 +43,10 @@ static void refreshIfStale(const std::string& outputPath, const std::string& url
 
         if (stale) {
             std::string tmpPath = outputPath + ".tmp." + std::to_string(getpid());
-            std::string cmd = "wget -q --timeout=5 --tries=1 -O " + tmpPath + " " + url;
+            // Quoted: outputPath can contain spaces (e.g. a repo checked out
+            // under a directory with a space in its name), which would
+            // otherwise get word-split by the shell system() hands this to.
+            std::string cmd = "wget -q --timeout=5 --tries=1 -O '" + tmpPath + "' '" + url + "'";
             int rc = system(cmd.c_str());
 
             struct stat tmpSt;
@@ -70,6 +74,12 @@ static bool stopTimeUpdateDelay(const TripUpdate::StopTimeUpdate& stu, int32_t& 
     }
     return false;
 }
+
+// Outlier bounds are asymmetric: an "early" report is far less likely to be a
+// legitimate multi-minute swing than a "late" one (traffic, detours), so it's
+// flagged sooner.
+static const int32_t MIN_DELAY_SECONDS = -10 * 60;
+static const int32_t MAX_DELAY_SECONDS = 15 * 60;
 
 static double median(std::vector<int32_t> values) {
     std::sort(values.begin(), values.end());
@@ -128,7 +138,11 @@ int main(int argc, char* argv[]) {
         for (const auto& stu : entity.trip_update().stop_time_update()) {
             int32_t delay;
             if (stopTimeUpdateDelay(stu, delay)) {
-                delays.push_back(delay);
+                // Drop outlier reports from the median -- a single bad feed
+                // sample shouldn't swing the displayed number.
+                if (delay >= MIN_DELAY_SECONDS && delay <= MAX_DELAY_SECONDS) {
+                    delays.push_back(delay);
+                }
                 break; // one representative sample per trip
             }
         }

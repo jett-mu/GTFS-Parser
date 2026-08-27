@@ -79,3 +79,7 @@ fast-static-gtfs/gettriptest
 fast-static-gtfs/gettriptestold
 webserver/a/
 gtfs-rt/proto-conversion/webserver-implementation/routeMedianDelay
+gtfs-rt/proto-conversion/webserver-implementation/routeVehicles
+
+# Confidential / local-only env files
+.env

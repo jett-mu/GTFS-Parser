@@ -27,7 +27,7 @@ STATIC_GTFS_BINS := $(STATIC_GTFS_DIR)/gtfs_cli
 WEBSERVER_TOOLS  := getTrips searchstop tripjson stopjson getneareststopsjson stopinfo searchroute
 WEBSERVER_BINS   := $(addprefix $(WEBSERVER_TOOLS_DIR)/,$(WEBSERVER_TOOLS))
 
-RT_TOOLS := decodeTrip decodeStop decodeAlerts
+RT_TOOLS := decodeTrip decodeStop decodeAlerts routeVehicles
 RT_BINS  := $(addprefix $(RT_DIR)/,$(RT_TOOLS))
 
 EXP_BINS := $(EXP_DIR)/test

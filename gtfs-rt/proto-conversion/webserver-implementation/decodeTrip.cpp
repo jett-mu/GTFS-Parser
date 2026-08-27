@@ -45,7 +45,10 @@ static void refreshIfStale(const std::string& outputPath, const std::string& url
 
         if (stale) {
             std::string tmpPath = outputPath + ".tmp." + std::to_string(getpid());
-            std::string cmd = "wget -q --timeout=5 --tries=1 -O " + tmpPath + " " + url;
+            // Quoted: outputPath can contain spaces (e.g. a repo checked out
+            // under a directory with a space in its name), which would
+            // otherwise get word-split by the shell system() hands this to.
+            std::string cmd = "wget -q --timeout=5 --tries=1 -O '" + tmpPath + "' '" + url + "'";
             int rc = system(cmd.c_str());
 
             struct stat tmpSt;
