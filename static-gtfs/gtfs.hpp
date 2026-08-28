@@ -1171,7 +1171,12 @@ inline std::vector<matchsearch> searchStop(const string& name) { // stops.txt
 
     string currentLine;
     std::map<string, int> refs;
-    std::vector<intstr> stopNames;
+    struct stopSearchEntry {
+        intstr text;      // stop_id (num), stop_name
+        string stop_id_str;
+        string stop_code;
+    };
+    std::vector<stopSearchEntry> stopEntries;
     int lineNumber = 0;
 
     while (getline(stopFile, currentLine)) {
@@ -1183,10 +1188,15 @@ inline std::vector<matchsearch> searchStop(const string& name) { // stops.txt
                 refs[parsedCurrentLine[i]] = i;
             }
         } else {
-            stopNames.emplace_back(
-                stoi(parsedCurrentLine[refs.at("stop_id")]),
-                parsedCurrentLine[refs.at("stop_name")]
-            );
+            const string& stopIdStr = parsedCurrentLine[refs.at("stop_id")];
+            stopSearchEntry entry;
+            entry.text = intstr(stoi(stopIdStr), parsedCurrentLine[refs.at("stop_name")]);
+            entry.stop_id_str = stopIdStr;
+
+            { auto find = refs.find("stop_code");
+            if (find != refs.end()) entry.stop_code = parsedCurrentLine[find->second]; }
+
+            stopEntries.push_back(std::move(entry));
         }
     }
 
@@ -1199,14 +1209,24 @@ inline std::vector<matchsearch> searchStop(const string& name) { // stops.txt
     string nameLower = toLower(name);
 
     std::vector<matchsearch> results;
-    results.reserve(stopNames.size());
+    results.reserve(stopEntries.size());
 
-    for (const auto& item : stopNames) {
-        int dist   = levenshtein(toLower(item.str), nameLower);
-        int maxLen = static_cast<int>(std::max(item.str.size(), name.size()));
-        int score  = (maxLen > 0) ? (100 - (dist * 100 / maxLen)) : 100;
+    for (const auto& item : stopEntries) {
+        int bestScore = -1;
 
-        results.push_back({ item, score });
+        for (const string& field : { item.text.str, item.stop_id_str, item.stop_code }) {
+            if (field.empty()) continue;
+
+            int dist   = levenshtein(toLower(field), nameLower);
+            int maxLen = static_cast<int>(std::max(field.size(), name.size()));
+            int score  = (maxLen > 0) ? (100 - (dist * 100 / maxLen)) : 100;
+
+            bestScore = std::max(bestScore, score);
+        }
+
+        if (bestScore < 0) bestScore = 0;
+
+        results.push_back({ item.text, bestScore });
     }
 
     std::sort(results.begin(), results.end(),
