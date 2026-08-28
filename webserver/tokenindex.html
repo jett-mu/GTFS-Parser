@@ -1639,16 +1639,21 @@
           <div class="panel-heading-row">
             <div class="panel-heading">Search multiple stops</div>
             <label class="toggle-row" for="mergeCrossStreetsToggle" title="Treat &quot;A / B&quot; and &quot;B / A&quot; as the same intersection">
-              <input type="checkbox" id="mergeCrossStreetsToggle" checked />
+              <input type="checkbox" id="mergeCrossStreetsToggle" />
               Merge reversed cross-streets
             </label>
           </div>
 
           <label class="toggle-row" for="includeNearbyToggle" title="Also include any other stops within this distance of the matched stops">
-            <input type="checkbox" id="includeNearbyToggle" />
+            <input type="checkbox" id="includeNearbyToggle" checked />
             Include all stops within
-            <input type="number" id="includeNearbyRadius" class="radius-input" min="1" max="5000" step="1" value="200" aria-label="Radius in meters" />
+            <input type="number" id="includeNearbyRadius" class="radius-input" min="1" max="5000" step="1" value="50" aria-label="Radius in meters" />
             m
+          </label>
+
+          <label class="toggle-row" for="truncateMultiTripsToggle" title="When the same trip shows up at more than one of these stops, only keep the copy from the stop closest to the group">
+            <input type="checkbox" id="truncateMultiTripsToggle" checked />
+            Truncate multiple trips
           </label>
 
           <div class="field-block stop-search-wrap">
@@ -1857,15 +1862,19 @@
           <div class="panel-heading-row">
             <label class="input-row-label" for="m-multiStopSearchInput">Search multiple stops (exact name)</label>
             <label class="toggle-row" for="m-mergeCrossStreetsToggle" title="Treat &quot;A / B&quot; and &quot;B / A&quot; as the same intersection">
-              <input type="checkbox" id="m-mergeCrossStreetsToggle" checked />
+              <input type="checkbox" id="m-mergeCrossStreetsToggle" />
               Merge reversed
             </label>
           </div>
           <label class="toggle-row" for="m-includeNearbyToggle" title="Also include any other stops within this distance of the matched stops">
-            <input type="checkbox" id="m-includeNearbyToggle" />
+            <input type="checkbox" id="m-includeNearbyToggle" checked />
             Include all stops within
-            <input type="number" id="m-includeNearbyRadius" class="radius-input" min="1" max="5000" step="1" value="200" aria-label="Radius in meters" />
+            <input type="number" id="m-includeNearbyRadius" class="radius-input" min="1" max="5000" step="1" value="50" aria-label="Radius in meters" />
             m
+          </label>
+          <label class="toggle-row" for="m-truncateMultiTripsToggle" title="When the same trip shows up at more than one of these stops, only keep the copy from the stop closest to the group">
+            <input type="checkbox" id="m-truncateMultiTripsToggle" checked />
+            Truncate multiple trips
           </label>
           <input type="text" id="m-multiStopSearchInput" placeholder="e.g. Bayview Ave / 16th Ave" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Search multiple stops by name" />
           <div class="stop-search-results" id="m-multiStopSearchResults"></div>
@@ -3077,6 +3086,35 @@
       multiStopMarkers = [];
     }
 
+    function distanceMeters(lat1, lon1, lat2, lon2) {
+      const R = 6371000;
+      const toRad = d => d * Math.PI / 180;
+      const dLat = toRad(lat2 - lat1);
+      const dLon = toRad(lon2 - lon1);
+      const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    // A trip can legitimately stop at more than one of the matched/nearby
+    // stops (e.g. both directions of a cross-street pair). Since there's no
+    // single "selected" stop to measure against here, use the centroid of
+    // all matched stops as the reference point and keep only the closest
+    // occurrence of each trip_id.
+    function truncateDuplicateTrips(departures, stops) {
+      if (!stops.length) return departures;
+      const centroidLat = stops.reduce((a, s) => a + s.lat, 0) / stops.length;
+      const centroidLon = stops.reduce((a, s) => a + s.lon, 0) / stops.length;
+      const bestByTrip = new Map();
+      departures.forEach(dep => {
+        const dist = distanceMeters(dep._stopLat, dep._stopLon, centroidLat, centroidLon);
+        const existing = bestByTrip.get(dep.trip_id);
+        if (!existing || dist < existing._dist) {
+          bestByTrip.set(dep.trip_id, { ...dep, _dist: dist });
+        }
+      });
+      return Array.from(bestByTrip.values());
+    }
+
     function displayMultiStops(stopName, stops, isRefresh) {
       if (!stops.length) { if (!isRefresh) showToast('No exact-name matches found.'); return; }
 
@@ -3100,6 +3138,11 @@
           allMultiDepartures.push({ ...dep, _stopId: s.stop_id, _stopLat: s.lat, _stopLon: s.lon });
         });
       });
+
+      if (document.getElementById('truncateMultiTripsToggle')?.checked) {
+        allMultiDepartures = truncateDuplicateTrips(allMultiDepartures, stops);
+      }
+
       allMultiDepartures.sort((a, b) => parseTime(a.arrival_time) - parseTime(b.arrival_time));
 
       showingAllMultiDeps_d = false; showingNext4MultiDeps_d = false;
@@ -3314,6 +3357,7 @@
     wireMultiStopSetting('mergeCrossStreetsToggle', 'm-mergeCrossStreetsToggle', 'gtfs-merge-cross-streets', 'checked', reRunMultiStopSearch);
     wireMultiStopSetting('includeNearbyToggle', 'm-includeNearbyToggle', 'gtfs-include-nearby', 'checked', reRunMultiStopSearch);
     wireMultiStopSetting('includeNearbyRadius', 'm-includeNearbyRadius', 'gtfs-include-nearby-radius', 'value', reRunMultiStopSearch);
+    wireMultiStopSetting('truncateMultiTripsToggle', 'm-truncateMultiTripsToggle', 'gtfs-truncate-multi-trips', 'checked', reRunMultiStopSearch);
 
     // ===== NEAREST STOPS =====
     function handleFindNearest(latId, lonId) {

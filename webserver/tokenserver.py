@@ -141,11 +141,6 @@ def favicon():
 def index():
     return send_from_directory('.', 'tokenindex.html')
 
-@app.route('/<path:path>')
-@require_token
-def static_files(path):
-    return send_from_directory('.', path)
-
 # OPTIONAL: OFFLINE TILES
 @app.route('/tiles/<int:z>/<int:x>/<int:y>.png')
 @require_token
