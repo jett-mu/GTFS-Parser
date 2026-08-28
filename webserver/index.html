@@ -1582,6 +1582,89 @@
       }
     }
 
+    /* ===== GUIDED TOUR ===== */
+    #tour-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 1300;
+      background: transparent;
+    }
+    #tour-highlight {
+      display: none;
+      position: fixed;
+      z-index: 1301;
+      pointer-events: none;
+      border-radius: 8px;
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+      box-shadow: 0 0 0 9999px rgba(0,0,0,0.6);
+      transition: top 0.35s cubic-bezier(0.22,1,0.36,1), left 0.35s cubic-bezier(0.22,1,0.36,1),
+                  width 0.35s cubic-bezier(0.22,1,0.36,1), height 0.35s cubic-bezier(0.22,1,0.36,1);
+    }
+    #tour-tooltip {
+      display: none;
+      position: fixed;
+      z-index: 1302;
+      width: 280px;
+      max-width: calc(100vw - 24px);
+      background: var(--surface2);
+      border: 1px solid var(--border2);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-3);
+      padding: var(--space-4);
+      transition: top 0.35s cubic-bezier(0.22,1,0.36,1), left 0.35s cubic-bezier(0.22,1,0.36,1);
+    }
+    .tour-eyebrow {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: var(--space-2);
+    }
+    #tour-skip-btn {
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 2px 4px;
+      cursor: pointer;
+    }
+    #tour-skip-btn:hover { color: var(--text-muted); background: none; }
+    .tour-title {
+      font-family: var(--font-display);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.01em;
+      font-size: 15px;
+      color: var(--text);
+      margin-bottom: var(--space-2);
+    }
+    .tour-desc {
+      font-family: var(--font-body);
+      font-size: 13px;
+      line-height: 1.5;
+      color: var(--text-muted);
+      margin-bottom: var(--space-4);
+    }
+    .tour-actions {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: var(--space-2);
+    }
+    .tour-actions button { flex: 0 0 auto; padding: 6px 14px; font-size: 13px; }
+    @media (max-width: 640px) {
+      #tour-tooltip { width: calc(100vw - 24px); }
+    }
+
     .spinner {
       display: inline-block;
       width: 16px;
@@ -1664,6 +1747,21 @@
       <div class="intro-actions">
         <button type="button" class="primary" id="intro-enter">Get started</button>
       </div>
+    </div>
+  </div>
+
+  <div id="tour-backdrop"></div>
+  <div id="tour-highlight"></div>
+  <div id="tour-tooltip">
+    <div class="tour-eyebrow">
+      <span id="tour-step-counter">Step 1 of 1</span>
+      <button type="button" id="tour-skip-btn">Skip tour</button>
+    </div>
+    <div class="tour-title" id="tour-title"></div>
+    <div class="tour-desc" id="tour-desc"></div>
+    <div class="tour-actions">
+      <button type="button" class="secondary" id="tour-back-btn">Back</button>
+      <button type="button" class="primary" id="tour-next-btn">Next</button>
     </div>
   </div>
 
@@ -2149,7 +2247,7 @@
       function dismissIntro() {
         try { localStorage.setItem(INTRO_KEY, '1'); } catch (e) {}
         overlay.classList.add('intro-hidden');
-        overlay.addEventListener('transitionend', () => overlay.remove(), { once: true });
+        overlay.addEventListener('transitionend', () => { overlay.remove(); startTour(); }, { once: true });
       }
 
       enterBtn.addEventListener('click', dismissIntro);
@@ -2161,6 +2259,160 @@
         }
       });
     })();
+
+    // ===== GUIDED TOUR =====
+    const TOUR_STEPS = [
+      {
+        dTarget: '#sidebar-tabs', mTarget: '#mobile-tabs',
+        title: 'Get around',
+        desc: 'Switch between looking up stops, trips & routes, discovering nearby stops, and extra features.'
+      },
+      {
+        dTab: 'sb-tab-stop', mTab: 'm-tab-stop',
+        dTarget: '#stopSearchInput', mTarget: '#m-stopSearchInput',
+        title: 'Find a stop',
+        desc: 'Search by name, or enter a stop ID or stop code directly to jump straight to it.'
+      },
+      {
+        dTab: 'sb-tab-stop', mTab: 'm-tab-stop',
+        dTarget: '#multiStopSearchInput', mTarget: '#m-multiStopSearchInput',
+        title: "Don't know the exact stop?",
+        desc: 'Search multiple stops at once — stops sharing an exact name, like both sides of an intersection, get merged into one combined departure board.'
+      },
+      {
+        dTab: 'sb-tab-triproute', mTab: 'm-tab-trip',
+        dTarget: '#tripIdInput', mTarget: '#m-tripIdInput',
+        title: 'Trip lookup',
+        desc: 'Look up any trip directly by its ID to see its full stop list and live position.'
+      },
+      {
+        dTab: 'sb-tab-triproute', mTab: 'm-tab-route',
+        dTarget: '#routeSearchInput', mTarget: '#m-routeSearchInput',
+        title: 'Route lookup',
+        desc: 'Search a route by number or name to see every trip currently running on it.'
+      },
+      {
+        dTab: 'sb-tab-discover', mTab: 'm-tab-nearby',
+        dTarget: '#sb-tab-discover .panel', mTarget: '#m-tab-nearby .field-block',
+        title: 'Discover nearby stops',
+        desc: 'Search near a coordinate, use your location, or click the map to find the stops closest to you.'
+      },
+      {
+        dTarget: '#themeToggleBtn', mTarget: '#mThemeToggleBtn',
+        title: 'Light or dark',
+        desc: 'Toggle the theme any time — your choice is remembered for next time.'
+      },
+      {
+        dTarget: '#map', mTarget: '#map', mapStep: true,
+        title: 'The map',
+        desc: 'Stops, routes, and live vehicles all appear here as you search — click a stop marker to load it.'
+      }
+    ];
+
+    let tourIndex = 0;
+    let tourActive = false;
+    let tourResizeHandler = null;
+
+    function startTour() {
+      const backdrop = document.getElementById('tour-backdrop');
+      const highlight = document.getElementById('tour-highlight');
+      const tooltip = document.getElementById('tour-tooltip');
+      if (!backdrop || !highlight || !tooltip) return;
+
+      tourActive = true;
+      backdrop.style.display = 'block';
+      highlight.style.display = 'block';
+      tooltip.style.display = 'block';
+
+      document.getElementById('tour-skip-btn').addEventListener('click', endTour);
+      document.getElementById('tour-back-btn').addEventListener('click', tourPrev);
+      document.getElementById('tour-next-btn').addEventListener('click', tourNext);
+      document.addEventListener('keydown', tourKeyHandler);
+      tourResizeHandler = () => positionTourStep(TOUR_STEPS[tourIndex]);
+      window.addEventListener('resize', tourResizeHandler);
+
+      tourIndex = 0;
+      showTourStep(tourIndex);
+    }
+
+    function endTour() {
+      if (!tourActive) return;
+      tourActive = false;
+      document.getElementById('tour-backdrop').style.display = 'none';
+      document.getElementById('tour-highlight').style.display = 'none';
+      document.getElementById('tour-tooltip').style.display = 'none';
+      document.removeEventListener('keydown', tourKeyHandler);
+      if (tourResizeHandler) { window.removeEventListener('resize', tourResizeHandler); tourResizeHandler = null; }
+    }
+
+    function tourKeyHandler(e) {
+      if (e.key === 'Escape') { endTour(); return; }
+      if (e.key === ' ' || e.key === 'ArrowRight') { e.preventDefault(); tourNext(); }
+      else if (e.key === 'ArrowLeft') { e.preventDefault(); tourPrev(); }
+    }
+
+    function tourNext() {
+      if (!tourActive) return;
+      if (tourIndex >= TOUR_STEPS.length - 1) { endTour(); return; }
+      tourIndex++;
+      showTourStep(tourIndex);
+    }
+
+    function tourPrev() {
+      if (!tourActive || tourIndex <= 0) return;
+      tourIndex--;
+      showTourStep(tourIndex);
+    }
+
+    function showTourStep(i) {
+      const step = TOUR_STEPS[i];
+      if (isMobile()) {
+        if (step.mapStep) { collapseSheet(); } else { expandSheet(); if (step.mTab) switchTab(step.mTab); }
+      } else if (step.dTab) {
+        switchSidebarTab(step.dTab);
+      }
+
+      document.getElementById('tour-step-counter').textContent = `Step ${i + 1} of ${TOUR_STEPS.length}`;
+      document.getElementById('tour-title').textContent = step.title;
+      document.getElementById('tour-desc').textContent = step.desc;
+      document.getElementById('tour-back-btn').disabled = i === 0;
+      document.getElementById('tour-next-btn').textContent = i === TOUR_STEPS.length - 1 ? 'Done' : 'Next';
+
+      // Double rAF: let the tab switch / sheet expand finish laying out
+      // before we measure the target's position.
+      requestAnimationFrame(() => requestAnimationFrame(() => positionTourStep(step)));
+    }
+
+    function positionTourStep(step) {
+      const highlight = document.getElementById('tour-highlight');
+      const tooltip = document.getElementById('tour-tooltip');
+      const sel = isMobile() ? step.mTarget : step.dTarget;
+      const target = sel ? document.querySelector(sel) : null;
+      if (!target) return;
+
+      target.scrollIntoView({ block: 'center', behavior: 'auto' });
+
+      requestAnimationFrame(() => {
+        const r = target.getBoundingClientRect();
+        const pad = 6;
+        highlight.style.left = (r.left - pad) + 'px';
+        highlight.style.top = (r.top - pad) + 'px';
+        highlight.style.width = (r.width + pad * 2) + 'px';
+        highlight.style.height = (r.height + pad * 2) + 'px';
+
+        const margin = 12;
+        const tw = tooltip.offsetWidth;
+        const th = tooltip.offsetHeight;
+        let tleft = Math.min(Math.max(r.left, margin), window.innerWidth - tw - margin);
+        let ttop = r.bottom + pad + margin;
+        if (ttop + th > window.innerHeight - margin) {
+          ttop = r.top - pad - margin - th;
+        }
+        ttop = Math.min(Math.max(ttop, margin), window.innerHeight - th - margin);
+        tooltip.style.left = tleft + 'px';
+        tooltip.style.top = ttop + 'px';
+      });
+    }
 
     // ===== STATE =====
     let map;
