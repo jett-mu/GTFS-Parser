@@ -1497,6 +1497,91 @@
       color: var(--negative);
     }
 
+    /* ===== INTRO OVERLAY ===== */
+    #intro-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 1200;
+      background: var(--map-overlay-bg);
+      backdrop-filter: blur(6px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: var(--space-4);
+      opacity: 1;
+      transition: opacity 0.4s ease;
+    }
+    #intro-overlay.intro-hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+    .intro-card {
+      max-width: 440px;
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border2);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-3);
+      padding: var(--space-6) var(--space-5);
+      text-align: center;
+      opacity: 0;
+      transform: translateY(14px) scale(0.98);
+      animation: intro-in 0.5s cubic-bezier(0.22,1,0.36,1) 0.05s forwards;
+    }
+    .intro-eyebrow {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: var(--space-2);
+      opacity: 0;
+      animation: intro-in 0.45s ease 0.25s forwards;
+    }
+    .intro-title {
+      font-family: var(--font-display);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.01em;
+      font-size: 22px;
+      line-height: 1.2;
+      color: var(--text);
+      margin-bottom: var(--space-3);
+      opacity: 0;
+      animation: intro-in 0.45s ease 0.33s forwards;
+    }
+    .intro-desc {
+      font-family: var(--font-body);
+      font-size: 14px;
+      line-height: 1.55;
+      color: var(--text-muted);
+      margin-bottom: var(--space-5);
+      opacity: 0;
+      animation: intro-in 0.45s ease 0.41s forwards;
+    }
+    .intro-desc strong { color: var(--text); font-weight: 600; }
+    .intro-actions {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-3);
+      opacity: 0;
+      animation: intro-in 0.45s ease 0.49s forwards;
+    }
+    #intro-enter { width: 100%; }
+    @keyframes intro-in {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #intro-overlay, .intro-card, .intro-eyebrow, .intro-title, .intro-desc, .intro-actions {
+        animation: none !important;
+        transition: none !important;
+        opacity: 1 !important;
+        transform: none !important;
+      }
+    }
+
     .spinner {
       display: inline-block;
       width: 16px;
@@ -1567,6 +1652,21 @@
   </style>
 </head>
 <body>
+  <div id="intro-overlay">
+    <div class="intro-card">
+      <p class="intro-eyebrow">GTFS Parser &middot; Transit explorer</p>
+      <h2 class="intro-title">Search, track, and explore transit data live</h2>
+      <p class="intro-desc">
+        This is a demo of <strong>York Region Transit</strong> GTFS data in the Greater Toronto Area, Ontario, Canada.
+        Look up <strong>stops, trips, and routes</strong> from GTFS Schedule data, see <strong>live vehicle positions</strong>
+        from GTFS-Realtime feeds, and combine stops sharing a name into one merged departure board.
+      </p>
+      <div class="intro-actions">
+        <button type="button" class="primary" id="intro-enter">Get started</button>
+      </div>
+    </div>
+  </div>
+
   <div id="app-shell">
     <!-- ===== DESKTOP SIDEBAR ===== -->
     <div id="sidebar">
@@ -2031,6 +2131,37 @@
   </div>
 
   <script>
+    // ===== INTRO OVERLAY =====
+    (function initIntro() {
+      const INTRO_KEY = 'gtfs-intro-seen';
+      const overlay = document.getElementById('intro-overlay');
+      const enterBtn = document.getElementById('intro-enter');
+      if (!overlay || !enterBtn) return;
+
+      let seen = false;
+      try { seen = localStorage.getItem(INTRO_KEY) === '1'; } catch (e) {}
+
+      if (seen) {
+        overlay.remove();
+        return;
+      }
+
+      function dismissIntro() {
+        try { localStorage.setItem(INTRO_KEY, '1'); } catch (e) {}
+        overlay.classList.add('intro-hidden');
+        overlay.addEventListener('transitionend', () => overlay.remove(), { once: true });
+      }
+
+      enterBtn.addEventListener('click', dismissIntro);
+      overlay.addEventListener('click', e => { if (e.target === overlay) dismissIntro(); });
+      document.addEventListener('keydown', function escToDismiss(e) {
+        if (e.key === 'Escape') {
+          dismissIntro();
+          document.removeEventListener('keydown', escToDismiss);
+        }
+      });
+    })();
+
     // ===== STATE =====
     let map;
     let stopMarkers = [];
