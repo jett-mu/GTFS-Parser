@@ -220,6 +220,7 @@ struct intstr {
 };
 struct matchsearch {
     intstr text;
+    string stop_id;
     int score;
 };
 struct routematch {
@@ -540,9 +541,18 @@ inline time parseFormattedTime(const string& input) {
 inline std::vector<string> parseDataCSV(const string& input) {
     std::vector<string> output;
     string additions;
+    bool inQuotes = false;
 
-    for (char c : input) {
-        if (c == ',') {
+    for (size_t i = 0; i < input.size(); i++) {
+        char c = input[i];
+        if (c == '"') {
+            if (inQuotes && i + 1 < input.size() && input[i + 1] == '"') {
+                additions += '"';
+                ++i;
+            } else {
+                inQuotes = !inQuotes;
+            }
+        } else if (c == ',' && !inQuotes) {
             output.push_back(additions);
             additions.clear();
         } else if (c != '\r') {
@@ -1190,7 +1200,7 @@ inline std::vector<matchsearch> searchStop(const string& name) { // stops.txt
         } else {
             const string& stopIdStr = parsedCurrentLine[refs.at("stop_id")];
             stopSearchEntry entry;
-            entry.text = intstr(stoi(stopIdStr), parsedCurrentLine[refs.at("stop_name")]);
+            entry.text = intstr(parsedCurrentLine[refs.at("stop_name")]);
             entry.stop_id_str = stopIdStr;
 
             { auto find = refs.find("stop_code");
@@ -1226,7 +1236,7 @@ inline std::vector<matchsearch> searchStop(const string& name) { // stops.txt
 
         if (bestScore < 0) bestScore = 0;
 
-        results.push_back({ item.text, bestScore });
+        results.push_back({ item.text, item.stop_id_str, bestScore });
     }
 
     std::sort(results.begin(), results.end(),

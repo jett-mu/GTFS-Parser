@@ -65,7 +65,7 @@
     width: 280px;
     flex-shrink: 0;
     overflow-y: auto;
-    border-right: 1.5px solid var(--border);
+    border-left: 1.5px solid var(--border);
     background: var(--panel);
   }
 
@@ -154,7 +154,7 @@
 
   @media (max-width: 860px) {
     .map-shell { flex-direction: column; height: auto; }
-    .trip-sidebar { width: 100%; max-height: 220px; border-right: none; border-bottom: 1.5px solid var(--border); }
+    .trip-sidebar { width: 100%; max-height: 220px; border-left: none; border-top: 1.5px solid var(--border); }
     #vehicle-map { height: 380px; }
   }
 
@@ -395,31 +395,8 @@
   <h1>GBDT Inference for YRT VIVA BLUE (route_id 601)</h1>
   <p class="subtitle">LIVE INFERENCE model.pkl (HistGradientBoostingRegressor)</p>
 
-  <div class="card">
-    <div class="row-label"><span>day of week</span><span id="day-readout">Mon</span></div>
-    <input type="range" id="day" min="0" max="6" step="1" value="0">
-
-    <div class="row-label" style="margin-top: 1rem;"><span>time of day</span><span id="time-readout">12:00</span></div>
-    <input type="range" id="time" min="0" max="86099" step="300" value="43200">
-
-    <label><input type="checkbox" id="weekend"> is weekend</label>
-  </div>
-
-  <div class="card">
-    <button type="button" id="use-now">use current time</button>
-  </div>
-
-  <div class="card">
-    <div class="row-label"><span>delay 10 min ago (same vehicle)</span><span id="lag10-readout">0s</span></div>
-    <input type="range" id="lag10" min="-300" max="300" step="1" value="0">
-    <label><input type="checkbox" id="lag10-unknown" checked> unknown / no data yet</label>
-
-    <div class="row-label" style="margin-top: 1rem;"><span>delay 30 min ago (same vehicle)</span><span id="lag30-readout">0s</span></div>
-    <input type="range" id="lag30" min="-300" max="300" step="1" value="0">
-    <label><input type="checkbox" id="lag30-unknown" checked> unknown / no data yet</label>
-  </div>
-
   <div class="result-card">
+    <div class="result-label" id="result-time-label" style="margin-bottom: 0.4rem;"></div>
     <div class="result-value" id="result-value">&mdash;</div>
     <div class="result-label" id="result-label"></div>
   </div>
@@ -431,10 +408,35 @@
     <div class="result-label" id="mean-delay-age" style="margin-top: 0.3rem;"></div>
     <div id="removed-trips" style="margin-top: 0.7rem;"></div>
   </div>
+
+  <div class="card">
+    <button type="button" id="use-now">use current time</button>
+  </div>
+
+  <div class="card">
+    <div class="row-label"><span>day of week</span><span id="day-readout">Mon</span></div>
+    <input type="range" id="day" min="0" max="6" step="1" value="0">
+
+    <div class="row-label" style="margin-top: 1rem;"><span>time of day</span><span id="time-readout">12:00</span></div>
+    <input type="range" id="time" min="0" max="86099" step="300" value="43200">
+
+    <label><input type="checkbox" id="weekend"> is weekend</label>
+  </div>
+
+  <div class="card">
+    <div class="row-label"><span>delay 10 min ago (same vehicle)</span><span id="lag10-readout">0s</span></div>
+    <input type="range" id="lag10" min="-300" max="300" step="1" value="0">
+    <label><input type="checkbox" id="lag10-unknown" checked> unknown / no data yet</label>
+
+    <div class="row-label" style="margin-top: 1rem;"><span>delay 30 min ago (same vehicle)</span><span id="lag30-readout">0s</span></div>
+    <input type="range" id="lag30" min="-300" max="300" step="1" value="0">
+    <label><input type="checkbox" id="lag30-unknown" checked> unknown / no data yet</label>
+  </div>
 </main>
 
 <section class="map-section">
   <div class="map-shell">
+    <div id="vehicle-map"></div>
     <div class="trip-sidebar">
       <div class="trip-sidebar-header">
         <div>Active trips route 601</div>
@@ -442,7 +444,6 @@
       </div>
       <div id="trip-list"></div>
     </div>
-    <div id="vehicle-map"></div>
   </div>
 </section>
 
@@ -506,6 +507,7 @@ const lag30Readout = document.getElementById("lag30-readout");
 
 const resultValueEl = document.getElementById("result-value");
 const resultLabelEl = document.getElementById("result-label");
+const resultTimeLabelEl = document.getElementById("result-time-label");
 
 function formatTimeOfDay(secs) {
   const h = String(Math.floor(secs / 3600)).padStart(2, "0");
@@ -538,6 +540,7 @@ let requestSeq = 0;
 function scheduleUpdate() {
   dayReadout.textContent = DAYS[Number(dayEl.value)];
   timeReadout.textContent = formatTimeOfDay(Number(timeEl.value));
+  resultTimeLabelEl.textContent = `MODEL PREDICTED DELAY FOR ${DAYS[Number(dayEl.value)]} ${formatTimeOfDay(Number(timeEl.value))}`;
   lag10Readout.textContent = lag10UnknownEl.checked ? "unknown" : formatDuration(Number(lag10El.value));
   lag30Readout.textContent = lag30UnknownEl.checked ? "unknown" : formatDuration(Number(lag30El.value));
   lag10El.disabled = lag10UnknownEl.checked;
@@ -644,8 +647,10 @@ lag10UnknownEl.addEventListener("change", scheduleUpdate);
 lag30UnknownEl.addEventListener("change", scheduleUpdate);
 useNowEl.addEventListener("click", setToCurrentTime);
 
-syncWeekendFromDay();
-scheduleUpdate();
+setToCurrentTime();
+
+const AUTO_TIME_REFRESH_MS = 20000;
+setInterval(setToCurrentTime, AUTO_TIME_REFRESH_MS);
 
 // ===== VEHICLE MAP =====
 const DELAY_COLORS = { onTime: "#2F7B4F", late: "#E8A93B", veryLate: "#D6432B", unknown: "rgba(26,26,26,0.35)" };
@@ -855,6 +860,7 @@ setInterval(tickVehicleFeedAge, 1000);
 // fetch the instant the tab regains focus so it's never stale when you look.
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden) {
+    setToCurrentTime();
     fetchRouteVehicles();
     fetchMeanDelay();
   }

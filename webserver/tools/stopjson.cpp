@@ -35,8 +35,8 @@ int main(int argc, char* argv[]) {
 
     std::vector<gtfs::trip_segment> ts = gtfs::getDayTimesAtStop(st.stop_id,year, month, day);
 
-    std::cout << "{\n\t\"stop_id\": " << argv[1] << ",\n"
-                << "\t\"stop_code\": " << st.stop_code << ",\n"
+    std::cout << "{\n\t\"stop_id\": \"" << argv[1] << "\",\n"
+                << "\t\"stop_code\": \"" << st.stop_code << "\",\n"
                 << "\t\"stop_name\": \"" << st.stop_name << "\",\n"
                 << "\t\"lat\": " << st.stop_lat << ",\n"
                 << "\t\"lon\": " << st.stop_lon << ",\n";

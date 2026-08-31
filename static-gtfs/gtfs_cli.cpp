@@ -316,7 +316,7 @@ static optional<SearchHit> searchStopInteractive(const string& title = "search s
     return liveSearch(title, "find a stop by name", [](const string& q) {
         auto raw = gtfs::searchStop(q);
         vector<SearchHit> out;
-        for (auto& r : raw) out.push_back({r.text.str, "", std::to_string(r.text.num), r.score});
+        for (auto& r : raw) out.push_back({r.text.str, "", r.stop_id, r.score});
         return out;
     });
 }

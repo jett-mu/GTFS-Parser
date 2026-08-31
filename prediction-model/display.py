@@ -34,6 +34,17 @@ pred_delay = [
 ]
 ax.plot(pred_secs, pred_delay, color="red", linewidth=2, label="predicted (lags unknown)")
 
+# for lag_value, color, label in [
+#     (0, "green", "predicted (lags = 0)"),
+#     (10, "orange", "predicted (lags = 10)"),
+#     (-10, "purple", "predicted (lags = -10)"),
+# ]:
+#     pred_delay_lag = [
+#         predict_delay(s, lag_value, lag_value, is_weekend=1.0 if (s // DAY_SECONDS) >= 5 else 0.0)
+#         for s in pred_secs
+#     ]
+#     ax.plot(pred_secs, pred_delay_lag, color=color, linewidth=2, label=label) # , linestyle="--"
+
 ax.set_xticks(day_ticks)
 ax.set_xticklabels(day_labels)
 ax.grid(axis="x", which="major", color="black", linewidth=1.0, alpha=0.4)

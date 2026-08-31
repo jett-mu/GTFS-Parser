@@ -56,7 +56,7 @@ int main(int argc, char* argv[]) {
     for (int i = 0; i < top; i++) {
         gtfs::stop x = ns[i];
 
-        cout << "\t\t{ \"stop_id\": " << x.stop_id << ", \"stop_lat\": " << x.stop_lat << ", \"stop_lon\": " << x.stop_lon << ", \"distanceKM\": " << gtfs::getDistanceKM(lat, lon, x.stop_lat, x.stop_lon) << ((top-1) == i ? " }\n" :" },\n");
+        cout << "\t\t{ \"stop_id\": \"" << x.stop_id << "\", \"stop_lat\": " << x.stop_lat << ", \"stop_lon\": " << x.stop_lon << ", \"distanceKM\": " << gtfs::getDistanceKM(lat, lon, x.stop_lat, x.stop_lon) << ((top-1) == i ? " }\n" :" },\n");
     }
     cout << "\t]\n}\n";
 }

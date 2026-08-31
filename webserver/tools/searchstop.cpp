@@ -28,10 +28,10 @@ int main(int argc, char* argv[]) {
 
     for (int i = 0; i < matchesLen; i++) {
         gtfs::matchsearch x = matches[i];
-        gtfs::stop st = gtfs::getStopInfo(std::to_string(x.text.num));
+        gtfs::stop st = gtfs::getStopInfo(x.stop_id);
 
-        std::cout << "\t\t{ \"stop_id\": " << x.text.num <<
-                ", \"stop_name\": \"" << x.text.str <<
+        std::cout << "\t\t{ \"stop_id\": \"" << x.stop_id <<
+                "\", \"stop_name\": \"" << x.text.str <<
                 "\", \"score\": " << x.score <<
                 ", \"lat\": " << st.stop_lat <<
                 ", \"lon\": " << st.stop_lon <<

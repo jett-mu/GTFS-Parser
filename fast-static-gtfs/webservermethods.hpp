@@ -40,8 +40,8 @@ inline string getTrip(const string& trip_id,
 
     out << "{\n";
     out << "\t\"total\": " << length << ",\n";
-    out << "\t\"trip_id\": " << tx.trip_id << ",\n";
-    out << "\t\"route_id\": " << tx.route_id << ",\n";
+    out << "\t\"trip_id\": \"" << tx.trip_id << "\",\n";
+    out << "\t\"route_id\": \"" << tx.route_id << "\",\n";
     out << "\t\"route_short_name\": \"" << bx.route_short_name << "\",\n";
     out << "\t\"route_long_name\": \"" << bx.route_long_name << "\",\n";
     out << "\t\"route_color\": \"#" << bx.route_color << "\",\n";
@@ -107,8 +107,8 @@ inline string getStopDayTimes(const string& stop_id, const int& year, const int&
 
     const size_t length = segments.size();
 
-    out << "{\n\t\"stop_id\": " << stop_id << ",\n"
-            << "\t\"stop_code\": " << st.stop_code << ",\n"
+    out << "{\n\t\"stop_id\": \"" << stop_id << "\",\n"
+            << "\t\"stop_code\": \"" << st.stop_code << "\",\n"
             << "\t\"stop_name\": \"" << st.stop_name << "\",\n"
             << "\t\"lat\": " << st.stop_lat << ",\n"
             << "\t\"lon\": " << st.stop_lon << ",\n";

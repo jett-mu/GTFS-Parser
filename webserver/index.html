@@ -322,6 +322,56 @@
       background: var(--surface3);
     }
 
+    .gear-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 26px;
+      height: 26px;
+      flex-shrink: 0;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text-muted);
+      font-size: 14px;
+      line-height: 1;
+      cursor: pointer;
+      transition: background var(--transition), color var(--transition), border-color var(--transition);
+    }
+    .gear-btn:hover, .gear-btn.active { background: var(--surface3); color: var(--text); border-color: var(--border2); }
+
+    .settings-popover-wrap { position: relative; }
+    .settings-popover {
+      position: absolute;
+      top: calc(100% + 6px);
+      right: 0;
+      width: 260px;
+      max-width: 80vw;
+      background: var(--surface);
+      border: 1px solid var(--border2);
+      border-radius: var(--card-radius);
+      box-shadow: var(--shadow-2);
+      padding: var(--space-3);
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      z-index: 40;
+    }
+    .settings-popover[hidden] { display: none; }
+    .settings-popover .toggle-row { padding: 6px 0; }
+    .sub-settings.disabled { opacity: 0.4; }
+    .sub-settings.disabled .toggle-row { cursor: not-allowed; }
+    .settings-popover-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      color: var(--text-muted);
+      padding-bottom: 4px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 2px;
+    }
+
     .sidebar-section {
       display: none;
       flex-direction: column;
@@ -1787,7 +1837,33 @@
 
       <div class="sidebar-section active" id="sb-tab-stop">
         <div class="panel">
-          <div class="panel-heading">Find a stop</div>
+          <div class="panel-heading-row settings-popover-wrap">
+            <div class="panel-heading">Find a stop</div>
+            <button type="button" class="gear-btn" id="stopSettingsBtn" aria-label="Stop search settings" aria-haspopup="true" aria-expanded="false" title="Stop search settings">&#9881;</button>
+            <div class="settings-popover" id="stopSettingsPopover" hidden>
+              <div class="settings-popover-title">Search settings</div>
+              <label class="toggle-row" for="searchMultipleStopsToggle" title="When on, a name search combines every stop sharing that exact name into one board instead of loading a single stop">
+                <input type="checkbox" id="searchMultipleStopsToggle" checked />
+                Search multiple stops
+              </label>
+              <div class="sub-settings" id="stopSubSettings">
+                <label class="toggle-row" for="mergeCrossStreetsToggle" title="Treat &quot;A / B&quot; and &quot;B / A&quot; as the same intersection">
+                  <input type="checkbox" id="mergeCrossStreetsToggle" />
+                  Merge reversed cross-streets
+                </label>
+                <label class="toggle-row" for="includeNearbyToggle" title="Also include any other stops within this distance of the matched stops">
+                  <input type="checkbox" id="includeNearbyToggle" checked />
+                  Include all stops within
+                  <input type="number" id="includeNearbyRadius" class="radius-input" min="1" max="5000" step="1" value="100" aria-label="Radius in meters" />
+                  m
+                </label>
+                <label class="toggle-row" for="truncateMultiTripsToggle" title="When the same trip shows up at more than one of these stops, only keep the copy from the stop closest to the group">
+                  <input type="checkbox" id="truncateMultiTripsToggle" checked />
+                  Truncate multiple trips
+                </label>
+              </div>
+            </div>
+          </div>
 
           <div class="field-block stop-search-wrap">
             <label class="input-row-label" for="stopSearchInput">Search by name</label>
@@ -1831,34 +1907,6 @@
           </div>
           <div class="dep-window-label" id="depWindowLabel"></div>
           <div class="departures-grid" id="departuresGrid"></div>
-        </div>
-
-        <div class="panel">
-          <div class="panel-heading-row">
-            <div class="panel-heading">Search multiple stops</div>
-            <label class="toggle-row" for="mergeCrossStreetsToggle" title="Treat &quot;A / B&quot; and &quot;B / A&quot; as the same intersection">
-              <input type="checkbox" id="mergeCrossStreetsToggle" />
-              Merge reversed cross-streets
-            </label>
-          </div>
-
-          <label class="toggle-row" for="includeNearbyToggle" title="Also include any other stops within this distance of the matched stops">
-            <input type="checkbox" id="includeNearbyToggle" checked />
-            Include all stops within
-            <input type="number" id="includeNearbyRadius" class="radius-input" min="1" max="5000" step="1" value="50" aria-label="Radius in meters" />
-            m
-          </label>
-
-          <label class="toggle-row" for="truncateMultiTripsToggle" title="When the same trip shows up at more than one of these stops, only keep the copy from the stop closest to the group">
-            <input type="checkbox" id="truncateMultiTripsToggle" checked />
-            Truncate multiple trips
-          </label>
-
-          <div class="field-block stop-search-wrap">
-            <label class="input-row-label" for="multiStopSearchInput">Search by name (all stops with this exact name)</label>
-            <input type="text" id="multiStopSearchInput" placeholder="e.g. Bayview Ave / 16th Ave" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Search multiple stops by name" />
-            <div class="stop-search-results" id="multiStopSearchResults"></div>
-          </div>
         </div>
 
         <div id="multiStopLoading" class="departures-grid" style="display:none">
@@ -2014,6 +2062,34 @@
 
       <!-- STOP TAB -->
       <div class="tab-panel active" id="m-tab-stop">
+        <div class="panel-heading-row settings-popover-wrap">
+          <div class="panel-heading">Find a stop</div>
+          <button type="button" class="gear-btn" id="m-stopSettingsBtn" aria-label="Stop search settings" aria-haspopup="true" aria-expanded="false" title="Stop search settings">&#9881;</button>
+          <div class="settings-popover" id="m-stopSettingsPopover" hidden>
+            <div class="settings-popover-title">Search settings</div>
+            <label class="toggle-row" for="m-searchMultipleStopsToggle" title="When on, a name search combines every stop sharing that exact name into one board instead of loading a single stop">
+              <input type="checkbox" id="m-searchMultipleStopsToggle" checked />
+              Search multiple stops
+            </label>
+            <div class="sub-settings" id="m-stopSubSettings">
+              <label class="toggle-row" for="m-mergeCrossStreetsToggle" title="Treat &quot;A / B&quot; and &quot;B / A&quot; as the same intersection">
+                <input type="checkbox" id="m-mergeCrossStreetsToggle" />
+                Merge reversed cross-streets
+              </label>
+              <label class="toggle-row" for="m-includeNearbyToggle" title="Also include any other stops within this distance of the matched stops">
+                <input type="checkbox" id="m-includeNearbyToggle" checked />
+                Include all stops within
+                <input type="number" id="m-includeNearbyRadius" class="radius-input" min="1" max="5000" step="1" value="100" aria-label="Radius in meters" />
+                m
+              </label>
+              <label class="toggle-row" for="m-truncateMultiTripsToggle" title="When the same trip shows up at more than one of these stops, only keep the copy from the stop closest to the group">
+                <input type="checkbox" id="m-truncateMultiTripsToggle" checked />
+                Truncate multiple trips
+              </label>
+            </div>
+          </div>
+        </div>
+
         <div class="field-block stop-search-wrap">
           <label class="input-row-label" for="m-stopSearchInput">Search by name</label>
           <input type="text" id="m-stopSearchInput" placeholder="e.g. Main St" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Search stops by name" />
@@ -2054,28 +2130,6 @@
           </div>
           <div class="dep-window-label" id="m-depWindowLabel"></div>
           <div class="departures-grid" id="m-departuresGrid"></div>
-        </div>
-
-        <div class="field-block stop-search-wrap">
-          <div class="panel-heading-row">
-            <label class="input-row-label" for="m-multiStopSearchInput">Search multiple stops (exact name)</label>
-            <label class="toggle-row" for="m-mergeCrossStreetsToggle" title="Treat &quot;A / B&quot; and &quot;B / A&quot; as the same intersection">
-              <input type="checkbox" id="m-mergeCrossStreetsToggle" />
-              Merge reversed
-            </label>
-          </div>
-          <label class="toggle-row" for="m-includeNearbyToggle" title="Also include any other stops within this distance of the matched stops">
-            <input type="checkbox" id="m-includeNearbyToggle" checked />
-            Include all stops within
-            <input type="number" id="m-includeNearbyRadius" class="radius-input" min="1" max="5000" step="1" value="50" aria-label="Radius in meters" />
-            m
-          </label>
-          <label class="toggle-row" for="m-truncateMultiTripsToggle" title="When the same trip shows up at more than one of these stops, only keep the copy from the stop closest to the group">
-            <input type="checkbox" id="m-truncateMultiTripsToggle" checked />
-            Truncate multiple trips
-          </label>
-          <input type="text" id="m-multiStopSearchInput" placeholder="e.g. Bayview Ave / 16th Ave" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Search multiple stops by name" />
-          <div class="stop-search-results" id="m-multiStopSearchResults"></div>
         </div>
 
         <div id="m-multiStopLoading" class="departures-grid" style="display:none">
@@ -2275,9 +2329,9 @@
       },
       {
         dTab: 'sb-tab-stop', mTab: 'm-tab-stop',
-        dTarget: '#multiStopSearchInput', mTarget: '#m-multiStopSearchInput',
-        title: "Don't know the exact stop?",
-        desc: 'Search multiple stops at once — stops sharing an exact name, like both sides of an intersection, get merged into one combined departure board.'
+        dTarget: '#stopSettingsBtn', mTarget: '#m-stopSettingsBtn',
+        title: 'Search settings',
+        desc: 'By default a name search merges every stop sharing that exact name — like both sides of an intersection — into one combined departure board. Open this menu to turn that off, merge reversed cross-streets, adjust the nearby radius, or stop truncating duplicate trips.'
       },
       {
         dTab: 'sb-tab-triproute', mTab: 'm-tab-trip',
@@ -2777,6 +2831,7 @@
           color:data.route_color,fillColor:data.route_color,fillOpacity:0.8,radius:5,weight:2
         }).addTo(map);
         m.bindPopup(`Stop ID: ${stop.id}<br>Time: ${stop.time}`);
+        m.on('click', () => handleStopMarkerClick(stop.id));
         stopMarkers.push(m);
       });
     }
@@ -3129,6 +3184,7 @@
 
     function loadStop(stopId, date) {
       date = date || todayStr();
+      clearMultiStopDisplay();
       hideEls(['stopHeader','m-stopHeader']);
       withMinSpinner(['stopLoading','m-stopLoading'], 'flex', () =>
         fetch(`/api/stop/${stopId}/${date}`).then(r => r.json())
@@ -3138,6 +3194,48 @@
           hideEls(['stopHeader','m-stopHeader']);
           hideEls(['departuresSection','m-departuresSection']);
         });
+    }
+
+    // Entry point for clicking a stop marker on the map: shows that stop's
+    // departures, and — if the "include nearby" setting is on — merges in
+    // departures from any other stops within its configured radius too.
+    function handleStopMarkerClick(stopId, date) {
+      date = date || document.getElementById('dateInput')?.value || document.getElementById('m-dateInput')?.value || todayStr();
+      ['stopIdInput','m-stopIdInput'].forEach(id => { const el=document.getElementById(id); if(el) el.value=stopId; });
+      if (includeNearbyEnabled()) {
+        loadStopWithNearby(stopId, date);
+      } else {
+        loadStop(stopId, date);
+      }
+    }
+
+    function loadStopWithNearby(stopId, date) {
+      date = date || todayStr();
+      const requestId = ++multiStopsRequestId;
+      const radiusKM = includeNearbyRadiusM() / 1000;
+
+      const run = () => fetch(`/api/stop/${stopId}/${date}`).then(r => r.json())
+        .then(origin => {
+          if (requestId !== multiStopsRequestId || origin.error) return null;
+          return fetch(`/api/nearest/${origin.lat}/${origin.lon}?limit=${NEARBY_STOPS_FETCH_LIMIT}`).then(r => r.json())
+            .then(data => {
+              if (requestId !== multiStopsRequestId) return null;
+              const nearby = (data.nearest_stops || [])
+                .filter(n => n.distanceKM <= radiusKM && String(n.stop_id) !== String(origin.stop_id));
+              if (!nearby.length) return { name: origin.stop_name, stops: [origin] };
+              return Promise.all(nearby.map(n => fetch(`/api/stop/${n.stop_id}/${date}`).then(r => r.json())))
+                .then(nearbyStops => ({ name: origin.stop_name, stops: [origin, ...nearbyStops.filter(s => !s.error)] }));
+            });
+        })
+        .then(result => {
+          if (!result || requestId !== multiStopsRequestId) return;
+          displayMultiStops(result.name, result.stops, false);
+        })
+        .catch(() => { if (requestId === multiStopsRequestId) showToast('Error loading stop.'); });
+
+      clearSingleStopDisplay();
+      hideEls(['multiStopHeader', 'm-multiStopHeader']);
+      withMinSpinner(['multiStopLoading', 'm-multiStopLoading'], 'flex', run);
     }
 
     // ===== STOP NAME SEARCH =====
@@ -3236,7 +3334,11 @@
         if (el) el.value = match.stop_name;
       });
 
-      loadStop(match.stop_id, date);
+      if (searchMultipleStopsEnabled()) {
+        loadMultiStops(match.stop_name, date);
+      } else {
+        loadStop(match.stop_id, date);
+      }
     }
 
     // ===== ROUTE NUMBER/NAME SEARCH =====
@@ -3348,6 +3450,34 @@
       return [...parts].sort().join('|');
     }
 
+    function searchMultipleStopsEnabled() {
+      const d = document.getElementById('searchMultipleStopsToggle');
+      const m = document.getElementById('m-searchMultipleStopsToggle');
+      if (d) return d.checked;
+      if (m) return m.checked;
+      return true;
+    }
+
+    // Stop the other display mode's refresh loop/markers so switching
+    // between a single-stop board and a merged multi-stop board doesn't
+    // leave stale UI or timers behind.
+    function clearSingleStopDisplay() {
+      stopDepsRefresh();
+      currentStopId = null;
+      if (window.stopMarker) { map.removeLayer(window.stopMarker); window.stopMarker = null; }
+      hideEls(['stopHeader', 'm-stopHeader']);
+      hideEls(['departuresSection', 'm-departuresSection']);
+    }
+
+    function clearMultiStopDisplay() {
+      stopMultiDepsRefresh();
+      currentMultiStopName = null;
+      currentMultiStopIds = [];
+      clearMultiStopMarkers();
+      hideEls(['multiStopHeader', 'm-multiStopHeader']);
+      hideEls(['multiDeparturesSection', 'm-multiDeparturesSection']);
+    }
+
     function mergeCrossStreetsEnabled() {
       const d = document.getElementById('mergeCrossStreetsToggle');
       const m = document.getElementById('m-mergeCrossStreetsToggle');
@@ -3367,26 +3497,11 @@
     function includeNearbyRadiusM() {
       const d = document.getElementById('includeNearbyRadius');
       const m = document.getElementById('m-includeNearbyRadius');
-      const v = parseFloat((d && d.value) || (m && m.value) || '200');
+      const v = parseFloat((d && d.value) || (m && m.value) || '100');
       return Number.isFinite(v) && v > 0 ? v : 200;
     }
 
     const NEARBY_STOPS_FETCH_LIMIT = 100;
-
-    function selectMultiStopFromSearch(match, results) {
-      hideStopSearchResults(results);
-
-      const date = document.getElementById('dateInput')?.value
-        || document.getElementById('m-dateInput')?.value
-        || todayStr();
-
-      ['multiStopSearchInput', 'm-multiStopSearchInput'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.value = match.stop_name;
-      });
-
-      loadMultiStops(match.stop_name, date);
-    }
 
     function loadMultiStops(stopName, date, isRefresh) {
       date = date || todayStr();
@@ -3450,6 +3565,7 @@
         .catch(() => { if (requestId === multiStopsRequestId && !isRefresh) showToast('Error searching stops.'); });
 
       if (isRefresh) { run(); return; }
+      clearSingleStopDisplay();
       hideEls(['multiStopHeader', 'm-multiStopHeader']);
       withMinSpinner(['multiStopLoading', 'm-multiStopLoading'], 'flex', run);
     }
@@ -3499,7 +3615,7 @@
         if (el) el.style.display = 'block';
       });
 
-      const metaTxt = `${stops.length} stop${stops.length !== 1 ? 's' : ''} sharing this name  ·  IDs ${stops.map(s => s.stop_id).join(', ')}`;
+      const metaTxt = `${stops.length} stop${stops.length !== 1 ? 's' : ''} found  ·  IDs ${stops.map(s => s.stop_id).join(', ')}`;
       setVal('multiStopNameDisplay', stopName);
       setVal('multiStopMetaDisplay', metaTxt);
       setVal('m-multiStopNameDisplay', stopName);
@@ -3534,6 +3650,7 @@
           color: multiStopColor, fillColor: multiStopColor, fillOpacity: 0.75, radius: 8, weight: 2
         }).addTo(map);
         m.bindPopup(`<b>${s.stop_name}</b><br>Stop ID: ${s.stop_id}`);
+        m.on('click', () => handleStopMarkerClick(s.stop_id));
         return m;
       });
 
@@ -3677,6 +3794,7 @@
 
       window.stopMarker = L.marker([data.lat,data.lon]).addTo(map);
       window.stopMarker.bindPopup(`<b>${data.stop_name}</b><br>Stop ID: ${data.stop_id}`);
+      window.stopMarker.on('click', () => handleStopMarkerClick(data.stop_id));
       map.setView([data.lat,data.lon],15);
 
       // On mobile: expand sheet and switch to stop tab
@@ -3727,10 +3845,45 @@
       loadMultiStops(currentMultiStopName, date);
     }
 
+    // The merge/nearby/truncate options only apply when "Search multiple
+    // stops" is on, so grey them out (and disable them) otherwise.
+    function syncSubSettingsDisabled() {
+      const enabled = searchMultipleStopsEnabled();
+      ['stopSubSettings', 'm-stopSubSettings'].forEach(id => {
+        const wrap = document.getElementById(id);
+        if (!wrap) return;
+        wrap.classList.toggle('disabled', !enabled);
+        wrap.querySelectorAll('input').forEach(el => { el.disabled = !enabled; });
+      });
+    }
+
+    wireMultiStopSetting('searchMultipleStopsToggle', 'm-searchMultipleStopsToggle', 'gtfs-search-multiple-stops', 'checked', syncSubSettingsDisabled);
+    syncSubSettingsDisabled();
     wireMultiStopSetting('mergeCrossStreetsToggle', 'm-mergeCrossStreetsToggle', 'gtfs-merge-cross-streets', 'checked', reRunMultiStopSearch);
     wireMultiStopSetting('includeNearbyToggle', 'm-includeNearbyToggle', 'gtfs-include-nearby', 'checked', reRunMultiStopSearch);
     wireMultiStopSetting('includeNearbyRadius', 'm-includeNearbyRadius', 'gtfs-include-nearby-radius', 'value', reRunMultiStopSearch);
     wireMultiStopSetting('truncateMultiTripsToggle', 'm-truncateMultiTripsToggle', 'gtfs-truncate-multi-trips', 'checked', reRunMultiStopSearch);
+
+    // Wires a gear button to show/hide its settings popover: click toggles,
+    // clicking outside or pressing Escape closes it.
+    function initSettingsPopover(btnId, popoverId) {
+      const btn = document.getElementById(btnId);
+      const popover = document.getElementById(popoverId);
+      if (!btn || !popover) return;
+
+      const close = () => { popover.hidden = true; btn.classList.remove('active'); btn.setAttribute('aria-expanded', 'false'); };
+      const open = () => { popover.hidden = false; btn.classList.add('active'); btn.setAttribute('aria-expanded', 'true'); };
+
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        if (popover.hidden) open(); else close();
+      });
+      popover.addEventListener('click', e => e.stopPropagation());
+      document.addEventListener('click', close);
+      document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+    }
+    initSettingsPopover('stopSettingsBtn', 'stopSettingsPopover');
+    initSettingsPopover('m-stopSettingsBtn', 'm-stopSettingsPopover');
 
     // ===== NEAREST STOPS =====
     function handleFindNearest(latId, lonId) {
@@ -3817,6 +3970,7 @@
             color:nearestStopColor,fillColor:nearestStopColor,fillOpacity:0.7,radius:7,weight:2
           }).addTo(map);
           m.bindPopup(`Stop ${stop.stop_id} · ${stop.distanceKM.toFixed(2)} km`);
+          m.on('click', () => { clearNearestStopMarkers(); handleStopMarkerClick(stop.stop_id); });
           window.nearestStopsMarkers.push(m);
         });
         const bounds = L.latLngBounds(data.nearest_stops.map(s => [s.stop_lat,s.stop_lon]));
@@ -4137,8 +4291,6 @@
     document.getElementById('m-dateInput').value = todayStr();
     initStopSearch('stopSearchInput', 'stopSearchResults');
     initStopSearch('m-stopSearchInput', 'm-stopSearchResults');
-    initStopSearch('multiStopSearchInput', 'multiStopSearchResults', selectMultiStopFromSearch);
-    initStopSearch('m-multiStopSearchInput', 'm-multiStopSearchResults', selectMultiStopFromSearch);
     initRouteSearch('routeSearchInput', 'routeSearchResults', 'dateInput');
     initRouteSearch('m-routeSearchInput', 'm-routeSearchResults', 'm-dateInput');
   </script>
