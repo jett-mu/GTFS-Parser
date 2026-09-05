@@ -44,21 +44,31 @@ static-gtfs/
         └── ...
 ```
 
-### 2. Configure paths in `gtfs.hpp`
+### 2. Configure paths in `config.hpp`
 
-**Line 37** — set `path` to the subfolder inside `data/` that contains your `.txt` files:
+`config.hpp` is machine-specific (absolute paths) and gitignored, so it isn't checked into git. Copy the template to create your own:
 
-```cpp
-const string path = "/data/your_agency/";
+```zsh
+cp config-demo.hpp config.hpp
 ```
 
-**Line 38** — set `root` to the absolute path of the `static-gtfs/` directory:
+Then edit `config.hpp`:
+
+**`path`** — the subfolder inside `data/` that contains your `.txt` files:
 
 ```cpp
-const string root = "/path/to/static-gtfs" + path;
+std::string path = "/data/your_agency/";
+```
+
+**`root`** — the absolute path of the `static-gtfs/` directory:
+
+```cpp
+std::string root = "/path/to/static-gtfs" + path;
 ```
 
 To find your absolute path, run `pwd` (Mac/Linux) or `cd` with no arguments (Windows).
+
+`gtfs_cli` also supports overriding `root` at runtime via `config set <path>` (persisted to a `config.json` next to the binary) or a `-c <path>` flag, without editing `config.hpp` at all.
 
 ### 3. Verify the setup
 
