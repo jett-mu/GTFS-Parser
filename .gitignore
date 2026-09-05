@@ -83,3 +83,4 @@ gtfs-rt/proto-conversion/webserver-implementation/routeVehicles
 
 # Confidential / local-only env files
 .env
+AGENTS.md
