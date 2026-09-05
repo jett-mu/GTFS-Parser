@@ -359,8 +359,6 @@
     }
     .settings-popover[hidden] { display: none; }
     .settings-popover .toggle-row { padding: 6px 0; }
-    .sub-settings.disabled { opacity: 0.4; }
-    .sub-settings.disabled .toggle-row { cursor: not-allowed; }
     .settings-popover-title {
       font-size: 11px;
       font-weight: 700;
@@ -1843,8 +1841,8 @@
             <div class="settings-popover" id="stopSettingsPopover" hidden>
               <div class="settings-popover-title">Search settings</div>
               <label class="toggle-row" for="searchMultipleStopsToggle" title="When on, a name search combines every stop sharing that exact name into one board instead of loading a single stop">
-                <input type="checkbox" id="searchMultipleStopsToggle" checked />
-                Search multiple stops
+                <input type="checkbox" id="searchMultipleStopsToggle" />
+                Search stops with same name
               </label>
               <div class="sub-settings" id="stopSubSettings">
                 <label class="toggle-row" for="mergeCrossStreetsToggle" title="Treat &quot;A / B&quot; and &quot;B / A&quot; as the same intersection">
@@ -1854,7 +1852,7 @@
                 <label class="toggle-row" for="includeNearbyToggle" title="Also include any other stops within this distance of the matched stops">
                   <input type="checkbox" id="includeNearbyToggle" checked />
                   Include all stops within
-                  <input type="number" id="includeNearbyRadius" class="radius-input" min="1" max="5000" step="1" value="100" aria-label="Radius in meters" />
+                  <input type="number" id="includeNearbyRadius" class="radius-input" min="1" max="5000" step="1" value="75" aria-label="Radius in meters" />
                   m
                 </label>
                 <label class="toggle-row" for="truncateMultiTripsToggle" title="When the same trip shows up at more than one of these stops, only keep the copy from the stop closest to the group">
@@ -2068,8 +2066,8 @@
           <div class="settings-popover" id="m-stopSettingsPopover" hidden>
             <div class="settings-popover-title">Search settings</div>
             <label class="toggle-row" for="m-searchMultipleStopsToggle" title="When on, a name search combines every stop sharing that exact name into one board instead of loading a single stop">
-              <input type="checkbox" id="m-searchMultipleStopsToggle" checked />
-              Search multiple stops
+              <input type="checkbox" id="m-searchMultipleStopsToggle" />
+              Search stops with same name
             </label>
             <div class="sub-settings" id="m-stopSubSettings">
               <label class="toggle-row" for="m-mergeCrossStreetsToggle" title="Treat &quot;A / B&quot; and &quot;B / A&quot; as the same intersection">
@@ -2079,7 +2077,7 @@
               <label class="toggle-row" for="m-includeNearbyToggle" title="Also include any other stops within this distance of the matched stops">
                 <input type="checkbox" id="m-includeNearbyToggle" checked />
                 Include all stops within
-                <input type="number" id="m-includeNearbyRadius" class="radius-input" min="1" max="5000" step="1" value="100" aria-label="Radius in meters" />
+                <input type="number" id="m-includeNearbyRadius" class="radius-input" min="1" max="5000" step="1" value="75" aria-label="Radius in meters" />
                 m
               </label>
               <label class="toggle-row" for="m-truncateMultiTripsToggle" title="When the same trip shows up at more than one of these stops, only keep the copy from the stop closest to the group">
@@ -3465,7 +3463,7 @@
       const m = document.getElementById('m-searchMultipleStopsToggle');
       if (d) return d.checked;
       if (m) return m.checked;
-      return true;
+      return false;
     }
 
     // Stop the other display mode's refresh loop/markers so switching
@@ -3855,20 +3853,10 @@
       loadMultiStops(currentMultiStopName, date);
     }
 
-    // The merge/nearby/truncate options only apply when "Search multiple
-    // stops" is on, so grey them out (and disable them) otherwise.
-    function syncSubSettingsDisabled() {
-      const enabled = searchMultipleStopsEnabled();
-      ['stopSubSettings', 'm-stopSubSettings'].forEach(id => {
-        const wrap = document.getElementById(id);
-        if (!wrap) return;
-        wrap.classList.toggle('disabled', !enabled);
-        wrap.querySelectorAll('input').forEach(el => { el.disabled = !enabled; });
-      });
-    }
-
-    wireMultiStopSetting('searchMultipleStopsToggle', 'm-searchMultipleStopsToggle', 'gtfs-search-multiple-stops', 'checked', syncSubSettingsDisabled);
-    syncSubSettingsDisabled();
+    // "Search stops with same name" is independent from the merge/nearby/
+    // truncate sub-settings below it — those apply whenever a multi-stop
+    // board is showing (e.g. via "include nearby"), not just when this is on.
+    wireMultiStopSetting('searchMultipleStopsToggle', 'm-searchMultipleStopsToggle', 'gtfs-search-multiple-stops', 'checked', reRunMultiStopSearch);
     wireMultiStopSetting('mergeCrossStreetsToggle', 'm-mergeCrossStreetsToggle', 'gtfs-merge-cross-streets', 'checked', reRunMultiStopSearch);
     wireMultiStopSetting('includeNearbyToggle', 'm-includeNearbyToggle', 'gtfs-include-nearby', 'checked', reRunMultiStopSearch);
     wireMultiStopSetting('includeNearbyRadius', 'm-includeNearbyRadius', 'gtfs-include-nearby-radius', 'value', reRunMultiStopSearch);

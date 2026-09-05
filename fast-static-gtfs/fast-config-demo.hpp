@@ -6,7 +6,7 @@ using std::string;
 
 namespace fast_config {
 
-    string fast_root = "/Users/jettmu/Documents/VSCode/GTFS Parser/fast-static-gtfs/test-data/";
+    string fast_root = "/absolute/path/to/GTFS Parser/fast-static-gtfs/test-data/";
     string fast_stop_path = fast_root + "stops.txt";
     string fast_trip_path = fast_root + "trips.txt";
     string fast_trip_trip_id = fast_root + "trips_trip_id.txt";

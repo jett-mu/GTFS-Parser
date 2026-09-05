@@ -5,7 +5,7 @@
 namespace config {
 
 std::string path = "/data/yrt_archive/";
-std::string root = "/Users/jettmu/Documents/VSCode/GTFS Parser/static-gtfs" + path;
+std::string root = "/absolute/path/to/GTFS Parser/static-gtfs" + path;
 
 
 };
