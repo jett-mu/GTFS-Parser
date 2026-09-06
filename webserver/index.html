@@ -137,6 +137,7 @@
       flex: 1;
       height: 100%;
       min-width: 0;
+      background: var(--bg);
     }
 
     /* ===== DESKTOP SIDEBAR (full-height, collapsible) ===== */
@@ -1019,6 +1020,9 @@
     .date-row button { padding: 8px 11px; font-size: 13px; flex-shrink: 0; }
 
     /* Leaflet overrides */
+    :root:not([data-theme="light"]) .leaflet-tile-pane {
+      filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9);
+    }
     .leaflet-control-zoom a {
       background: var(--surface) !important;
       color: var(--text) !important;
@@ -1039,6 +1043,44 @@
     .leaflet-popup-tip { background: var(--surface) !important; }
     .leaflet-popup-close-button { color: var(--text-dim) !important; }
     .leaflet-popup-close-button:hover { color: var(--text) !important; }
+
+    .stop-popup { min-width: 190px; }
+    .stop-popup-header {
+      margin: -10px -12px 9px;
+      padding: 9px 12px;
+      font-weight: 700;
+      font-size: 13.5px;
+    }
+    .stop-popup-cards {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+    .stop-popup-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 8px;
+    }
+    .stop-popup-card.wide { grid-column: 1 / -1; }
+    .stop-popup-card-label {
+      font-size: 10.5px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      color: var(--text-dim);
+      margin-bottom: 2px;
+    }
+    .stop-popup-card-val {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .stop-popup-btn {
+      width: 100%;
+      margin-top: 8px;
+      border: none;
+      font-weight: 600;
+    }
 
     .user-location-marker div {
       width: 14px; height: 14px;
@@ -2532,6 +2574,14 @@
       return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     }
 
+    function readableTextColor(hex) {
+      const h = String(hex ?? '').replace('#', '');
+      if (!/^[0-9a-fA-F]{6}$/.test(h)) return '#fff';
+      const r = parseInt(h.slice(0,2),16), g = parseInt(h.slice(2,4),16), b = parseInt(h.slice(4,6),16);
+      const luminance = (0.299*r + 0.587*g + 0.114*b) / 255;
+      return luminance > 0.6 ? '#000' : '#fff';
+    }
+
     function skeletonDepCards(n) {
       return `<div class="skel-dep-card"><div class="skel-row-top"><div class="skel-block skel-route-pill"></div></div><div class="skel-row-time"><div class="skel-block skel-time-big"></div><div class="skel-block skel-eta-pill"></div></div><div class="skel-block skel-headsign-line"></div><div class="skel-row-footer"><div class="skel-block skel-trip-line"></div></div></div>`.repeat(n);
     }
@@ -2837,14 +2887,29 @@
         const m = L.circleMarker([stop.lat,stop.lng],{
           color:data.route_color,fillColor:data.route_color,fillOpacity:0.8,radius:5,weight:2
         }).addTo(map);
+        const headerTextColor = readableTextColor(data.route_color);
         m.bindPopup(`
-          <div style="min-width:175px">
-            <div style="margin:-10px -12px 8px; padding:9px 12px; background:#${data.route_color}; color:#fff; font-weight:700; font-size:13.5px; text-shadow:0 1px 2px rgba(0,0,0,0.25)">${escapeHtml(stop.name)}</div>
-            <div class="rt-row"><span class="rt-label">🕐 Time</span><span class="rt-val" style="color:var(--accent2); font-weight:700">${escapeHtml(stop.time)}</span></div>
-            <div class="rt-row"><span class="rt-label">🏷️ Code</span><span class="rt-val" style="color:var(--accent)">${escapeHtml(stop.code)}</span></div>
-            <div class="rt-row"><span class="rt-label">🆔 Stop ID</span><span class="rt-val">${escapeHtml(stop.id)}</span></div>
-            <div class="rt-row"><span class="rt-label">🔢 Sequence</span><span class="rt-val" style="color:var(--negative); font-weight:700">${stop.stop_sequence}</span></div>
-            <button class="secondary" style="width:100%;margin-top:8px; background:#${data.route_color}; color:#fff; border:none; font-weight:600" onclick="handleStopMarkerClick('${stop.id}')">🚏 Show departures</button>
+          <div class="stop-popup">
+            <div class="stop-popup-header" style="background:${data.route_color}; color:${headerTextColor}; text-shadow:${headerTextColor === '#fff' ? '0 1px 2px rgba(0,0,0,0.25)' : 'none'}">${escapeHtml(stop.name)}</div>
+            <div class="stop-popup-cards">
+              <div class="stop-popup-card">
+                <div class="stop-popup-card-label">Time</div>
+                <div class="stop-popup-card-val" style="color:var(--accent2)">${escapeHtml(stop.time)}</div>
+              </div>
+              <div class="stop-popup-card">
+                <div class="stop-popup-card-label">Code</div>
+                <div class="stop-popup-card-val" style="color:var(--accent)">${escapeHtml(stop.code)}</div>
+              </div>
+              <div class="stop-popup-card">
+                <div class="stop-popup-card-label">Stop ID</div>
+                <div class="stop-popup-card-val">${escapeHtml(stop.id)}</div>
+              </div>
+              <div class="stop-popup-card">
+                <div class="stop-popup-card-label">Sequence</div>
+                <div class="stop-popup-card-val" style="color:var(--negative)">${stop.stop_sequence}</div>
+              </div>
+            </div>
+            <button class="secondary stop-popup-btn" style="background:${data.route_color}; color:${headerTextColor}" onclick="handleStopMarkerClick('${stop.id}')">Show departures</button>
           </div>
         `);
         stopMarkers.push(m);
@@ -3105,12 +3170,22 @@
     }
 
     function cycleDepView(prefix) {
+      // When the 3h window is empty, its button reads "Show all N" (there's
+      // no point offering a "Next 4" step in between), so skip straight to
+      // the all-departures state instead of following the normal 3-way cycle.
+      const empty3h = filterNext3h(allDepartures).length === 0;
       if (prefix === 'd') {
-        if (!showingAllDeps_d && !showingNext4_d) { showingNext4_d=true; showingAllDeps_d=false; }
+        if (!showingAllDeps_d && !showingNext4_d) {
+          if (empty3h) { showingAllDeps_d=true; showingNext4_d=false; }
+          else { showingNext4_d=true; showingAllDeps_d=false; }
+        }
         else if (showingNext4_d && !showingAllDeps_d) { showingNext4_d=false; showingAllDeps_d=true; }
         else { showingAllDeps_d=false; showingNext4_d=false; }
       } else {
-        if (!showingAllDeps_m && !showingNext4_m) { showingNext4_m=true; showingAllDeps_m=false; }
+        if (!showingAllDeps_m && !showingNext4_m) {
+          if (empty3h) { showingAllDeps_m=true; showingNext4_m=false; }
+          else { showingNext4_m=true; showingAllDeps_m=false; }
+        }
         else if (showingNext4_m && !showingAllDeps_m) { showingNext4_m=false; showingAllDeps_m=true; }
         else { showingAllDeps_m=false; showingNext4_m=false; }
       }
@@ -3666,8 +3741,32 @@
         const m = L.circleMarker([s.lat, s.lon], {
           color: multiStopColor, fillColor: multiStopColor, fillOpacity: 0.75, radius: 8, weight: 2
         }).addTo(map);
-        m.bindPopup(`<b>${s.stop_name}</b><br>Stop ID: ${s.stop_id}`);
-        m.on('click', () => handleStopMarkerClick(s.stop_id));
+        m.bindPopup(`
+          <div class="stop-popup">
+            <div class="stop-popup-header" style="background:${multiStopColor}; color:${readableTextColor(multiStopColor)}">${escapeHtml(s.stop_name)}</div>
+            <div class="stop-popup-cards">
+              <div class="stop-popup-card">
+                <div class="stop-popup-card-label">Code</div>
+                <div class="stop-popup-card-val" style="color:var(--accent)">${escapeHtml(s.stop_code)}</div>
+              </div>
+              <div class="stop-popup-card">
+                <div class="stop-popup-card-label">Stop ID</div>
+                <div class="stop-popup-card-val">${escapeHtml(s.stop_id)}</div>
+              </div>
+            </div>
+          </div>
+        `);
+        // circleMarker is a Path, not a Marker — Leaflet's built-in popup
+        // click handler doesn't toggle-close Paths on a second click, so
+        // replace it with one that does.
+        m.off('click');
+        m.on('click', (e) => {
+          // Stop the click from bubbling to the map — otherwise the map's
+          // own "click elsewhere closes the popup" handler fires first (even
+          // on a re-click of this same marker) and undoes our toggle below.
+          L.DomEvent.stopPropagation(e);
+          m.togglePopup();
+        });
         return m;
       });
 
@@ -3751,12 +3850,19 @@
     }
 
     function cycleMultiDepView(prefix) {
+      const empty3h = filterNext3h(allMultiDepartures).length === 0;
       if (prefix === 'd') {
-        if (!showingAllMultiDeps_d && !showingNext4MultiDeps_d) { showingNext4MultiDeps_d = true; showingAllMultiDeps_d = false; }
+        if (!showingAllMultiDeps_d && !showingNext4MultiDeps_d) {
+          if (empty3h) { showingAllMultiDeps_d = true; showingNext4MultiDeps_d = false; }
+          else { showingNext4MultiDeps_d = true; showingAllMultiDeps_d = false; }
+        }
         else if (showingNext4MultiDeps_d && !showingAllMultiDeps_d) { showingNext4MultiDeps_d = false; showingAllMultiDeps_d = true; }
         else { showingAllMultiDeps_d = false; showingNext4MultiDeps_d = false; }
       } else {
-        if (!showingAllMultiDeps_m && !showingNext4MultiDeps_m) { showingNext4MultiDeps_m = true; showingAllMultiDeps_m = false; }
+        if (!showingAllMultiDeps_m && !showingNext4MultiDeps_m) {
+          if (empty3h) { showingAllMultiDeps_m = true; showingNext4MultiDeps_m = false; }
+          else { showingNext4MultiDeps_m = true; showingAllMultiDeps_m = false; }
+        }
         else if (showingNext4MultiDeps_m && !showingAllMultiDeps_m) { showingNext4MultiDeps_m = false; showingAllMultiDeps_m = true; }
         else { showingAllMultiDeps_m = false; showingNext4MultiDeps_m = false; }
       }
