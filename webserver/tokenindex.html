@@ -1030,6 +1030,15 @@
       color: var(--text-muted) !important;
       font-size: 10px !important;
     }
+    .leaflet-popup-content-wrapper {
+      background: var(--surface) !important;
+      color: var(--text) !important;
+      box-shadow: 0 3px 14px rgba(0,0,0,0.4);
+    }
+    .leaflet-popup-content { margin: 10px 12px; }
+    .leaflet-popup-tip { background: var(--surface) !important; }
+    .leaflet-popup-close-button { color: var(--text-dim) !important; }
+    .leaflet-popup-close-button:hover { color: var(--text) !important; }
 
     .user-location-marker div {
       width: 14px; height: 14px;
@@ -2839,12 +2848,12 @@
           color:data.route_color,fillColor:data.route_color,fillOpacity:0.8,radius:5,weight:2
         }).addTo(map);
         m.bindPopup(`
-          <div style="min-width:150px">
-            <b>${escapeHtml(stop.name)}</b><br>
-            Time: ${escapeHtml(stop.time)}<br>
-            Code: ${escapeHtml(stop.code)}<br>
-            Stop ID: ${escapeHtml(stop.id)}<br>
-            Sequence: ${stop.stop_sequence}
+          <div style="min-width:170px">
+            <div class="section-title" style="margin-bottom:4px">${escapeHtml(stop.name)}</div>
+            <div class="rt-row"><span class="rt-label">Time</span><span class="rt-val">${escapeHtml(stop.time)}</span></div>
+            <div class="rt-row"><span class="rt-label">Code</span><span class="rt-val">${escapeHtml(stop.code)}</span></div>
+            <div class="rt-row"><span class="rt-label">Stop ID</span><span class="rt-val">${escapeHtml(stop.id)}</span></div>
+            <div class="rt-row"><span class="rt-label">Sequence</span><span class="rt-val">${stop.stop_sequence}</span></div>
             <button class="secondary" style="width:100%;margin-top:7px" onclick="handleStopMarkerClick('${stop.id}')">Show departures</button>
           </div>
         `);
