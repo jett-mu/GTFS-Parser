@@ -2838,13 +2838,13 @@
           color:data.route_color,fillColor:data.route_color,fillOpacity:0.8,radius:5,weight:2
         }).addTo(map);
         m.bindPopup(`
-          <div style="min-width:170px">
-            <div class="section-title" style="margin-bottom:4px">${escapeHtml(stop.name)}</div>
-            <div class="rt-row"><span class="rt-label">Time</span><span class="rt-val">${escapeHtml(stop.time)}</span></div>
-            <div class="rt-row"><span class="rt-label">Code</span><span class="rt-val">${escapeHtml(stop.code)}</span></div>
-            <div class="rt-row"><span class="rt-label">Stop ID</span><span class="rt-val">${escapeHtml(stop.id)}</span></div>
-            <div class="rt-row"><span class="rt-label">Sequence</span><span class="rt-val">${stop.stop_sequence}</span></div>
-            <button class="secondary" style="width:100%;margin-top:7px" onclick="handleStopMarkerClick('${stop.id}')">Show departures</button>
+          <div style="min-width:175px">
+            <div style="margin:-10px -12px 8px; padding:9px 12px; background:#${data.route_color}; color:#fff; font-weight:700; font-size:13.5px; text-shadow:0 1px 2px rgba(0,0,0,0.25)">${escapeHtml(stop.name)}</div>
+            <div class="rt-row"><span class="rt-label">🕐 Time</span><span class="rt-val" style="color:var(--accent2); font-weight:700">${escapeHtml(stop.time)}</span></div>
+            <div class="rt-row"><span class="rt-label">🏷️ Code</span><span class="rt-val" style="color:var(--accent)">${escapeHtml(stop.code)}</span></div>
+            <div class="rt-row"><span class="rt-label">🆔 Stop ID</span><span class="rt-val">${escapeHtml(stop.id)}</span></div>
+            <div class="rt-row"><span class="rt-label">🔢 Sequence</span><span class="rt-val" style="color:var(--negative); font-weight:700">${stop.stop_sequence}</span></div>
+            <button class="secondary" style="width:100%;margin-top:8px; background:#${data.route_color}; color:#fff; border:none; font-weight:600" onclick="handleStopMarkerClick('${stop.id}')">🚏 Show departures</button>
           </div>
         `);
         stopMarkers.push(m);
