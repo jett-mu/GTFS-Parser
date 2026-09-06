@@ -2828,8 +2828,16 @@
         const m = L.circleMarker([stop.lat,stop.lng],{
           color:data.route_color,fillColor:data.route_color,fillOpacity:0.8,radius:5,weight:2
         }).addTo(map);
-        m.bindPopup(`Stop ID: ${stop.id}<br>Time: ${stop.time}`);
-        m.on('click', () => handleStopMarkerClick(stop.id));
+        m.bindPopup(`
+          <div style="min-width:150px">
+            <b>${escapeHtml(stop.name)}</b><br>
+            Time: ${escapeHtml(stop.time)}<br>
+            Code: ${escapeHtml(stop.code)}<br>
+            Stop ID: ${escapeHtml(stop.id)}<br>
+            Sequence: ${stop.stop_sequence}
+            <button class="secondary" style="width:100%;margin-top:7px" onclick="handleStopMarkerClick('${stop.id}')">Show departures</button>
+          </div>
+        `);
         stopMarkers.push(m);
       });
     }
@@ -3334,6 +3342,8 @@
 
       if (searchMultipleStopsEnabled()) {
         loadMultiStops(match.stop_name, date);
+      } else if (includeNearbyEnabled()) {
+        loadStopWithNearby(match.stop_id, date);
       } else {
         loadStop(match.stop_id, date);
       }
