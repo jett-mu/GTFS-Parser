@@ -797,7 +797,8 @@
       font-family: var(--font-mono);
       margin-top: 4px;
       line-height: 1.6;
-      white-space: pre;
+      white-space: pre-wrap;
+      word-break: break-word;
     }
 
     .departures-grid {
@@ -967,11 +968,16 @@
       font-weight: 600;
       color: var(--accent2);
       background: rgba(var(--accent2-rgb), 0.12);
-      border-radius: 20px;
-      padding: 2px 7px;
-      display: inline-block;
+      border-radius: 10px;
+      padding: 3px 8px;
+      display: block;
       font-family: var(--font-mono);
       flex-shrink: 0;
+      white-space: normal;
+      word-break: break-word;
+      max-width: 100%;
+      box-sizing: border-box;
+      line-height: 1.4;
     }
 
     .rt-delay-badge {
@@ -1292,6 +1298,98 @@
       font-family: var(--font-mono);
       margin-bottom: 8px;
     }
+
+    .dep-filter-row {
+      display: flex;
+      margin-bottom: 8px;
+    }
+    .dep-filter-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 3px 10px;
+      border-radius: 20px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: border-color var(--transition), color var(--transition), background var(--transition);
+    }
+    .dep-filter-btn:hover, .dep-filter-btn.active { border-color: var(--border2); color: var(--text); background: var(--surface3); }
+    .dep-filter-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 15px;
+      height: 15px;
+      padding: 0 4px;
+      border-radius: 8px;
+      background: var(--accent);
+      color: var(--surface);
+      font-size: 10px;
+      font-weight: 700;
+      line-height: 1;
+    }
+    .dep-filter-badge[hidden] { display: none; }
+
+    .dep-filter-popover {
+      width: 280px;
+      max-height: 340px;
+      overflow-y: auto;
+    }
+    .dep-filter-tree {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .dep-filter-route { padding: 2px 0; }
+    .dep-filter-route-row,
+    .dep-filter-headsign-row {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 4px 0;
+      cursor: pointer;
+      font-size: 12.5px;
+    }
+    .dep-filter-route-row { font-weight: 600; color: var(--text); }
+    .dep-filter-headsign-row { color: var(--text-muted); font-size: 12px; }
+    .dep-filter-route-row input,
+    .dep-filter-headsign-row input {
+      accent-color: var(--accent);
+      width: 14px;
+      height: 14px;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .dep-filter-headsigns {
+      display: flex;
+      flex-direction: column;
+      padding-left: 20px;
+      border-left: 1px solid var(--border);
+      margin-left: 6px;
+    }
+    .dep-filter-empty {
+      font-size: 12px;
+      color: var(--text-muted);
+      padding: 6px 0;
+    }
+    .dep-filter-clear {
+      width: 100%;
+      margin-top: 6px;
+      padding-top: 6px;
+      border-top: 1px solid var(--border);
+      background: none;
+      border-left: none; border-right: none; border-bottom: none;
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: center;
+    }
+    .dep-filter-clear:hover { text-decoration: underline; }
 
     /* Route trips */
     .route-trips-section {
@@ -1954,6 +2052,14 @@
             <div class="section-title">Departures</div>
             <button class="show-all-deps-btn" id="showAllDepsBtn" onclick="cycleDepView('d')">Show all</button>
           </div>
+          <div class="dep-filter-row settings-popover-wrap">
+            <button type="button" class="dep-filter-btn" id="depFilterBtn" aria-haspopup="true" aria-expanded="false">Filter <span class="dep-filter-badge" id="depFilterBadge" hidden>0</span></button>
+            <div class="settings-popover dep-filter-popover" id="depFilterPopover" hidden>
+              <div class="settings-popover-title">Filter by route / destination</div>
+              <div class="dep-filter-tree" id="depFilterTree"></div>
+              <button type="button" class="dep-filter-clear" id="depFilterClearBtn" onclick="onDepFilterClear('d')">Clear filters</button>
+            </div>
+          </div>
           <div class="dep-window-label" id="depWindowLabel"></div>
           <div class="departures-grid" id="departuresGrid"></div>
         </div>
@@ -1973,6 +2079,14 @@
           <div class="departures-section-header">
             <div class="section-title">Combined departures</div>
             <button class="show-all-deps-btn" id="showAllMultiDepsBtn" onclick="cycleMultiDepView('d')">Show all</button>
+          </div>
+          <div class="dep-filter-row settings-popover-wrap">
+            <button type="button" class="dep-filter-btn" id="multiDepFilterBtn" aria-haspopup="true" aria-expanded="false">Filter <span class="dep-filter-badge" id="multiDepFilterBadge" hidden>0</span></button>
+            <div class="settings-popover dep-filter-popover" id="multiDepFilterPopover" hidden>
+              <div class="settings-popover-title">Filter by route / destination</div>
+              <div class="dep-filter-tree" id="multiDepFilterTree"></div>
+              <button type="button" class="dep-filter-clear" id="multiDepFilterClearBtn" onclick="onMultiDepFilterClear('d')">Clear filters</button>
+            </div>
           </div>
           <div class="dep-window-label" id="multiDepWindowLabel"></div>
           <div class="departures-grid" id="multiDeparturesGrid"></div>
@@ -2177,6 +2291,14 @@
             <div class="section-title">Departures</div>
             <button class="show-all-deps-btn" id="m-showAllDepsBtn" onclick="cycleDepView('m')">Show all</button>
           </div>
+          <div class="dep-filter-row settings-popover-wrap">
+            <button type="button" class="dep-filter-btn" id="m-depFilterBtn" aria-haspopup="true" aria-expanded="false">Filter <span class="dep-filter-badge" id="m-depFilterBadge" hidden>0</span></button>
+            <div class="settings-popover dep-filter-popover" id="m-depFilterPopover" hidden>
+              <div class="settings-popover-title">Filter by route / destination</div>
+              <div class="dep-filter-tree" id="m-depFilterTree"></div>
+              <button type="button" class="dep-filter-clear" id="m-depFilterClearBtn" onclick="onDepFilterClear('m')">Clear filters</button>
+            </div>
+          </div>
           <div class="dep-window-label" id="m-depWindowLabel"></div>
           <div class="departures-grid" id="m-departuresGrid"></div>
         </div>
@@ -2196,6 +2318,14 @@
           <div class="departures-section-header">
             <div class="section-title">Combined departures</div>
             <button class="show-all-deps-btn" id="m-showAllMultiDepsBtn" onclick="cycleMultiDepView('m')">Show all</button>
+          </div>
+          <div class="dep-filter-row settings-popover-wrap">
+            <button type="button" class="dep-filter-btn" id="m-multiDepFilterBtn" aria-haspopup="true" aria-expanded="false">Filter <span class="dep-filter-badge" id="m-multiDepFilterBadge" hidden>0</span></button>
+            <div class="settings-popover dep-filter-popover" id="m-multiDepFilterPopover" hidden>
+              <div class="settings-popover-title">Filter by route / destination</div>
+              <div class="dep-filter-tree" id="m-multiDepFilterTree"></div>
+              <button type="button" class="dep-filter-clear" id="m-multiDepFilterClearBtn" onclick="onMultiDepFilterClear('m')">Clear filters</button>
+            </div>
           </div>
           <div class="dep-window-label" id="m-multiDepWindowLabel"></div>
           <div class="departures-grid" id="m-multiDeparturesGrid"></div>
@@ -2319,6 +2449,14 @@
       <button class="secondary" onclick="closeDepartureBoard()" aria-label="Close">Close <span class="nearby-overlay-esc">Esc</span></button>
     </div>
     <div class="nearby-overlay-body">
+      <div class="dep-filter-row settings-popover-wrap">
+        <button type="button" class="dep-filter-btn" id="boardFilterBtn" aria-haspopup="true" aria-expanded="false">Filter <span class="dep-filter-badge" id="boardFilterBadge" hidden>0</span></button>
+        <div class="settings-popover dep-filter-popover" id="boardFilterPopover" hidden>
+          <div class="settings-popover-title">Filter by route / destination</div>
+          <div class="dep-filter-tree" id="boardFilterTree"></div>
+          <button type="button" class="dep-filter-clear" id="boardFilterClearBtn" onclick="onBoardFilterClear()">Clear filters</button>
+        </div>
+      </div>
       <div class="board-header-row">
         <span class="bhr-route">Route</span>
         <span class="bhr-headsign">Destination</span>
@@ -2696,6 +2834,115 @@
       return departures
         .filter(d => parseTime(d.arrival_time) + getRTDelaySeconds(d.trip_id) >= now)
         .slice(0, 4);
+    }
+
+    // ===== ROUTE / HEADSIGN HIERARCHY FILTER =====
+    // Multi-select filter shared by the single-stop, combined, and
+    // nearby-board departure views: a checkbox tree of routes (dep.route_id
+    // — the tool that builds this JSON already substitutes route_short_name
+    // there, which is the friendliest label available) with each route's
+    // headsigns nested underneath. State is keyed per view/prefix so desktop
+    // and mobile panels (and the board) each hold their own selection.
+    //
+    // st.selected is a Map<routeId, Set<headsign> | 'ALL'>. A route missing
+    // from the map contributes nothing (excluded once any filter is active);
+    // 'ALL' means every headsign of that route passes; a Set means only
+    // those specific headsigns pass. An empty map means no filter is active
+    // (everything passes).
+    const depFilterState = {};
+    function getDepFilterState(key) {
+      return depFilterState[key] || (depFilterState[key] = { selected: new Map() });
+    }
+    function resetDepFilterState(key) {
+      getDepFilterState(key).selected = new Map();
+    }
+    function depFilterActiveCount(key) {
+      let n = 0;
+      getDepFilterState(key).selected.forEach(v => { n += v === 'ALL' ? 1 : v.size; });
+      return n;
+    }
+    function applyDepFilter(departures, key) {
+      const st = getDepFilterState(key);
+      if (st.selected.size === 0) return departures;
+      return departures.filter(d => {
+        const v = st.selected.get(d.route_id);
+        if (!v) return false;
+        return v === 'ALL' || v.has(d.trip_headsign);
+      });
+    }
+    function buildRouteHeadsignTree(departures) {
+      const map = new Map();
+      departures.forEach(d => {
+        if (!d.route_id) return;
+        if (!map.has(d.route_id)) map.set(d.route_id, new Set());
+        if (d.trip_headsign) map.get(d.route_id).add(d.trip_headsign);
+      });
+      return [...map.entries()]
+        .sort((a, b) => a[0].localeCompare(b[0], undefined, { numeric: true, sensitivity: 'base' }))
+        .map(([routeId, hs]) => ({ routeId, headsigns: [...hs].sort((a, b) => a.localeCompare(b)) }));
+    }
+    function updateDepFilterBadge(badgeId, key) {
+      const badge = document.getElementById(badgeId);
+      if (!badge) return;
+      const n = depFilterActiveCount(key);
+      badge.textContent = n;
+      badge.hidden = n === 0;
+    }
+    function renderDepFilterPanel(departures, treeId, badgeId, key, onChange) {
+      const tree = document.getElementById(treeId);
+      if (!tree) return;
+      const st = getDepFilterState(key);
+      const routes = buildRouteHeadsignTree(departures);
+
+      tree.innerHTML = routes.length ? routes.map(r => {
+        const sel = st.selected.get(r.routeId);
+        const routeChecked = sel === 'ALL' || (sel && r.headsigns.length > 0 && sel.size === r.headsigns.length);
+        const rid = escapeHtml(r.routeId);
+        return `
+          <div class="dep-filter-route">
+            <label class="dep-filter-route-row">
+              <input type="checkbox" class="dep-filter-route-cb" data-route="${rid}" ${routeChecked ? 'checked' : ''}>
+              <span>${rid}</span>
+            </label>
+            ${r.headsigns.length ? `<div class="dep-filter-headsigns">
+              ${r.headsigns.map(h => `
+                <label class="dep-filter-headsign-row">
+                  <input type="checkbox" class="dep-filter-headsign-cb" data-route="${rid}" data-headsign="${escapeHtml(h)}" ${(sel === 'ALL' || (sel && sel.has(h))) ? 'checked' : ''}>
+                  <span>${escapeHtml(h)}</span>
+                </label>
+              `).join('')}
+            </div>` : ''}
+          </div>
+        `;
+      }).join('') : `<div class="dep-filter-empty">No departures to filter.</div>`;
+
+      tree.querySelectorAll('.dep-filter-route-cb').forEach(cb => {
+        const r = routes.find(x => x.routeId === cb.dataset.route);
+        const sel = st.selected.get(cb.dataset.route);
+        cb.indeterminate = !!(sel && sel !== 'ALL' && sel.size > 0 && r && sel.size < r.headsigns.length);
+        cb.addEventListener('change', () => {
+          if (cb.checked) st.selected.set(cb.dataset.route, 'ALL');
+          else st.selected.delete(cb.dataset.route);
+          renderDepFilterPanel(departures, treeId, badgeId, key, onChange);
+          onChange();
+        });
+      });
+      tree.querySelectorAll('.dep-filter-headsign-cb').forEach(cb => {
+        cb.addEventListener('change', () => {
+          const rid = cb.dataset.route, hs = cb.dataset.headsign;
+          const r = routes.find(x => x.routeId === rid);
+          let sel = st.selected.get(rid);
+          sel = sel === 'ALL' ? new Set(r.headsigns) : (sel ? new Set(sel) : new Set());
+          if (cb.checked) sel.add(hs); else sel.delete(hs);
+          if (sel.size === 0) st.selected.delete(rid);
+          else if (sel.size === r.headsigns.length) st.selected.set(rid, 'ALL');
+          else st.selected.set(rid, sel);
+          renderDepFilterPanel(departures, treeId, badgeId, key, onChange);
+          onChange();
+        });
+      });
+
+      updateDepFilterBadge(badgeId, key);
     }
 
     function clearNearestStopMarkers() {
@@ -3149,6 +3396,7 @@
     function updateDeparturesView(stopId) {
       ['d','m'].forEach(prefix => {
         const p = prefix === 'd' ? '' : 'm-';
+        const base    = applyDepFilter(allDepartures, 'dep-' + prefix);
         const showAll = prefix === 'd' ? showingAllDeps_d : showingAllDeps_m;
         const showN4  = prefix === 'd' ? showingNext4_d  : showingNext4_m;
         const btn     = document.getElementById(p + 'showAllDepsBtn');
@@ -3156,19 +3404,19 @@
         const sec     = document.getElementById(p + 'departuresSection');
         if (!sec) return;
         if (showAll) {
-          renderDepartureCards(allDepartures, stopId, p);
+          renderDepartureCards(base, stopId, p);
           if (btn) btn.textContent = 'Next 3h only';
-          if (label) label.textContent = `${allDepartures.length} departure${allDepartures.length!==1?'s':''} total`;
+          if (label) label.textContent = `${base.length} departure${base.length!==1?'s':''} total`;
         } else if (showN4) {
-          const next4 = filterNext4(allDepartures);
+          const next4 = filterNext4(base);
           renderDepartureCards(next4, stopId, p);
-          if (btn) btn.textContent = `Show all ${allDepartures.length}`;
+          if (btn) btn.textContent = `Show all ${base.length}`;
           if (label) label.textContent = 'Next 4 departures';
         } else {
-          const filtered = filterNext3h(allDepartures);
+          const filtered = filterNext3h(base);
           renderDepartureCards(filtered, stopId, p);
           if (filtered.length === 0) {
-            if (btn) btn.textContent = `Show all ${allDepartures.length}`;
+            if (btn) btn.textContent = `Show all ${base.length}`;
             if (label) label.textContent = 'No departures in the next 3 hours';
           } else {
             if (btn) btn.textContent = 'Next 4';
@@ -3179,11 +3427,18 @@
       });
     }
 
+    function onDepFilterClear(prefix) {
+      const p = prefix === 'd' ? '' : 'm-';
+      resetDepFilterState('dep-' + prefix);
+      renderDepFilterPanel(allDepartures, p + 'depFilterTree', p + 'depFilterBadge', 'dep-' + prefix, () => { if (currentStopId) updateDeparturesView(currentStopId); });
+      if (currentStopId) updateDeparturesView(currentStopId);
+    }
+
     function cycleDepView(prefix) {
       // When the 3h window is empty, its button reads "Show all N" (there's
       // no point offering a "Next 4" step in between), so skip straight to
       // the all-departures state instead of following the normal 3-way cycle.
-      const empty3h = filterNext3h(allDepartures).length === 0;
+      const empty3h = filterNext3h(applyDepFilter(allDepartures, 'dep-' + prefix)).length === 0;
       if (prefix === 'd') {
         if (!showingAllDeps_d && !showingNext4_d) {
           if (empty3h) { showingAllDeps_d=true; showingNext4_d=false; }
@@ -3726,7 +3981,7 @@
       allMultiDepartures = [];
       stops.forEach(s => {
         (s.departures || []).forEach(dep => {
-          allMultiDepartures.push({ ...dep, _stopId: s.stop_id, _stopLat: s.lat, _stopLon: s.lon });
+          allMultiDepartures.push({ ...dep, _stopId: s.stop_id, _stopCode: s.stop_code, _stopName: s.stop_name, _stopLat: s.lat, _stopLon: s.lon });
         });
       });
 
@@ -3738,6 +3993,10 @@
 
       showingAllMultiDeps_d = false; showingNext4MultiDeps_d = false;
       showingAllMultiDeps_m = false; showingNext4MultiDeps_m = false;
+
+      if (!isRefresh) { resetDepFilterState('multi-d'); resetDepFilterState('multi-m'); }
+      renderDepFilterPanel(allMultiDepartures, 'multiDepFilterTree', 'multiDepFilterBadge', 'multi-d', updateMultiDeparturesView);
+      renderDepFilterPanel(allMultiDepartures, 'm-multiDepFilterTree', 'm-multiDepFilterBadge', 'multi-m', updateMultiDeparturesView);
 
       updateMultiDeparturesView();
 
@@ -3814,8 +4073,8 @@
             ${dep.trip_headsign ? `<div class="dep-headsign">${dep.trip_headsign}</div>` : ''}
             <div class="dep-card-footer">
               <div class="dep-trip">Trip ${dep.trip_id}</div>
-              <div class="dep-stop-tag">Stop #${dep._stopId}</div>
             </div>
+            <div class="dep-stop-tag" title="Stop #${dep._stopId}${dep._stopCode ? ' · Code ' + escapeHtml(dep._stopCode) : ''}${dep._stopName ? ' · ' + escapeHtml(dep._stopName) : ''}">Stop #${dep._stopId}${dep._stopCode ? ' · Code ' + escapeHtml(dep._stopCode) : ''}${dep._stopName ? ' · ' + escapeHtml(dep._stopName) : ''}</div>
           `;
           card.addEventListener('click', () => loadTrip(dep.trip_id, card));
           grid.appendChild(card);
@@ -3827,6 +4086,7 @@
     function updateMultiDeparturesView() {
       ['d', 'm'].forEach(prefix => {
         const p = prefix === 'd' ? '' : 'm-';
+        const base    = applyDepFilter(allMultiDepartures, 'multi-' + prefix);
         const showAll = prefix === 'd' ? showingAllMultiDeps_d : showingAllMultiDeps_m;
         const showN4  = prefix === 'd' ? showingNext4MultiDeps_d : showingNext4MultiDeps_m;
         const btn     = document.getElementById(p + 'showAllMultiDepsBtn');
@@ -3834,19 +4094,19 @@
         const sec     = document.getElementById(p + 'multiDeparturesSection');
         if (!sec) return;
         if (showAll) {
-          renderMultiDepartureCards(allMultiDepartures, p);
+          renderMultiDepartureCards(base, p);
           if (btn) btn.textContent = 'Next 3h only';
-          if (label) label.textContent = `${allMultiDepartures.length} departure${allMultiDepartures.length !== 1 ? 's' : ''} total, across all matching stops`;
+          if (label) label.textContent = `${base.length} departure${base.length !== 1 ? 's' : ''} total, across all matching stops`;
         } else if (showN4) {
-          const next4 = filterNext4(allMultiDepartures);
+          const next4 = filterNext4(base);
           renderMultiDepartureCards(next4, p);
-          if (btn) btn.textContent = `Show all ${allMultiDepartures.length}`;
+          if (btn) btn.textContent = `Show all ${base.length}`;
           if (label) label.textContent = 'Next 4 departures, across all matching stops';
         } else {
-          const filtered = filterNext3h(allMultiDepartures);
+          const filtered = filterNext3h(base);
           renderMultiDepartureCards(filtered, p);
           if (filtered.length === 0) {
-            if (btn) btn.textContent = `Show all ${allMultiDepartures.length}`;
+            if (btn) btn.textContent = `Show all ${base.length}`;
             if (label) label.textContent = 'No departures in the next 3 hours';
           } else {
             if (btn) btn.textContent = 'Next 4';
@@ -3859,8 +4119,15 @@
       currentMultiStopIds.forEach(id => { reapplyCachedRT(id); loadRTStopUpdates(id); });
     }
 
+    function onMultiDepFilterClear(prefix) {
+      const p = prefix === 'd' ? '' : 'm-';
+      resetDepFilterState('multi-' + prefix);
+      renderDepFilterPanel(allMultiDepartures, p + 'multiDepFilterTree', p + 'multiDepFilterBadge', 'multi-' + prefix, updateMultiDeparturesView);
+      updateMultiDeparturesView();
+    }
+
     function cycleMultiDepView(prefix) {
-      const empty3h = filterNext3h(allMultiDepartures).length === 0;
+      const empty3h = filterNext3h(applyDepFilter(allMultiDepartures, 'multi-' + prefix)).length === 0;
       if (prefix === 'd') {
         if (!showingAllMultiDeps_d && !showingNext4MultiDeps_d) {
           if (empty3h) { showingAllMultiDeps_d = true; showingNext4MultiDeps_d = false; }
@@ -3921,6 +4188,10 @@
       showingAllDeps_d = false; showingNext4_d = false;
       showingAllDeps_m = false; showingNext4_m = false;
       currentStopId = data.stop_id;
+
+      resetDepFilterState('dep-d'); resetDepFilterState('dep-m');
+      renderDepFilterPanel(allDepartures, 'depFilterTree', 'depFilterBadge', 'dep-d', () => updateDeparturesView(currentStopId));
+      renderDepFilterPanel(allDepartures, 'm-depFilterTree', 'm-depFilterBadge', 'dep-m', () => updateDeparturesView(currentStopId));
 
       updateDeparturesView(data.stop_id);
       startDepsRefresh(data.stop_id);
@@ -4007,6 +4278,11 @@
     }
     initSettingsPopover('stopSettingsBtn', 'stopSettingsPopover');
     initSettingsPopover('m-stopSettingsBtn', 'm-stopSettingsPopover');
+    initSettingsPopover('depFilterBtn', 'depFilterPopover');
+    initSettingsPopover('m-depFilterBtn', 'm-depFilterPopover');
+    initSettingsPopover('multiDepFilterBtn', 'multiDepFilterPopover');
+    initSettingsPopover('m-multiDepFilterBtn', 'm-multiDepFilterPopover');
+    initSettingsPopover('boardFilterBtn', 'boardFilterPopover');
 
     // ===== NEAREST STOPS =====
     function handleFindNearest(latId, lonId) {
@@ -4117,11 +4393,15 @@
     let boardOverlayOpen = false;
     let boardRefreshId = null;
     let boardLat = null, boardLon = null;
+    let allBoardDepartures = [];
+    let lastBoardStopDatas = [];
 
     function openDepartureBoard() {
       const overlay = document.getElementById('boardOverlay');
       overlay.style.display = 'flex';
       boardOverlayOpen = true;
+      resetDepFilterState('board');
+      renderDepFilterPanel([], 'boardFilterTree', 'boardFilterBadge', 'board', renderBoardCards);
       document.addEventListener('keydown', onBoardOverlayKeydown);
       loadDepartureBoardLocation();
       if (boardRefreshId === null) {
@@ -4233,9 +4513,6 @@
     }
 
     function renderDepartureBoard(stopDatas) {
-      const grid = document.getElementById('boardGrid');
-      const sub = document.getElementById('boardOverlaySub');
-
       const combined = [];
       stopDatas.forEach(s => (s.departures || []).forEach(dep => {
         combined.push({ ...dep, _stopId: s.stop_id, _stopName: s._stopName, _stopCode: s._stopCode, _distanceKM: s._distanceKM });
@@ -4252,12 +4529,28 @@
       // Drop buses that have already departed so the board stays sorted
       // with the next bus on top and refreshes as buses pass.
       const now = nowInSeconds();
-      const deduped = [...byTrip.values()]
+      allBoardDepartures = [...byTrip.values()]
         .filter(dep => parseTime(dep.arrival_time) + getRTDelaySeconds(dep.trip_id) >= now)
         .sort((a, b) =>
           (parseTime(a.arrival_time) + getRTDelaySeconds(a.trip_id)) -
           (parseTime(b.arrival_time) + getRTDelaySeconds(b.trip_id))
         );
+      lastBoardStopDatas = stopDatas;
+
+      renderDepFilterPanel(allBoardDepartures, 'boardFilterTree', 'boardFilterBadge', 'board', renderBoardCards);
+      renderBoardCards();
+    }
+
+    function onBoardFilterClear() {
+      resetDepFilterState('board');
+      renderDepFilterPanel(allBoardDepartures, 'boardFilterTree', 'boardFilterBadge', 'board', renderBoardCards);
+      renderBoardCards();
+    }
+
+    function renderBoardCards() {
+      const grid = document.getElementById('boardGrid');
+      const sub = document.getElementById('boardOverlaySub');
+      const deduped = applyDepFilter(allBoardDepartures, 'board');
 
       sub.textContent = `${deduped.length} departure${deduped.length !== 1 ? 's' : ''} · within ${BOARD_OUTER_RADIUS_KM} km`;
 
@@ -4296,7 +4589,7 @@
       }
 
       updateGridETAs(grid);
-      stopDatas.forEach(s => { reapplyCachedRT(s.stop_id); loadRTStopUpdates(s.stop_id); });
+      lastBoardStopDatas.forEach(s => { reapplyCachedRT(s.stop_id); loadRTStopUpdates(s.stop_id); });
     }
 
     // ===== MOBILE SHEET =====
