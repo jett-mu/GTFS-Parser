@@ -3881,7 +3881,7 @@
       if (secondary) {
         const sec = document.createElement('span');
         sec.className = 'stop-search-id';
-        sec.textContent = secondary;
+        appendHighlighted(sec, secondary, query);
         item.appendChild(sec);
       }
 
@@ -4082,6 +4082,18 @@
       });
     }
 
+    // The number shown beside a result: the stop code by default, but the
+    // stop ID when that's what the typed query actually matches, so the
+    // highlighted digits are the ones the rider typed.
+    function stopSideNumber(stop, query) {
+      const q = (query || '').trim().toLowerCase();
+      const code = String(stop.stop_code || '');
+      const id = String(stop.stop_id || '');
+      if (q && code && code.toLowerCase().includes(q)) return code;
+      if (q && id && id.toLowerCase().includes(q)) return id;
+      return code || id;
+    }
+
     function findExactStopMatch(matches, query) {
       const q = query.trim().toLowerCase();
       return matches.find(m => String(m.stop_id).toLowerCase() === q || String(m.stop_code || '').toLowerCase() === q)
@@ -4146,7 +4158,7 @@
           primary: g.name,
           query,
           badge: g.stops.length > 1 ? `${g.stops.length} stops` : '',
-          secondary: g.stops.length > 1 ? '' : (first.stop_code || first.stop_id),
+          secondary: g.stops.length > 1 ? '' : stopSideNumber(first, query),
           pick: () => onSelect(match, results),
           preview: () => showSearchPreview(g.stops)
         });
