@@ -1137,6 +1137,8 @@
     .leaflet-popup-tip { background: var(--surface) !important; }
     .leaflet-popup-close-button { color: var(--text-dim) !important; }
     .leaflet-popup-close-button:hover { color: var(--text) !important; }
+    .leaflet-routeArrows-pane { pointer-events: none; }
+    .route-arrow { display: block; }
 
     .stop-popup { min-width: 190px; }
     .stop-popup-header {
@@ -3108,6 +3110,177 @@
         attribution:'© OpenStreetMap contributors'
       }).addTo(map);
       map.on('click', onMapClick);
+      // Route line lives in the default overlay pane (400). The trip's stop
+      // dots sit above it and direction chevrons above those; chevrons slide
+      // along the line to avoid stop dots, and only overlap one when the
+      // stops are so dense (zoomed out) that there is nowhere else to go.
+      map.createPane('routeStops').style.zIndex = 450;
+      map.createPane('routeArrows').style.zIndex = 460;
+      map.on('moveend', layoutRouteArrows);
+      map.on('zoomend', layoutRouteStops);
+    }
+
+    // Trip stop dots: full size when there's room, smaller as they crowd,
+    // and hidden (except the two terminals) when zoomed out so far that the
+    // dots would merge into a solid bead chain along the line.
+    function layoutRouteStops() {
+      if (!map || stopMarkers.length < 2) return;
+      const px = stopMarkers.map(m => map.project(m.getLatLng()));
+      const gaps = px.slice(1).map((p, i) => p.distanceTo(px[i])).sort((a, b) => a - b);
+      const median = gaps[Math.floor(gaps.length / 2)];
+      let style;
+      if (median >= 26)      style = { radius: 4.5, weight: 2.5 };
+      else if (median >= 14) style = { radius: 3,   weight: 2 };
+      else                   style = null; // crowded: terminals only
+      stopMarkers.forEach(m => {
+        const terminal = !!m.isTerminal;
+        if (style) m.setStyle({ ...style, opacity: 1, fillOpacity: 1 });
+        else if (terminal) m.setStyle({ radius: 4, weight: 2.5, opacity: 1, fillOpacity: 1 });
+        else m.setStyle({ opacity: 0, fillOpacity: 0 });
+        // Hidden dots shouldn't catch clicks or show a hand cursor.
+        const el = m.getElement && m.getElement();
+        if (el) el.style.pointerEvents = (style || terminal) ? '' : 'none';
+      });
+    }
+
+    // ===== ROUTE LINE + DIRECTION CHEVRONS =====
+    // The trip shape is drawn as a soft dark casing under a solid route-color
+    // line. Direction is shown with small chevrons drawn *inside* the line,
+    // spaced evenly in screen pixels (not by shape-point index), so density
+    // stays constant across zoom levels. Only chevrons inside the padded
+    // viewport are materialised; layoutRouteArrows() re-runs on every
+    // moveend (which also fires after a zoom).
+    const ROUTE_LINE_WEIGHT = 7;
+    const ROUTE_ARROW_SPACING_PX = 84;
+    const ROUTE_ARROW_SIZE = 16;
+    let routeCasing = null;
+    const routeArrows = { markers: [], latlngs: [], stops: [], terminals: [], color: '#fff', iconCache: new Map() };
+
+    function clearRouteLine() {
+      if (polyline) { map.removeLayer(polyline); polyline = null; }
+      if (routeCasing) { map.removeLayer(routeCasing); routeCasing = null; }
+      routeArrows.markers.forEach(m => map.removeLayer(m));
+      routeArrows.markers = [];
+      routeArrows.latlngs = [];
+      routeArrows.stops = [];
+      routeArrows.terminals = [];
+      routeArrows.iconCache.clear();
+    }
+
+    function drawRouteLine(latlngs, routeColor, stopLatLngs, terminalLatLngs) {
+      clearRouteLine();
+      if (!latlngs.length) return;
+      routeCasing = L.polyline(latlngs, {
+        color: '#000', weight: ROUTE_LINE_WEIGHT + 3, opacity: 0.25,
+        lineJoin: 'round', lineCap: 'round', interactive: false
+      }).addTo(map);
+      polyline = L.polyline(latlngs, {
+        color: routeColor, weight: ROUTE_LINE_WEIGHT, opacity: 1,
+        lineJoin: 'round', lineCap: 'round', interactive: false
+      }).addTo(map);
+      routeArrows.latlngs = latlngs;
+      routeArrows.stops = stopLatLngs || [];
+      routeArrows.terminals = terminalLatLngs || [];
+      routeArrows.color = readableTextColor(routeColor);
+      layoutRouteArrows();
+    }
+
+    function routeArrowIcon(angleDeg) {
+      const deg = Math.round(angleDeg / 3) * 3; // quantise so icons are shared
+      let icon = routeArrows.iconCache.get(deg);
+      if (icon) return icon;
+      const s = ROUTE_ARROW_SIZE, c = s / 2;
+      const halo = routeArrows.color === '#fff' ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.55)';
+      // Chevron pointing "up"; rotated clockwise by `deg` to match travel.
+      const path = `M${c-4} ${c+2.25} L${c} ${c-2.25} L${c+4} ${c+2.25}`;
+      icon = L.divIcon({
+        className: '',
+        html: `<svg class="route-arrow" width="${s}" height="${s}" viewBox="0 0 ${s} ${s}" style="transform:rotate(${deg}deg)" aria-hidden="true">
+                 <path d="${path}" fill="none" stroke="${halo}" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+                 <path d="${path}" fill="none" stroke="${routeArrows.color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+               </svg>`,
+        iconSize: [s, s], iconAnchor: [c, c]
+      });
+      routeArrows.iconCache.set(deg, icon);
+      return icon;
+    }
+
+    function layoutRouteArrows() {
+      routeArrows.markers.forEach(m => map.removeLayer(m));
+      routeArrows.markers = [];
+      const pts = routeArrows.latlngs;
+      if (!map || pts.length < 2) return;
+
+      // Project once, then walk the path by cumulative pixel distance.
+      const px = pts.map(ll => map.project(ll));
+      const cum = [0];
+      for (let i = 1; i < px.length; i++) cum.push(cum[i-1] + px[i].distanceTo(px[i-1]));
+      const total = cum[cum.length - 1];
+      if (total < 24) return; // too short on screen for even one chevron
+
+      // Point at path distance `d` (binary search on cum, then lerp).
+      let hint = 1;
+      const pointAt = d => {
+        d = Math.max(0, Math.min(total, d));
+        let lo = 1, hi = px.length - 1;
+        if (cum[hint-1] <= d && d <= cum[hint]) lo = hi = hint;
+        while (lo < hi) { const mid = (lo + hi) >> 1; if (cum[mid] < d) lo = mid + 1; else hi = mid; }
+        hint = lo;
+        const a = px[lo-1], b = px[lo], seg = cum[lo] - cum[lo-1];
+        const t = seg > 0 ? (d - cum[lo-1]) / seg : 0;
+        return L.point(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t);
+      };
+
+      let stopPx = routeArrows.stops.map(ll => map.project(ll));
+      if (stopPx.length > 1) {
+        const gaps = stopPx.slice(1).map((p, i) => p.distanceTo(stopPx[i])).sort((a, b) => a - b);
+        if (gaps[Math.floor(gaps.length / 2)] < 14) stopPx = routeArrows.terminals.map(ll => map.project(ll));
+      }
+      const view = map.getPixelBounds().pad(0.15);
+      const spacing = ROUTE_ARROW_SPACING_PX;
+      const stopClearance = 12; // px: keep chevrons off stop dots when possible
+      const look = 7;           // px each way used to measure local heading
+      const onStop = p => stopPx.some(sp => Math.abs(sp.x - p.x) < stopClearance && Math.abs(sp.y - p.y) < stopClearance);
+      const bendAt = (d, p) => {
+        const before = pointAt(d - look), after = pointAt(d + look);
+        const h1 = Math.atan2(p.x - before.x, -(p.y - before.y));
+        const h2 = Math.atan2(after.x - p.x, -(after.y - p.y));
+        let turn = Math.abs(h2 - h1); if (turn > Math.PI) turn = 2 * Math.PI - turn;
+        return turn;
+      };
+
+      // Short on screen: one chevron at the midpoint. Otherwise one per slot.
+      const slots = [];
+      if (total < spacing) slots.push(total / 2);
+      else for (let d = spacing / 2; d < total - spacing / 4; d += spacing) slots.push(d);
+
+      for (const slot of slots) {
+        if (!view.contains(pointAt(slot))) continue;
+        // Try the slot, then slide either way (up to 40% of the spacing) to
+        // find a spot that's on neither a stop dot nor a sharp bend. A bend
+        // is a hard skip; a stop is only a preference so chevrons still show
+        // when zoomed out and every stretch of line is covered by stops.
+        let chosen = null, fallback = null;
+        const maxSlide = Math.min(spacing * 0.4, total / 2 - 4);
+        for (let off = 0; off <= maxSlide && !chosen; off += 4) {
+          for (const d of (off === 0 ? [slot] : [slot - off, slot + off])) {
+            if (d < 4 || d > total - 4) continue;
+            const p = pointAt(d);
+            if (bendAt(d, p) > Math.PI / 4) continue;
+            if (onStop(p)) { if (!fallback) fallback = d; continue; }
+            chosen = d; break;
+          }
+        }
+        const d = chosen ?? fallback;
+        if (d == null) continue;
+        const p = pointAt(d);
+        const before = pointAt(d - look), after = pointAt(d + look);
+        const angle = Math.atan2(after.x - before.x, -(after.y - before.y)) * 180 / Math.PI; // 0° = screen-up
+        routeArrows.markers.push(L.marker(map.unproject(p), {
+          icon: routeArrowIcon(angle), pane: 'routeArrows',
+          interactive: false, keyboard: false
+        }).addTo(map));
+      }
     }
 
     function onMapClick(e) {
@@ -3188,8 +3361,7 @@
     function displayTrip(data) {
       stopMarkers.forEach(m => map.removeLayer(m));
       stopMarkers = [];
-      if (polyline) map.removeLayer(polyline);
-      if (window._dirArrows) { window._dirArrows.forEach(m => map.removeLayer(m)); window._dirArrows = []; }
+      clearRouteLine();
 
       tripStopsData = data.stops || [];
 
@@ -3204,27 +3376,23 @@
       document.getElementById('m-tripInfo').innerHTML = html;
 
       const latlngs = data.pos_markers.map(p => [p.lat,p.lng]);
-      polyline = L.polyline(latlngs,{color:data.route_color,weight:4,opacity:0.85}).addTo(map);
+      const stopLatLngs = data.stops.map(s => [s.lat,s.lng]);
+      // stops aren't guaranteed to be in sequence order, so find terminals by sequence.
+      const seqs = data.stops.map(s => +s.stop_sequence);
+      const minSeq = Math.min(...seqs), maxSeq = Math.max(...seqs);
+      const isTerminal = s => +s.stop_sequence === minSeq || +s.stop_sequence === maxSeq;
+      const terminalLatLngs = data.stops.filter(isTerminal).map(s => [s.lat,s.lng]);
+      // fitBounds first so the initial chevron layout matches the final zoom.
       if (latlngs.length) map.fitBounds(L.latLngBounds(latlngs));
+      drawRouteLine(latlngs, data.route_color, stopLatLngs, terminalLatLngs);
 
-      window._dirArrows = [];
-      const STEP = 20;
-      const markers = data.pos_markers;
-      for (let i = STEP; i < markers.length-1; i += STEP) {
-        const a = markers[i-1], b = markers[i];
-        const angle = Math.atan2(b.lng-a.lng,b.lat-a.lat)*180/Math.PI - 89;
-        const icon = L.divIcon({
-          className:'',
-          html:`<div style="width:22px;height:22px;display:flex;align-items:center;justify-content:center;transform:rotate(${angle}deg);color:#fff;font-size:20px;line-height:1;text-shadow:0 0 3px rgba(0,0,0,0.5);pointer-events:none;">➔</div>`,
-          iconSize:[22,22],iconAnchor:[11,11]
-        });
-        window._dirArrows.push(L.marker([b.lat,b.lng],{icon,interactive:false}).addTo(map));
-      }
-
+      const stopFill = readableTextColor(data.route_color);
       data.stops.forEach(stop => {
         const m = L.circleMarker([stop.lat,stop.lng],{
-          color:data.route_color,fillColor:data.route_color,fillOpacity:0.8,radius:5,weight:2
+          pane:'routeStops',
+          color:data.route_color,fillColor:stopFill,fillOpacity:1,radius:4.5,weight:2.5
         }).addTo(map);
+        m.isTerminal = isTerminal(stop);
         const headerTextColor = readableTextColor(data.route_color);
         m.bindPopup(`
           <div class="stop-popup">
@@ -3252,6 +3420,7 @@
         `);
         stopMarkers.push(m);
       });
+      layoutRouteStops();
     }
 
     // ===== RT VEHICLE =====
