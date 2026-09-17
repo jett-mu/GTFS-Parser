@@ -3,7 +3,36 @@
 #include <string>
 #include <iomanip>
 #include <cstdlib>
+#include <cstdio>
 #include "../../static-gtfs/gtfs.hpp"
+
+// Escape a string for use inside a JSON string literal. Stop names can
+// contain quotes ("KING'S COLLEGE" is fine, but some feeds use " for inches
+// or feet), and the query is user input.
+static std::string jsonEscape(const std::string& in) {
+    std::string out;
+    out.reserve(in.size() + 8);
+    for (unsigned char c : in) {
+        switch (c) {
+            case '"':  out += "\\\""; break;
+            case '\\': out += "\\\\"; break;
+            case '\b': out += "\\b";  break;
+            case '\f': out += "\\f";  break;
+            case '\n': out += "\\n";  break;
+            case '\r': out += "\\r";  break;
+            case '\t': out += "\\t";  break;
+            default:
+                if (c < 0x20) {
+                    char buf[8];
+                    std::snprintf(buf, sizeof(buf), "\\u%04x", c);
+                    out += buf;
+                } else {
+                    out += static_cast<char>(c);
+                }
+        }
+    }
+    return out;
+}
 
 int main(int argc, char* argv[]) {
     if (argc < 2) {
@@ -22,19 +51,19 @@ int main(int argc, char* argv[]) {
 
     std::vector<gtfs::matchsearch> matches = gtfs::searchStop(argv[1]);
 
-    std::cout << "{\n\t\"query\": \"" << argv[1] << "\",\n\t\"matches\": [\n";
+    std::cout << "{\n\t\"query\": \"" << jsonEscape(argv[1]) << "\",\n\t\"matches\": [\n";
 
     const int matchesLen = std::min((int)matches.size(), top);
 
     for (int i = 0; i < matchesLen; i++) {
-        gtfs::matchsearch x = matches[i];
-        gtfs::stop st = gtfs::getStopInfo(x.stop_id);
+        const gtfs::matchsearch& x = matches[i];
 
-        std::cout << "\t\t{ \"stop_id\": \"" << x.stop_id <<
-                "\", \"stop_name\": \"" << x.text.str <<
+        std::cout << "\t\t{ \"stop_id\": \"" << jsonEscape(x.stop_id) <<
+                "\", \"stop_code\": \"" << jsonEscape(x.stop_code) <<
+                "\", \"stop_name\": \"" << jsonEscape(x.text.str) <<
                 "\", \"score\": " << x.score <<
-                ", \"lat\": " << st.stop_lat <<
-                ", \"lon\": " << st.stop_lon <<
+                ", \"lat\": " << std::setprecision(7) << x.lat <<
+                ", \"lon\": " << std::setprecision(7) << x.lon <<
                 ((matchesLen - 1) == i ? " }\n" : " },\n");
     }
     std::cout << "\t]\n}\n";

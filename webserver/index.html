@@ -713,12 +713,36 @@
       border: 1px solid var(--border2);
       border-radius: var(--card-radius);
       box-shadow: var(--shadow-2);
-      max-height: 260px;
+      max-height: 320px;
       overflow-y: auto;
       overscroll-behavior: contain;
       z-index: 30;
     }
     .stop-search-results.visible { display: block; }
+
+    .stop-search-field { position: relative; display: flex; }
+    .stop-search-field input[type="text"] { width: 100%; padding-right: 34px; }
+    .stop-search-clear {
+      position: absolute;
+      top: 50%;
+      right: 5px;
+      transform: translateY(-50%);
+      width: 26px;
+      height: 26px;
+      padding: 0;
+      border: none;
+      border-radius: 50%;
+      background: transparent;
+      color: var(--text-dim);
+      font-size: 19px;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+    .stop-search-clear:hover { background: var(--surface3); color: var(--text); border: none; }
+    .stop-search-clear[hidden] { display: none; }
 
     .stop-search-item {
       display: flex;
@@ -732,15 +756,61 @@
       touch-action: manipulation;
     }
     .stop-search-item:last-child { border-bottom: none; }
-    .stop-search-item:hover, .stop-search-item.active { background: var(--surface3); }
+    .stop-search-item:hover { background: var(--surface3); }
+    .stop-search-item.active { background: var(--surface3); box-shadow: inset 2px 0 0 var(--accent); }
 
     .stop-search-name {
+      flex: 1;
       font-size: 13px;
       color: var(--text);
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
       min-width: 0;
+    }
+    .stop-search-hl {
+      background: rgba(var(--accent-rgb), 0.2);
+      color: inherit;
+      border-radius: 2px;
+      padding: 0 1px;
+    }
+    .stop-search-count {
+      flex-shrink: 0;
+      font-size: 10.5px;
+      font-weight: 600;
+      padding: 1px 7px;
+      border-radius: 999px;
+      background: rgba(var(--accent-rgb), 0.15);
+      color: var(--accent);
+    }
+    .stop-search-section {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 7px 10px 3px;
+      font-size: 10.5px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+    .stop-search-section button {
+      background: none;
+      border: none;
+      padding: 0;
+      font-size: 10.5px;
+      font-weight: 500;
+      letter-spacing: 0;
+      text-transform: none;
+      color: var(--accent);
+      cursor: pointer;
+    }
+    .stop-search-section button:hover { background: none; border: none; text-decoration: underline; }
+    .stop-search-loading {
+      padding: 10px;
+      font-size: 12.5px;
+      color: var(--text-muted);
+      text-align: center;
     }
 
     .stop-search-id {
@@ -1004,6 +1074,7 @@
       justify-content: space-between;
       align-items: center;
       cursor: pointer;
+      gap: 8px;
       transition: border-color var(--transition), background var(--transition), transform 0.15s;
       touch-action: manipulation;
       min-height: 44px;
@@ -1015,6 +1086,23 @@
     .nearest-stop-item:active { transform: scale(0.98); }
     .nearest-stop-item .ns-id { color: var(--text); font-family: var(--font-mono); font-size: 13px; }
     .nearest-stop-item .ns-dist { color: var(--text-muted); font-size: 12px; }
+    .nearest-stop-item .ns-main { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
+    /* Full stop name, always: wrap rather than truncate — the name is what the rider is choosing by. */
+    .nearest-stop-item .ns-name { color: var(--text); font-size: 13.5px; line-height: 1.3; white-space: normal; overflow-wrap: anywhere; }
+    .nearest-stop-item .ns-meta { color: var(--text-muted); font-family: var(--font-mono); font-size: 11.5px; }
+    .nearest-stop-item .ns-only-btn {
+      flex-shrink: 0;
+      align-self: center;
+      background: none;
+      border: none;
+      padding: 6px 4px 6px 10px;
+      font-size: 11.5px;
+      color: var(--accent);
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .nearest-stop-item .ns-only-btn:hover { background: none; border: none; text-decoration: underline; }
+    .nearest-hint { font-size: 12px; color: var(--text-muted); line-height: 1.4; margin-bottom: 8px; }
 
     .date-row {
       display: flex;
@@ -1506,6 +1594,7 @@
 
       button { padding: 11px 14px; }
       input[type="text"], input[type="date"], select { padding: 11px 12px; }
+      .stop-search-item { padding: 11px 12px; }
       .pagination-btn { padding: 10px 14px; }
       .show-all-deps-btn { padding: 8px 12px; }
 
@@ -1998,7 +2087,7 @@
                   <input type="checkbox" id="mergeCrossStreetsToggle" />
                   Merge reversed cross-streets
                 </label>
-                <label class="toggle-row" for="includeNearbyToggle" title="Also include any other stops within this distance of the matched stops">
+                <label class="toggle-row" for="includeNearbyToggle" title="Merge departures from every stop within this distance — e.g. both sides of the street. Turn off to see one stop at a time.">
                   <input type="checkbox" id="includeNearbyToggle" checked />
                   Include all stops within
                   <input type="number" id="includeNearbyRadius" class="radius-input" min="1" max="5000" step="1" value="75" aria-label="Radius in meters" />
@@ -2013,17 +2102,14 @@
           </div>
 
           <div class="field-block stop-search-wrap">
-            <label class="input-row-label" for="stopSearchInput">Search by name</label>
-            <input type="text" id="stopSearchInput" placeholder="e.g. Main St" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Search stops by name" />
-            <div class="stop-search-results" id="stopSearchResults"></div>
-          </div>
-
-          <div class="field-block">
-            <label class="input-row-label" for="stopIdInput">Or by stop ID</label>
-            <div class="input-group">
-              <input type="text" id="stopIdInput" placeholder="Stop ID, e.g. 4901" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Stop ID" />
-              <button class="primary" onclick="handleLoadStop('stopIdInput','dateInput')">Load stop</button>
+            <label class="input-row-label" for="stopSearchInput">Name or stop number</label>
+            <div class="stop-search-field">
+              <input type="text" id="stopSearchInput" placeholder="e.g. Main St or 1867" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Find a stop by name, ID or code" />
+              <button type="button" class="stop-search-clear" aria-label="Clear search" hidden>&times;</button>
             </div>
+            <!-- Hidden: holds the currently loaded stop id so date changes / map clicks can reload it -->
+            <input type="hidden" id="stopIdInput" />
+            <div class="stop-search-results" id="stopSearchResults"></div>
           </div>
 
           <div class="field-block">
@@ -2050,7 +2136,7 @@
         <div id="departuresSection" style="display:none">
           <div class="departures-section-header">
             <div class="section-title">Departures</div>
-            <button class="show-all-deps-btn" id="showAllDepsBtn" onclick="cycleDepView('d')">Show all</button>
+            <button class="show-all-deps-btn" id="showAllDepsBtn" onclick="cycleDepView('d')" title="Click to change the time window">Showing next 3h</button>
           </div>
           <div class="dep-filter-row settings-popover-wrap">
             <button type="button" class="dep-filter-btn" id="depFilterBtn" aria-haspopup="true" aria-expanded="false">Filter <span class="dep-filter-badge" id="depFilterBadge" hidden>0</span></button>
@@ -2078,7 +2164,7 @@
         <div id="multiDeparturesSection" style="display:none">
           <div class="departures-section-header">
             <div class="section-title">Combined departures</div>
-            <button class="show-all-deps-btn" id="showAllMultiDepsBtn" onclick="cycleMultiDepView('d')">Show all</button>
+            <button class="show-all-deps-btn" id="showAllMultiDepsBtn" onclick="cycleMultiDepView('d')" title="Click to change the time window">Showing next 3h</button>
           </div>
           <div class="dep-filter-row settings-popover-wrap">
             <button type="button" class="dep-filter-btn" id="multiDepFilterBtn" aria-haspopup="true" aria-expanded="false">Filter <span class="dep-filter-badge" id="multiDepFilterBadge" hidden>0</span></button>
@@ -2163,7 +2249,7 @@
           </div>
           <div class="input-group">
             <button class="secondary tab-accent-btn" style="flex:1" onclick="handleFindNearest('latInput','lonInput')">Search nearby</button>
-            <button class="secondary tab-accent-btn" style="flex:1" onclick="useMyLocation('latInput','lonInput')">Use my location</button>
+            <button class="secondary tab-accent-btn" style="flex:1" onclick="useMyLocation('latInput','lonInput',true)">Use my location</button>
           </div>
           <button class="secondary tab-accent-btn" style="width:100%" onclick="showUserLocation()">Show my location on map</button>
           <button class="pick-mode-btn tab-accent-btn" id="pickModeBtn" onclick="setPickMode(!pickModeActive)">Pick a point on the map</button>
@@ -2239,7 +2325,7 @@
                 <input type="checkbox" id="m-mergeCrossStreetsToggle" />
                 Merge reversed cross-streets
               </label>
-              <label class="toggle-row" for="m-includeNearbyToggle" title="Also include any other stops within this distance of the matched stops">
+              <label class="toggle-row" for="m-includeNearbyToggle" title="Merge departures from every stop within this distance — e.g. both sides of the street. Turn off to see one stop at a time.">
                 <input type="checkbox" id="m-includeNearbyToggle" checked />
                 Include all stops within
                 <input type="number" id="m-includeNearbyRadius" class="radius-input" min="1" max="5000" step="1" value="75" aria-label="Radius in meters" />
@@ -2254,17 +2340,13 @@
         </div>
 
         <div class="field-block stop-search-wrap">
-          <label class="input-row-label" for="m-stopSearchInput">Search by name</label>
-          <input type="text" id="m-stopSearchInput" placeholder="e.g. Main St" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Search stops by name" />
-          <div class="stop-search-results" id="m-stopSearchResults"></div>
-        </div>
-
-        <div class="field-block">
-          <label class="input-row-label" for="m-stopIdInput">Or by stop ID</label>
-          <div class="input-group">
-            <input type="text" id="m-stopIdInput" placeholder="Stop ID" autocapitalize="off" autocorrect="off" spellcheck="false" />
-            <button class="primary" onclick="handleLoadStop('m-stopIdInput','m-dateInput')">Load stop</button>
+          <label class="input-row-label" for="m-stopSearchInput">Name or stop number</label>
+          <div class="stop-search-field">
+            <input type="text" id="m-stopSearchInput" placeholder="e.g. Main St or 1867" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Find a stop by name, ID or code" />
+            <button type="button" class="stop-search-clear" aria-label="Clear search" hidden>&times;</button>
           </div>
+          <input type="hidden" id="m-stopIdInput" />
+          <div class="stop-search-results" id="m-stopSearchResults"></div>
         </div>
         <div class="field-block">
           <label class="input-row-label" for="m-dateInput">Date</label>
@@ -2289,7 +2371,7 @@
         <div id="m-departuresSection" style="display:none">
           <div class="departures-section-header">
             <div class="section-title">Departures</div>
-            <button class="show-all-deps-btn" id="m-showAllDepsBtn" onclick="cycleDepView('m')">Show all</button>
+            <button class="show-all-deps-btn" id="m-showAllDepsBtn" onclick="cycleDepView('m')" title="Tap to change the time window">Showing next 3h</button>
           </div>
           <div class="dep-filter-row settings-popover-wrap">
             <button type="button" class="dep-filter-btn" id="m-depFilterBtn" aria-haspopup="true" aria-expanded="false">Filter <span class="dep-filter-badge" id="m-depFilterBadge" hidden>0</span></button>
@@ -2317,7 +2399,7 @@
         <div id="m-multiDeparturesSection" style="display:none">
           <div class="departures-section-header">
             <div class="section-title">Combined departures</div>
-            <button class="show-all-deps-btn" id="m-showAllMultiDepsBtn" onclick="cycleMultiDepView('m')">Show all</button>
+            <button class="show-all-deps-btn" id="m-showAllMultiDepsBtn" onclick="cycleMultiDepView('m')" title="Tap to change the time window">Showing next 3h</button>
           </div>
           <div class="dep-filter-row settings-popover-wrap">
             <button type="button" class="dep-filter-btn" id="m-multiDepFilterBtn" aria-haspopup="true" aria-expanded="false">Filter <span class="dep-filter-badge" id="m-multiDepFilterBadge" hidden>0</span></button>
@@ -2512,13 +2594,13 @@
         dTab: 'sb-tab-stop', mTab: 'm-tab-stop',
         dTarget: '#stopSearchInput', mTarget: '#m-stopSearchInput',
         title: 'Find a stop',
-        desc: 'Search by name, or enter a stop ID or stop code directly to jump straight to it.'
+        desc: 'Type part of a stop name, or the stop number from the sign, and pick a match. On a keyboard use \u2191 \u2193 and Enter. Your recent stops appear whenever the box is empty.'
       },
       {
         dTab: 'sb-tab-stop', mTab: 'm-tab-stop',
         dTarget: '#stopSettingsBtn', mTarget: '#m-stopSettingsBtn',
         title: 'Search settings',
-        desc: 'By default a name search merges every stop sharing that exact name — like both sides of an intersection — into one combined departure board. Open this menu to turn that off, merge reversed cross-streets, adjust the nearby radius, or stop truncating duplicate trips.'
+        desc: 'By default a name search merges every stop sharing that exact name — like both sides of an intersection — into one combined departure board, and dropping a pin or using your location merges every stop within the nearby radius of that point. Open this menu to turn that off, merge reversed cross-streets, adjust the radius, or stop truncating duplicate trips.'
       },
       {
         dTab: 'sb-tab-triproute', mTab: 'm-tab-trip',
@@ -2684,6 +2766,15 @@
     let multiStopsRequestId = 0;
     let currentMultiStopName = null;
     let currentMultiStopIds = [];
+
+    // What the Stops tab is showing right now, so a date change, the 15 s
+    // refresh and the search-settings toggles re-run the *same* view instead
+    // of collapsing a merged board to one stop or drifting to a name search.
+    //   { kind: 'single', stopId }            one stop
+    //   { kind: 'name',   name }              every stop sharing a name (+ nearby)
+    //   { kind: 'nearby', stopId }            a stop plus everything within the radius
+    //   { kind: 'point',  lat, lon, label }   everything within the radius of a map point
+    let currentStopView = null;
 
     // ===== UTILS =====
     function showEls(ids, display) {
@@ -3028,7 +3119,7 @@
       const pinIcon = L.divIcon({className:'click-pin-marker',html:'<div></div>',iconSize:[12,12],iconAnchor:[6,6]});
       clickPinMarker = L.marker([lat,lng],{icon:pinIcon}).addTo(map);
       clickPinMarker.bindPopup(`${lat.toFixed(5)}, ${lng.toFixed(5)}`).openPopup();
-      findNearestStops(lat,lng);
+      findNearestStops(lat,lng,'Near the pin');
       setPickMode(false);
     }
 
@@ -3395,21 +3486,21 @@
         if (!sec) return;
         if (showAll) {
           renderDepartureCards(base, stopId, p);
-          if (btn) btn.textContent = 'Next 3h only';
+          if (btn) btn.textContent = `Showing all ${base.length}`;
           if (label) label.textContent = `${base.length} departure${base.length!==1?'s':''} total`;
         } else if (showN4) {
           const next4 = filterNext4(base);
           renderDepartureCards(next4, stopId, p);
-          if (btn) btn.textContent = `Show all ${base.length}`;
+          if (btn) btn.textContent = 'Showing next 4';
           if (label) label.textContent = 'Next 4 departures';
         } else {
           const filtered = filterNext3h(base);
           renderDepartureCards(filtered, stopId, p);
           if (filtered.length === 0) {
-            if (btn) btn.textContent = `Show all ${base.length}`;
+            if (btn) btn.textContent = 'Showing next 3h';
             if (label) label.textContent = 'No departures in the next 3 hours';
           } else {
-            if (btn) btn.textContent = 'Next 4';
+            if (btn) btn.textContent = 'Showing next 3h';
             if (label) label.textContent = `Next 3 hours · ${filtered.length} departure${filtered.length!==1?'s':''}`;
           }
         }
@@ -3425,8 +3516,9 @@
     }
 
     function cycleDepView(prefix) {
-      // When the 3h window is empty, its button reads "Show all N" (there's
-      // no point offering a "Next 4" step in between), so skip straight to
+      // The button names the window currently showing; clicking cycles
+      // 3h → next 4 → all. When the 3h window is empty there's no point in
+      // a "next 4" step in between, so skip straight to
       // the all-departures state instead of following the normal 3-way cycle.
       const empty3h = filterNext3h(applyDepFilter(allDepartures, 'dep-' + prefix)).length === 0;
       if (prefix === 'd') {
@@ -3521,12 +3613,6 @@
     }
 
     // ===== STOP =====
-    function handleLoadStop(stopInputId, dateInputId) {
-      const v = document.getElementById(stopInputId)?.value.trim();
-      const date = document.getElementById(dateInputId)?.value || todayStr();
-      if (v) loadStop(v, date);
-    }
-
     function loadStop(stopId, date) {
       date = date || todayStr();
       clearMultiStopDisplay();
@@ -3539,6 +3625,36 @@
           hideEls(['stopHeader','m-stopHeader']);
           hideEls(['departuresSection','m-departuresSection']);
         });
+    }
+
+    function currentDateStr() {
+      return document.getElementById('dateInput')?.value
+        || document.getElementById('m-dateInput')?.value
+        || todayStr();
+    }
+
+    function reloadCurrentStopView(date, isRefresh) {
+      const view = currentStopView;
+      if (!view) return false;
+      date = date || currentDateStr();
+      switch (view.kind) {
+        case 'single': if (!isRefresh) loadStop(view.stopId, date); break;
+        case 'name':   loadMultiStops(view.name, date, !!isRefresh); break;
+        case 'nearby':
+          if (includeNearbyEnabled()) loadStopWithNearby(view.stopId, date, !!isRefresh);
+          else if (!isRefresh) loadStop(view.stopId, date);
+          break;
+        case 'point':  loadStopsAroundPoint(view.lat, view.lon, view.label, null, date, !!isRefresh); break;
+      }
+      return true;
+    }
+
+    // "Only this stop": narrow whatever is showing to a single stop's board.
+    function loadStopOnly(stopId, date) {
+      date = date || currentDateStr();
+      clearNearestStopMarkers();
+      ['stopIdInput','m-stopIdInput'].forEach(id => { const el=document.getElementById(id); if(el) el.value=stopId; });
+      loadStop(stopId, date);
     }
 
     // Entry point for clicking a stop marker on the map: shows that stop's
@@ -3554,10 +3670,11 @@
       }
     }
 
-    function loadStopWithNearby(stopId, date) {
+    function loadStopWithNearby(stopId, date, isRefresh) {
       date = date || todayStr();
       const requestId = ++multiStopsRequestId;
       const radiusKM = includeNearbyRadiusM() / 1000;
+      currentStopView = { kind: 'nearby', stopId: String(stopId) };
 
       const run = () => fetch(`/api/stop/${stopId}/${date}`).then(r => r.json())
         .then(origin => {
@@ -3574,13 +3691,324 @@
         })
         .then(result => {
           if (!result || requestId !== multiStopsRequestId) return;
-          displayMultiStops(result.name, result.stops, false);
+          displayMultiStops(result.name, result.stops, !!isRefresh);
         })
-        .catch(() => { if (requestId === multiStopsRequestId) showToast('Error loading stop.'); });
+        .catch(() => { if (requestId === multiStopsRequestId && !isRefresh) showToast('Error loading stop.'); });
 
+      if (isRefresh) { run(); return; }
       clearSingleStopDisplay();
       hideEls(['multiStopHeader', 'm-multiStopHeader']);
       withMinSpinner(['multiStopLoading', 'm-multiStopLoading'], 'flex', run);
+    }
+
+    // Location-first board: every stop within the nearby radius of a map
+    // point (a dropped pin, the rider's GPS fix, or typed coordinates),
+    // merged into one departure board. Falls back to the single closest stop
+    // when nothing is inside the radius or the include-nearby toggle is off.
+    // `nearest` is an already-fetched /api/nearest list, or null to fetch.
+    function loadStopsAroundPoint(lat, lon, label, nearest, date, isRefresh) {
+      date = date || todayStr();
+      const requestId = ++multiStopsRequestId;
+      const radiusKM = includeNearbyRadiusM() / 1000;
+      currentStopView = { kind: 'point', lat, lon, label };
+
+      const getNearest = nearest
+        ? Promise.resolve(nearest)
+        : fetch(`/api/nearest/${lat}/${lon}?limit=${NEARBY_STOPS_FETCH_LIMIT}`).then(r => r.json()).then(d => d.nearest_stops || []);
+
+      const run = () => getNearest
+        .then(list => {
+          if (requestId !== multiStopsRequestId) return null;
+          if (!list.length) return { stops: [] };
+          let chosen = includeNearbyEnabled() ? list.filter(n => n.distanceKM <= radiusKM) : [];
+          if (!chosen.length) chosen = [list[0]];
+          chosen = chosen.slice(0, NEARBY_STOPS_FETCH_LIMIT);
+          return Promise.all(chosen.map(n => fetch(`/api/stop/${n.stop_id}/${date}`).then(r => r.json())))
+            .then(stops => ({ stops: stops.filter(s => !s.error) }));
+        })
+        .then(result => {
+          if (!result || requestId !== multiStopsRequestId) return;
+          if (!result.stops.length) { if (!isRefresh) showToast('No stops found near this location.'); return; }
+          displayMultiStops(label, result.stops, !!isRefresh);
+          if (!isRefresh) {
+            // keep the pin in view alongside the stops it pulled in
+            const bounds = L.latLngBounds([[lat, lon], ...result.stops.map(st => [st.lat, st.lon])]);
+            map.fitBounds(bounds.pad(0.3), { maxZoom: 17 });
+          }
+        })
+        .catch(() => { if (requestId === multiStopsRequestId && !isRefresh) showToast('Error loading nearby stops.'); });
+
+      if (isRefresh) { run(); return; }
+      clearSingleStopDisplay();
+      hideEls(['multiStopHeader', 'm-multiStopHeader']);
+      withMinSpinner(['multiStopLoading', 'm-multiStopLoading'], 'flex', run);
+    }
+
+    // ===== SEARCH DROPDOWN HELPERS (shared by stop + route search) =====
+    const SEARCH_DEBOUNCE_MS = 150;
+    const STOP_SEARCH_MIN_CHARS = 2;
+    const SEARCH_MAX_ROWS = 8;
+    const canHoverPointer = (() => { try { return window.matchMedia('(hover: hover)').matches; } catch (e) { return false; } })();
+
+    function debounce(fn, ms) {
+      let timer = null;
+      const wrapped = function (...args) {
+        clearTimeout(timer);
+        timer = setTimeout(() => { timer = null; fn.apply(this, args); }, ms);
+      };
+      wrapped.cancel = () => { clearTimeout(timer); timer = null; };
+      return wrapped;
+    }
+
+    // Wires the combobox/listbox ARIA roles so screen readers announce the
+    // dropdown, and remembers the input on the list so hide/show helpers that
+    // only receive the list element can keep the attributes in sync.
+    function bindSearchDropdown(input, results) {
+      results._input = input;
+      input.setAttribute('role', 'combobox');
+      input.setAttribute('aria-autocomplete', 'list');
+      input.setAttribute('aria-expanded', 'false');
+      input.setAttribute('aria-controls', results.id);
+      results.setAttribute('role', 'listbox');
+    }
+
+    function showStopSearchResults(results) {
+      results.classList.add('visible');
+      if (results._input) results._input.setAttribute('aria-expanded', 'true');
+    }
+
+    function hideStopSearchResults(results) {
+      results.classList.remove('visible');
+      if (results._input) {
+        results._input.setAttribute('aria-expanded', 'false');
+        results._input.removeAttribute('aria-activedescendant');
+      }
+      clearSearchPreview();
+    }
+
+    function setActiveSearchItem(results, item) {
+      results.querySelectorAll('.stop-search-item.active').forEach(el => el.classList.remove('active'));
+      if (!item) { if (results._input) results._input.removeAttribute('aria-activedescendant'); return; }
+      item.classList.add('active');
+      item.scrollIntoView({ block: 'nearest' });
+      if (item.id && results._input) results._input.setAttribute('aria-activedescendant', item.id);
+      if (item._preview) item._preview();
+    }
+
+    // Arrow keys move the highlight, Enter picks, Escape closes. `onEnter`
+    // receives the highlighted item (or null) and the full list of items.
+    function attachDropdownKeyboard(input, results, onEnter) {
+      input.addEventListener('keydown', e => {
+        const items = Array.from(results.querySelectorAll('.stop-search-item'));
+        if (e.key === 'Escape') {
+          if (results.classList.contains('visible')) { e.preventDefault(); hideStopSearchResults(results); }
+          else input.blur();
+          return;
+        }
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+          if (!items.length) return;
+          e.preventDefault();
+          if (!results.classList.contains('visible')) showStopSearchResults(results);
+          const cur = items.findIndex(el => el.classList.contains('active'));
+          const next = e.key === 'ArrowDown'
+            ? (cur < 0 ? 0 : (cur + 1) % items.length)
+            : (cur < 0 ? items.length - 1 : (cur - 1 + items.length) % items.length);
+          setActiveSearchItem(results, items[next]);
+        } else if (e.key === 'Enter') {
+          e.preventDefault();
+          const active = results.classList.contains('visible')
+            ? items.find(el => el.classList.contains('active')) || null
+            : null;
+          onEnter(active, results.classList.contains('visible') ? items : []);
+        }
+      });
+    }
+
+    // Appends `text` to `el`, wrapping the part that matches `query` (or,
+    // failing that, each query word) in <mark>. Built from text nodes, so
+    // stop names are never interpreted as HTML.
+    function appendHighlighted(el, text, query) {
+      text = String(text == null ? '' : text);
+      const q = (query || '').trim().toLowerCase();
+      if (!q) { el.textContent = text; return; }
+      const lower = text.toLowerCase();
+      let ranges = [];
+      const whole = lower.indexOf(q);
+      if (whole >= 0) {
+        ranges.push([whole, whole + q.length]);
+      } else {
+        q.split(/[\s\/,&-]+/).filter(t => t.length >= 2).forEach(t => {
+          const i = lower.indexOf(t);
+          if (i >= 0) ranges.push([i, i + t.length]);
+        });
+        ranges.sort((a, b) => a[0] - b[0]);
+        const merged = [];
+        ranges.forEach(r => { if (!merged.length || r[0] >= merged[merged.length - 1][1]) merged.push(r); });
+        ranges = merged;
+      }
+      let pos = 0;
+      ranges.forEach(([from, to]) => {
+        if (from > pos) el.appendChild(document.createTextNode(text.slice(pos, from)));
+        const mark = document.createElement('mark');
+        mark.className = 'stop-search-hl';
+        mark.textContent = text.slice(from, to);
+        el.appendChild(mark);
+        pos = to;
+      });
+      if (pos < text.length) el.appendChild(document.createTextNode(text.slice(pos)));
+    }
+
+    // Builds one dropdown row. `pick` runs on click/tap/Enter; `preview`
+    // (optional) runs on hover or keyboard highlight.
+    function makeSearchRow(results, { id, primary, query, secondary, badge, pick, preview }) {
+      const item = document.createElement('div');
+      item.className = 'stop-search-item';
+      item.setAttribute('role', 'option');
+      item.setAttribute('aria-selected', 'false');
+      if (id) item.id = id;
+
+      const name = document.createElement('span');
+      name.className = 'stop-search-name';
+      appendHighlighted(name, primary, query);
+      item.appendChild(name);
+
+      if (badge) {
+        const b = document.createElement('span');
+        b.className = 'stop-search-count';
+        b.textContent = badge;
+        item.appendChild(b);
+      }
+      if (secondary) {
+        const sec = document.createElement('span');
+        sec.className = 'stop-search-id';
+        sec.textContent = secondary;
+        item.appendChild(sec);
+      }
+
+      item._pick = pick;
+      item._preview = preview || null;
+
+      // mousedown (not click) so it fires before the input's blur hides the list
+      item.addEventListener('mousedown', e => { e.preventDefault(); pick(); });
+      // Touch: pick on a tap, but not after a scroll gesture. preventDefault on
+      // touchend also suppresses the emulated mousedown so it doesn't fire twice.
+      let touchMoved = false;
+      item.addEventListener('touchstart', () => { touchMoved = false; }, { passive: true });
+      item.addEventListener('touchmove', () => { touchMoved = true; }, { passive: true });
+      item.addEventListener('touchend', e => { if (touchMoved) return; e.preventDefault(); pick(); });
+      if (preview && canHoverPointer) item.addEventListener('mouseenter', preview);
+
+      results.appendChild(item);
+      return item;
+    }
+
+    function renderSearchMessage(results, className, text) {
+      results.innerHTML = '';
+      const el = document.createElement('div');
+      el.className = className;
+      el.textContent = text;
+      results.appendChild(el);
+      showStopSearchResults(results);
+    }
+
+    // Shows a "Searching…" row only when there's nothing useful on screen yet;
+    // otherwise the previous results stay put until the new ones arrive.
+    function showStopSearchLoading(results) {
+      results.setAttribute('aria-busy', 'true');
+      if (results.dataset.mode !== 'search' || !results.querySelector('.stop-search-item')) {
+        results.dataset.mode = 'loading';
+        renderSearchMessage(results, 'stop-search-loading', 'Searching…');
+      }
+    }
+
+    // ----- map preview of hovered/highlighted results -----
+    let searchPreviewLayer = null;
+
+    function clearSearchPreview() {
+      if (searchPreviewLayer && typeof map !== 'undefined' && map) map.removeLayer(searchPreviewLayer);
+      searchPreviewLayer = null;
+    }
+
+    function showSearchPreview(points) {
+      if (typeof map === 'undefined' || !map) return;
+      clearSearchPreview();
+      const pts = (points || []).filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lon) && (p.lat !== 0 || p.lon !== 0));
+      if (!pts.length) return;
+      const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#2B5FAD';
+      searchPreviewLayer = L.layerGroup(pts.map(p => L.circleMarker([p.lat, p.lon], {
+        radius: 9, color: accent, weight: 2, dashArray: '4 3',
+        fillColor: accent, fillOpacity: 0.15, interactive: false
+      }))).addTo(map);
+      const bounds = L.latLngBounds(pts.map(p => [p.lat, p.lon]));
+      if (!map.getBounds().contains(bounds)) map.panTo(bounds.getCenter());
+    }
+
+    // ----- recent stops (localStorage) -----
+    const RECENT_STOPS_KEY = 'gtfs-recent-stops';
+    const RECENT_STOPS_MAX = 6;
+
+    function getRecentStops() {
+      try {
+        const v = JSON.parse(localStorage.getItem(RECENT_STOPS_KEY) || '[]');
+        return Array.isArray(v) ? v.filter(r => r && r.stop_id != null && r.stop_name) : [];
+      } catch (e) { return []; }
+    }
+
+    function rememberRecentStop(match) {
+      const entry = {
+        stop_id: String(match.stop_id),
+        stop_name: match.stop_name || '',
+        stop_code: match.stop_code || '',
+        lat: match.lat, lon: match.lon,
+        group: !!match._group,
+        members: match._members ? match._members.map(m => ({ stop_id: String(m.stop_id), lat: m.lat, lon: m.lon })) : undefined
+      };
+      const rest = getRecentStops().filter(r => !(String(r.stop_id) === entry.stop_id && !!r.group === entry.group));
+      try { localStorage.setItem(RECENT_STOPS_KEY, JSON.stringify([entry, ...rest].slice(0, RECENT_STOPS_MAX))); } catch (e) {}
+    }
+
+    function clearRecentStops() {
+      try { localStorage.removeItem(RECENT_STOPS_KEY); } catch (e) {}
+    }
+
+    function renderRecentStops(results, onSelect) {
+      const recents = getRecentStops();
+      results.innerHTML = '';
+      results.removeAttribute('aria-busy');
+      if (!recents.length) { results.dataset.mode = 'empty'; hideStopSearchResults(results); return; }
+      results.dataset.mode = 'recent';
+
+      const header = document.createElement('div');
+      header.className = 'stop-search-section';
+      const title = document.createElement('span');
+      title.textContent = 'Recent';
+      const clearBtn = document.createElement('button');
+      clearBtn.type = 'button';
+      clearBtn.textContent = 'Clear';
+      clearBtn.addEventListener('mousedown', e => {
+        e.preventDefault();
+        clearRecentStops();
+        results.innerHTML = '';
+        hideStopSearchResults(results);
+      });
+      header.appendChild(title);
+      header.appendChild(clearBtn);
+      results.appendChild(header);
+
+      recents.forEach((r, i) => {
+        const match = { stop_id: r.stop_id, stop_name: r.stop_name, stop_code: r.stop_code, lat: r.lat, lon: r.lon };
+        if (r.group && r.members) { match._group = true; match._members = r.members; }
+        const previewPts = r.group && r.members ? r.members : [r];
+        makeSearchRow(results, {
+          id: `${results.id}-recent-${i}`,
+          primary: r.stop_name,
+          badge: r.group && r.members && r.members.length > 1 ? `${r.members.length} stops` : '',
+          secondary: r.group ? '' : (r.stop_code || r.stop_id),
+          pick: () => onSelect(match, results),
+          preview: () => showSearchPreview(previewPts)
+        });
+      });
+      showStopSearchResults(results);
     }
 
     // ===== STOP NAME SEARCH =====
@@ -3591,80 +4019,146 @@
       const input = document.getElementById(inputId);
       const results = document.getElementById(resultsId);
       if (!input || !results) return;
+      bindSearchDropdown(input, results);
 
-      input.addEventListener('input', () => {
+      const clearBtn = input.parentElement ? input.parentElement.querySelector('.stop-search-clear') : null;
+      const syncClearBtn = () => { if (clearBtn) clearBtn.hidden = !input.value; };
+      syncClearBtn();
+
+      const debouncedRun = debounce(q => runStopSearch(q, results, onSelect, false), SEARCH_DEBOUNCE_MS);
+
+      const onQueryChange = () => {
+        syncClearBtn();
         const q = input.value.trim();
-        if (!q) { hideStopSearchResults(results); return; }
-        runStopSearch(q, results, onSelect);
-      });
+        if (q.length < STOP_SEARCH_MIN_CHARS) {
+          debouncedRun.cancel();
+          ++stopSearchRequestId; // drop any in-flight response
+          renderRecentStops(results, onSelect);
+          return;
+        }
+        showStopSearchLoading(results);
+        debouncedRun(q);
+      };
+
+      input.addEventListener('input', onQueryChange);
 
       input.addEventListener('focus', () => {
-        if (results.childElementCount) results.classList.add('visible');
+        const q = input.value.trim();
+        if (q.length < STOP_SEARCH_MIN_CHARS) renderRecentStops(results, onSelect);
+        else if (results.childElementCount) showStopSearchResults(results);
       });
 
       input.addEventListener('blur', () => {
         // delay so a click on a result registers before the list is hidden
         setTimeout(() => hideStopSearchResults(results), 150);
       });
+
+      if (clearBtn) {
+        clearBtn.addEventListener('mousedown', e => {
+          e.preventDefault();
+          input.value = '';
+          input.focus();
+          onQueryChange();
+        });
+      }
+
+      attachDropdownKeyboard(input, results, (active, items) => {
+        if (active) { active._pick(); return; }
+        // Enter with nothing highlighted: load the stop whose ID/code exactly
+        // matches what was typed (the "stop number from the sign" case), or the
+        // only result if there is just one. Search immediately if a debounced
+        // request hasn't fired yet.
+        const q = input.value.trim();
+        if (q.length < STOP_SEARCH_MIN_CHARS || results.dataset.mode === 'recent') return;
+        debouncedRun.cancel();
+        if (results.dataset.mode === 'search' && results._query === q) {
+          const exact = findExactStopMatch(results._matches || [], q);
+          if (exact) onSelect(exact, results);
+          else if (items.length) items[0]._pick();
+          return;
+        }
+        showStopSearchLoading(results);
+        runStopSearch(q, results, onSelect, true);
+      });
     }
 
-    function hideStopSearchResults(results) {
-      results.classList.remove('visible');
+    function findExactStopMatch(matches, query) {
+      const q = query.trim().toLowerCase();
+      return matches.find(m => String(m.stop_id).toLowerCase() === q || String(m.stop_code || '').toLowerCase() === q)
+        || (matches.length === 1 ? matches[0] : null);
     }
 
-    function runStopSearch(query, results, onSelect) {
+    function runStopSearch(query, results, onSelect, pickExactOnArrive) {
       const requestId = ++stopSearchRequestId;
       fetch(`/api/searchstop/${encodeURIComponent(query)}`)
         .then(r => r.json())
         .then(data => {
           if (requestId !== stopSearchRequestId) return; // superseded by a later keystroke
-          renderStopSearchResults(data.matches || [], results, onSelect);
+          results.removeAttribute('aria-busy');
+          const matches = data.matches || [];
+          if (pickExactOnArrive) {
+            const exact = findExactStopMatch(matches, query);
+            if (exact) { onSelect(exact, results); return; }
+          }
+          renderStopSearchResults(matches, results, onSelect, query);
         })
         .catch(() => {
           if (requestId !== stopSearchRequestId) return;
-          results.innerHTML = '';
-          hideStopSearchResults(results);
+          results.removeAttribute('aria-busy');
+          results.dataset.mode = 'error';
+          renderSearchMessage(results, 'stop-search-empty', 'Couldn’t search right now — try again');
         });
     }
 
-    function renderStopSearchResults(matches, results, onSelect) {
+    // Collapse stops that share a name into one row when the "search stops
+    // with same name" setting is on, since picking any of them loads the
+    // merged board anyway. Honours the merge-reversed-cross-streets setting.
+    function groupStopMatches(matches) {
+      if (!searchMultipleStopsEnabled()) return matches.map(m => ({ name: m.stop_name, stops: [m] }));
+      const useCanonical = mergeCrossStreetsEnabled() && typeof canonicalStopKey === 'function';
+      const groups = new Map();
+      matches.forEach(m => {
+        const key = useCanonical ? canonicalStopKey(m.stop_name) : String(m.stop_name || '').trim().toUpperCase();
+        if (!groups.has(key)) groups.set(key, { name: m.stop_name, stops: [] });
+        groups.get(key).stops.push(m);
+      });
+      return Array.from(groups.values());
+    }
+
+    function renderStopSearchResults(matches, results, onSelect, query) {
       results.innerHTML = '';
+      results.dataset.mode = 'search';
+      results._query = query;
+      results._matches = matches;
 
       if (!matches.length) {
-        const empty = document.createElement('div');
-        empty.className = 'stop-search-empty';
-        empty.textContent = 'No matching stops';
-        results.appendChild(empty);
-        results.classList.add('visible');
+        renderSearchMessage(results, 'stop-search-empty', `No stops match “${query}”`);
         return;
       }
 
-      matches.forEach(m => {
-        const item = document.createElement('div');
-        item.className = 'stop-search-item';
-
-        const name = document.createElement('span');
-        name.className = 'stop-search-name';
-        name.textContent = m.stop_name;
-
-        const id = document.createElement('span');
-        id.className = 'stop-search-id';
-        id.textContent = `#${m.stop_id}`;
-
-        item.appendChild(name);
-        item.appendChild(id);
-        item.addEventListener('mousedown', e => {
-          e.preventDefault(); // fires before the input's blur handler hides the list
-          onSelect(m, results);
+      groupStopMatches(matches).slice(0, SEARCH_MAX_ROWS).forEach((g, i) => {
+        const first = g.stops[0];
+        const match = g.stops.length > 1
+          ? { ...first, _group: true, _members: g.stops }
+          : first;
+        makeSearchRow(results, {
+          id: `${results.id}-opt-${i}`,
+          primary: g.name,
+          query,
+          badge: g.stops.length > 1 ? `${g.stops.length} stops` : '',
+          secondary: g.stops.length > 1 ? '' : (first.stop_code || first.stop_id),
+          pick: () => onSelect(match, results),
+          preview: () => showSearchPreview(g.stops)
         });
-        results.appendChild(item);
       });
 
-      results.classList.add('visible');
+      showStopSearchResults(results);
     }
 
     function selectStopFromSearch(match, results) {
       hideStopSearchResults(results);
+      if (results._input) results._input.blur(); // dismiss the mobile keyboard
+      rememberRecentStop(match);
 
       const date = document.getElementById('dateInput')?.value
         || document.getElementById('m-dateInput')?.value
@@ -3676,7 +4170,10 @@
       });
       ['stopSearchInput', 'm-stopSearchInput'].forEach(id => {
         const el = document.getElementById(id);
-        if (el) el.value = match.stop_name;
+        if (!el) return;
+        el.value = match.stop_name;
+        const clearBtn = el.parentElement ? el.parentElement.querySelector('.stop-search-clear') : null;
+        if (clearBtn) clearBtn.hidden = false;
       });
 
       if (searchMultipleStopsEnabled()) {
@@ -3695,19 +4192,34 @@
       const input = document.getElementById(inputId);
       const results = document.getElementById(resultsId);
       if (!input || !results) return;
+      bindSearchDropdown(input, results);
+
+      const debouncedRun = debounce(q => runRouteSearch(q, results, dateInputId), SEARCH_DEBOUNCE_MS);
 
       input.addEventListener('input', () => {
         const q = input.value.trim();
-        if (!q) { hideStopSearchResults(results); return; }
-        runRouteSearch(q, results, dateInputId);
+        if (!q) {
+          debouncedRun.cancel();
+          ++routeSearchRequestId;
+          results.innerHTML = '';
+          hideStopSearchResults(results);
+          return;
+        }
+        showStopSearchLoading(results);
+        debouncedRun(q);
       });
 
       input.addEventListener('focus', () => {
-        if (results.childElementCount) results.classList.add('visible');
+        if (results.childElementCount) showStopSearchResults(results);
       });
 
       input.addEventListener('blur', () => {
         setTimeout(() => hideStopSearchResults(results), 150);
+      });
+
+      attachDropdownKeyboard(input, results, (active, items) => {
+        const target = active || items[0];
+        if (target && target._pick) target._pick();
       });
     }
 
@@ -3717,49 +4229,37 @@
         .then(r => r.json())
         .then(data => {
           if (requestId !== routeSearchRequestId) return; // superseded by a later keystroke
-          renderRouteSearchResults(data.matches || [], results, dateInputId);
+          results.removeAttribute('aria-busy');
+          renderRouteSearchResults(data.matches || [], results, dateInputId, query);
         })
         .catch(() => {
           if (requestId !== routeSearchRequestId) return;
-          results.innerHTML = '';
-          hideStopSearchResults(results);
+          results.removeAttribute('aria-busy');
+          results.dataset.mode = 'error';
+          renderSearchMessage(results, 'stop-search-empty', 'Couldn’t search right now — try again');
         });
     }
 
-    function renderRouteSearchResults(matches, results, dateInputId) {
+    function renderRouteSearchResults(matches, results, dateInputId, query) {
       results.innerHTML = '';
+      results.dataset.mode = 'search';
 
       if (!matches.length) {
-        const empty = document.createElement('div');
-        empty.className = 'stop-search-empty';
-        empty.textContent = 'No matching routes';
-        results.appendChild(empty);
-        results.classList.add('visible');
+        renderSearchMessage(results, 'stop-search-empty', `No routes match “${query}”`);
         return;
       }
 
-      matches.forEach(m => {
-        const item = document.createElement('div');
-        item.className = 'stop-search-item';
-
-        const name = document.createElement('span');
-        name.className = 'stop-search-name';
-        name.textContent = m.route_short_name ? `${m.route_short_name} — ${m.route_long_name}` : m.route_long_name;
-
-        const id = document.createElement('span');
-        id.className = 'stop-search-id';
-        id.textContent = `#${m.route_id}`;
-
-        item.appendChild(name);
-        item.appendChild(id);
-        item.addEventListener('mousedown', e => {
-          e.preventDefault(); // fires before the input's blur handler hides the list
-          selectRouteFromSearch(m, results, dateInputId);
+      matches.slice(0, SEARCH_MAX_ROWS).forEach((m, i) => {
+        makeSearchRow(results, {
+          id: `${results.id}-opt-${i}`,
+          primary: m.route_short_name ? `${m.route_short_name} — ${m.route_long_name}` : m.route_long_name,
+          query,
+          secondary: `#${m.route_id}`,
+          pick: () => selectRouteFromSearch(m, results, dateInputId)
         });
-        results.appendChild(item);
       });
 
-      results.classList.add('visible');
+      showStopSearchResults(results);
     }
 
     function selectRouteFromSearch(match, results, dateInputId) {
@@ -3853,6 +4353,7 @@
     function loadMultiStops(stopName, date, isRefresh) {
       date = date || todayStr();
       const requestId = ++multiStopsRequestId;
+      currentStopView = { kind: 'name', name: stopName };
       const mergeReversed = mergeCrossStreetsEnabled();
       const includeNearby = includeNearbyEnabled();
       const radiusKM = includeNearbyRadiusM() / 1000;
@@ -3952,7 +4453,7 @@
     }
 
     function displayMultiStops(stopName, stops, isRefresh) {
-      if (!stops.length) { if (!isRefresh) showToast('No exact-name matches found.'); return; }
+      if (!stops.length) { if (!isRefresh) showToast('No stops to show.'); return; }
 
       currentMultiStopName = stopName;
       currentMultiStopIds = stops.map(s => s.stop_id);
@@ -4013,6 +4514,7 @@
                 <div class="stop-popup-card-val">${escapeHtml(s.stop_id)}</div>
               </div>
             </div>
+            <button class="secondary stop-popup-btn" data-stop-id="${escapeHtml(s.stop_id)}" onclick="loadStopOnly(this.dataset.stopId)">Only this stop</button>
           </div>
         `);
         // circleMarker is a Path, not a Marker — Leaflet's built-in popup
@@ -4085,21 +4587,21 @@
         if (!sec) return;
         if (showAll) {
           renderMultiDepartureCards(base, p);
-          if (btn) btn.textContent = 'Next 3h only';
+          if (btn) btn.textContent = `Showing all ${base.length}`;
           if (label) label.textContent = `${base.length} departure${base.length !== 1 ? 's' : ''} total, across all matching stops`;
         } else if (showN4) {
           const next4 = filterNext4(base);
           renderMultiDepartureCards(next4, p);
-          if (btn) btn.textContent = `Show all ${base.length}`;
+          if (btn) btn.textContent = 'Showing next 4';
           if (label) label.textContent = 'Next 4 departures, across all matching stops';
         } else {
           const filtered = filterNext3h(base);
           renderMultiDepartureCards(filtered, p);
           if (filtered.length === 0) {
-            if (btn) btn.textContent = `Show all ${base.length}`;
+            if (btn) btn.textContent = 'Showing next 3h';
             if (label) label.textContent = 'No departures in the next 3 hours';
           } else {
-            if (btn) btn.textContent = 'Next 4';
+            if (btn) btn.textContent = 'Showing next 3h';
             if (label) label.textContent = `Next 3 hours · ${filtered.length} departure${filtered.length !== 1 ? 's' : ''}, across all matching stops`;
           }
         }
@@ -4139,7 +4641,7 @@
     function startMultiDepsRefresh() {
       if (multiDepsRefreshId !== null) clearInterval(multiDepsRefreshId);
       multiDepsRefreshId = setInterval(() => {
-        if (currentMultiStopName) loadMultiStops(currentMultiStopName, document.getElementById('dateInput')?.value || todayStr(), true);
+        if (currentStopView && currentStopView.kind !== 'single') reloadCurrentStopView(currentDateStr(), true);
       }, 15000);
     }
 
@@ -4178,6 +4680,7 @@
       showingAllDeps_d = false; showingNext4_d = false;
       showingAllDeps_m = false; showingNext4_m = false;
       currentStopId = data.stop_id;
+      currentStopView = { kind: 'single', stopId: String(data.stop_id) };
 
       resetDepFilterState('dep-d'); resetDepFilterState('dep-m');
       renderDepFilterPanel(allDepartures, 'depFilterTree', 'depFilterBadge', 'dep-d', () => updateDeparturesView(currentStopId));
@@ -4198,16 +4701,21 @@
 
     // Sync date inputs
     document.getElementById('m-dateInput').value = todayStr();
+    // Changing the date re-runs whatever view is showing (single stop, merged
+    // by name, nearby, or around a point) rather than always reloading one stop.
+    function onDateChanged(value) {
+      if (reloadCurrentStopView(value, false)) return;
+      const v = (document.getElementById('stopIdInput')?.value || document.getElementById('m-stopIdInput')?.value || '').trim();
+      if (v) loadStop(v, value);
+    }
     document.getElementById('m-dateInput').addEventListener('change', e => {
       document.getElementById('dateInput').value = e.target.value;
-      const v = document.getElementById('m-stopIdInput')?.value.trim();
-      if (v) loadStop(v, e.target.value);
+      onDateChanged(e.target.value);
     });
 
     document.getElementById('dateInput').addEventListener('change', e => {
       document.getElementById('m-dateInput').value = e.target.value;
-      const v = document.getElementById('stopIdInput')?.value.trim();
-      if (v) loadStop(v, e.target.value);
+      onDateChanged(e.target.value);
     });
 
     // Keeps a desktop/mobile pair of inputs (checkbox or number) in sync,
@@ -4234,9 +4742,8 @@
     // Re-run the active multi-stop search so flipping a setting updates
     // results immediately.
     function reRunMultiStopSearch() {
-      if (!currentMultiStopName) return;
-      const date = document.getElementById('dateInput')?.value || document.getElementById('m-dateInput')?.value || todayStr();
-      loadMultiStops(currentMultiStopName, date);
+      if (!currentStopView || currentStopView.kind === 'single') return;
+      reloadCurrentStopView(currentDateStr(), false);
     }
 
     // "Search stops with same name" is independent from the merge/nearby/
@@ -4276,9 +4783,9 @@
 
     // ===== NEAREST STOPS =====
     function handleFindNearest(latId, lonId) {
-      const lat = document.getElementById(latId)?.value.trim();
-      const lon = document.getElementById(lonId)?.value.trim();
-      if (lat && lon) findNearestStops(lat, lon);
+      const lat = parseFloat(document.getElementById(latId)?.value.trim());
+      const lon = parseFloat(document.getElementById(lonId)?.value.trim());
+      if (Number.isFinite(lat) && Number.isFinite(lon)) findNearestStops(lat, lon, `Near ${lat.toFixed(4)}, ${lon.toFixed(4)}`);
       else showToast('Enter both latitude and longitude first.');
     }
 
@@ -4287,7 +4794,7 @@
         const {latitude:lat,longitude:lon} = pos.coords;
         ['latInput','m-latInput'].forEach(id => { const el=document.getElementById(id); if(el) el.value=lat; });
         ['lonInput','m-lonInput'].forEach(id => { const el=document.getElementById(id); if(el) el.value=lon; });
-        if (search) findNearestStops(lat, lon);
+        if (search) findNearestStops(lat, lon, 'Near you');
       }, () => showToast('Unable to get your location.'));
     }
 
@@ -4302,14 +4809,23 @@
       }, () => showToast('Unable to get your location.'));
     }
 
-    function findNearestStops(lat, lon) {
+    const NEAREST_LIST_MAX = 10;
+
+    // Lists the closest stops in the Discover/Nearby tab *and* opens a merged
+    // "near here" board on the Stops tab, so a location goes straight to
+    // "what can I catch from here". `label` names the board.
+    function findNearestStops(lat, lon, label) {
       // On mobile: switch to Nearby tab and expand sheet immediately
       switchTab('m-tab-nearby');
       if (isMobile()) expandSheet();
 
-      fetch(`/api/nearest/${lat}/${lon}`)
+      fetch(`/api/nearest/${lat}/${lon}?limit=${NEARBY_STOPS_FETCH_LIMIT}`)
         .then(r => r.json())
-        .then(displayNearestStops)
+        .then(data => {
+          displayNearestStops(data);
+          const list = data.nearest_stops || [];
+          if (list.length) loadStopsAroundPoint(lat, lon, label || 'Near here', list);
+        })
         .catch(() => {
           ['nearestStopsInfo','m-nearestStopsInfo'].forEach(id => {
             const el = document.getElementById(id);
@@ -4322,29 +4838,40 @@
       clearNearestStopMarkers();
       window.nearestStopsMarkers = [];
 
+      const stops = (data.nearest_stops || []).slice(0, NEAREST_LIST_MAX);
+
       ['nearestStopsInfo','m-nearestStopsInfo'].forEach(containerId => {
         const container = document.getElementById(containerId);
         if (!container) return;
         container.innerHTML = `<div class="section-title" style="margin-bottom:7px">Nearest stops</div>`;
 
-        if (!data.nearest_stops.length) {
+        if (!stops.length) {
           container.innerHTML += `<div style="font-size:13px;color:var(--text-muted)">No stops found near this location.</div>`;
           return;
         }
 
+        const hint = document.createElement('div');
+        hint.className = 'nearest-hint';
+        hint.textContent = 'Departures from every stop within your nearby radius are on the Stops tab. Tap a stop here to focus on it.';
+        container.appendChild(hint);
+
         const list = document.createElement('div');
         list.style.cssText = 'display:flex;flex-direction:column;gap:5px';
 
-        data.nearest_stops.forEach(stop => {
+        stops.forEach(stop => {
           const item = document.createElement('div');
           item.className = 'nearest-stop-item';
-          item.innerHTML = `<span class="ns-id">${stop.stop_id}</span><span class="ns-dist">${stop.distanceKM.toFixed(2)} km</span>`;
+          item.setAttribute('role', 'button');
+          item.innerHTML = `<div class="ns-main"><span class="ns-name">${escapeHtml(stop.stop_name || `Stop ${stop.stop_id}`)}</span><span class="ns-meta">${escapeHtml(stop.stop_code || stop.stop_id)} · ${stop.distanceKM.toFixed(2)} km</span></div><button type="button" class="ns-only-btn">Only this stop</button>`;
+          // Row: same as tapping the stop's marker (merges nearby when the setting is on).
           item.addEventListener('click', () => {
             clearNearestStopMarkers();
-            ['stopIdInput','m-stopIdInput'].forEach(id => { const el=document.getElementById(id); if(el) el.value=stop.stop_id; });
-            const date = document.getElementById('dateInput').value || todayStr();
-            loadStop(stop.stop_id, date);
-            // On mobile: loadStop already calls switchTab('m-tab-stop') + expandSheet()
+            handleStopMarkerClick(stop.stop_id);
+          });
+          // "Only this stop": always a single-stop board.
+          item.querySelector('.ns-only-btn').addEventListener('click', e => {
+            e.stopPropagation();
+            loadStopOnly(stop.stop_id);
           });
           list.appendChild(item);
         });
@@ -4352,17 +4879,17 @@
         container.appendChild(list);
       });
 
-      if (data.nearest_stops.length) {
+      if (stops.length) {
         const nearestStopColor = getComputedStyle(document.documentElement).getPropertyValue('--accent2').trim();
-        data.nearest_stops.forEach(stop => {
+        stops.forEach(stop => {
           const m = L.circleMarker([stop.stop_lat,stop.stop_lon],{
             color:nearestStopColor,fillColor:nearestStopColor,fillOpacity:0.7,radius:7,weight:2
           }).addTo(map);
-          m.bindPopup(`Stop ${stop.stop_id} · ${stop.distanceKM.toFixed(2)} km`);
+          m.bindPopup(`${escapeHtml(stop.stop_name || 'Stop ' + stop.stop_id)}<br>${escapeHtml(stop.stop_code || stop.stop_id)} · ${stop.distanceKM.toFixed(2)} km`);
           m.on('click', () => { clearNearestStopMarkers(); handleStopMarkerClick(stop.stop_id); });
           window.nearestStopsMarkers.push(m);
         });
-        const bounds = L.latLngBounds(data.nearest_stops.map(s => [s.stop_lat,s.stop_lon]));
+        const bounds = L.latLngBounds(stops.map(s => [s.stop_lat,s.stop_lon]));
         map.fitBounds(bounds.pad(0.15));
       }
     }
@@ -4684,10 +5211,8 @@
 
     // ===== KEYBOARD SHORTCUTS (desktop) =====
     document.getElementById('tripIdInput').addEventListener('keypress', e => { if(e.key==='Enter') handleLoadTrip('tripIdInput'); });
-    document.getElementById('stopIdInput').addEventListener('keypress', e => { if(e.key==='Enter') handleLoadStop('stopIdInput','dateInput'); });
     document.getElementById('routeIdInput').addEventListener('keypress', e => { if(e.key==='Enter') handleLoadRoute('routeIdInput','dateInput'); });
     document.getElementById('m-tripIdInput').addEventListener('keypress', e => { if(e.key==='Enter') handleLoadTrip('m-tripIdInput'); });
-    document.getElementById('m-stopIdInput').addEventListener('keypress', e => { if(e.key==='Enter') handleLoadStop('m-stopIdInput','m-dateInput'); });
     document.getElementById('m-routeIdInput').addEventListener('keypress', e => { if(e.key==='Enter') handleLoadRoute('m-routeIdInput','m-dateInput'); });
 
     // ===== INIT =====

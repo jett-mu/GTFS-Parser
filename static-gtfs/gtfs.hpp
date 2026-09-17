@@ -219,9 +219,12 @@ struct intstr {
     intstr(string a)        : str(std::move(a)) {}
 };
 struct matchsearch {
-    intstr text;
+    intstr text;        // stop_name in .str
     string stop_id;
     int score;
+    string stop_code;   // empty if the feed has no stop_code column
+    double lat = 0;
+    double lon = 0;
 };
 struct routematch {
     string route_id;
@@ -456,6 +459,49 @@ inline int levenshtein(const string &a, const string &b) {
     }
 
     return dp[m][n];
+}
+// Scores how well a lower-cased query matches a lower-cased field on a 0-100
+// scale. Structural matches (exact / prefix / token-prefix / substring) always
+// outrank a pure edit-distance match, which is capped at 60, so that a short
+// query like "main st" ranks "MAIN ST / PARK DR" above near-miss typos.
+inline int fuzzyFieldScore(const string& fieldLower, const string& queryLower) {
+    if (fieldLower.empty() || queryLower.empty()) return 0;
+    if (fieldLower == queryLower) return 100;
+    if (fieldLower.compare(0, queryLower.size(), queryLower) == 0) return 92;
+
+    // Every query token is a prefix of some field token (split on space and '/').
+    auto tokenize = [](const string& str) {
+        std::vector<string> out;
+        string cur;
+        for (char c : str) {
+            if (c == ' ' || c == '/' || c == ',' || c == '-' || c == '&') {
+                if (!cur.empty()) { out.push_back(cur); cur.clear(); }
+            } else cur += c;
+        }
+        if (!cur.empty()) out.push_back(cur);
+        return out;
+    };
+    const auto qTokens = tokenize(queryLower);
+    const auto fTokens = tokenize(fieldLower);
+    if (!qTokens.empty() && !fTokens.empty()) {
+        bool all = true;
+        for (const string& qt : qTokens) {
+            bool found = false;
+            for (const string& ft : fTokens) {
+                if (ft.compare(0, qt.size(), qt) == 0) { found = true; break; }
+            }
+            if (!found) { all = false; break; }
+        }
+        if (all) return 85;
+    }
+
+    if (fieldLower.find(queryLower) != string::npos) return 78;
+
+    int dist   = levenshtein(fieldLower, queryLower);
+    int maxLen = static_cast<int>(std::max(fieldLower.size(), queryLower.size()));
+    int raw    = (maxLen > 0) ? (100 - (dist * 100 / maxLen)) : 0;
+    if (raw < 0) raw = 0;
+    return raw * 60 / 100;
 }
 inline calendar_day parseFormattedDate(const string& input) {
     calendar_day output;
@@ -1185,6 +1231,8 @@ inline std::vector<matchsearch> searchStop(const string& name) { // stops.txt
         intstr text;      // stop_id (num), stop_name
         string stop_id_str;
         string stop_code;
+        double lat = 0;
+        double lon = 0;
     };
     std::vector<stopSearchEntry> stopEntries;
     int lineNumber = 0;
@@ -1205,6 +1253,10 @@ inline std::vector<matchsearch> searchStop(const string& name) { // stops.txt
 
             { auto find = refs.find("stop_code");
             if (find != refs.end()) entry.stop_code = parsedCurrentLine[find->second]; }
+            { auto find = refs.find("stop_lat");
+            if (find != refs.end() && !parsedCurrentLine[find->second].empty()) entry.lat = std::stod(parsedCurrentLine[find->second]); }
+            { auto find = refs.find("stop_lon");
+            if (find != refs.end() && !parsedCurrentLine[find->second].empty()) entry.lon = std::stod(parsedCurrentLine[find->second]); }
 
             stopEntries.push_back(std::move(entry));
         }
@@ -1221,27 +1273,35 @@ inline std::vector<matchsearch> searchStop(const string& name) { // stops.txt
     std::vector<matchsearch> results;
     results.reserve(stopEntries.size());
 
+    constexpr int minScore = 25; // below this a hit is noise, not a suggestion
+
     for (const auto& item : stopEntries) {
-        int bestScore = -1;
+        int bestScore = 0;
 
         for (const string& field : { item.text.str, item.stop_id_str, item.stop_code }) {
             if (field.empty()) continue;
-
-            int dist   = levenshtein(toLower(field), nameLower);
-            int maxLen = static_cast<int>(std::max(field.size(), name.size()));
-            int score  = (maxLen > 0) ? (100 - (dist * 100 / maxLen)) : 100;
-
-            bestScore = std::max(bestScore, score);
+            bestScore = std::max(bestScore, fuzzyFieldScore(toLower(field), nameLower));
         }
 
-        if (bestScore < 0) bestScore = 0;
+        if (bestScore < minScore) continue;
 
-        results.push_back({ item.text, item.stop_id_str, bestScore });
+        matchsearch m;
+        m.text      = item.text;
+        m.stop_id   = item.stop_id_str;
+        m.score     = bestScore;
+        m.stop_code = item.stop_code;
+        m.lat       = item.lat;
+        m.lon       = item.lon;
+        results.push_back(std::move(m));
     }
 
+    // Deterministic order: best score first, then name, then id, so the same
+    // query always yields the same list (std::sort alone is unstable).
     std::sort(results.begin(), results.end(),
         [](const matchsearch& a, const matchsearch& b) {
-            return a.score > b.score;
+            if (a.score != b.score) return a.score > b.score;
+            if (a.text.str != b.text.str) return a.text.str < b.text.str;
+            return a.stop_id < b.stop_id;
         });
 
     return results;
