@@ -3118,6 +3118,14 @@
       map.createPane('routeArrows').style.zIndex = 460;
       map.on('moveend', layoutRouteArrows);
       map.on('zoomend', layoutRouteStops);
+      // Other markers (selected-stop pin, nearby dots, dropped pin, ...) are
+      // obstacles the arrows steer around, so re-lay them when one comes or goes.
+      map.on('layeradd layerremove', e => {
+        const pane = e.layer.options && e.layer.options.pane;
+        if (pane === 'routeArrows' || e.layer === vehicleRTMarker) return;
+        if (!routeArrows.latlngs.length || routeArrows.relayout) return;
+        routeArrows.relayout = requestAnimationFrame(() => { routeArrows.relayout = 0; layoutRouteArrows(); });
+      });
     }
 
     // Trip stop dots: full size when there's room, smaller as they crowd,
@@ -3153,8 +3161,45 @@
     const ROUTE_LINE_WEIGHT = 7;
     const ROUTE_ARROW_SPACING_PX = 84;
     const ROUTE_ARROW_SIZE = 16;
+    // Trace arrows: curved arrows that follow the line at bends, loops and
+    // self-crossings, where a plain chevron can't say which way the line goes.
+    const ROUTE_FEATURE_STEP = 3;       // px between heading samples
+    const ROUTE_FEATURE_W = 14;         // px half-window for measuring a turn
+    const ROUTE_BEND_DEG = 55;          // windowed turn that counts as a bend
+    const ROUTE_LOOP_DEG = 150;         // net rotation that counts as a loop / U-turn
+    const ROUTE_FEATURE_MIN_CHORD = 12; // px: a feature smaller than this on screen is unreadable
+    const ROUTE_TAIL_BEND = 20, ROUTE_TAIL_LOOP = 36, ROUTE_TAIL_CROSS = 18, ROUTE_HEAD = 10;
+    const ROUTE_CROSS_ANGLE = 30;       // deg: shallower "crossings" are overlaps, not crossings
+    const ROUTE_FEATURE_CLEAR = 30;     // px: plain chevrons keep this far from a trace arrow
     let routeCasing = null;
-    const routeArrows = { markers: [], latlngs: [], stops: [], terminals: [], color: '#fff', iconCache: new Map() };
+    const routeArrows = {
+      markers: [], latlngs: [], stops: [], terminals: [], crossings: [],
+      color: '#fff', iconCache: new Map(), renderer: null, relayout: 0
+    };
+
+    // Everything else drawn on the map that could sit on the line: the
+    // selected stop's pin, nearby / merged-board dots, search previews, the
+    // dropped pin, "your location". Returned as circles in projected px so
+    // chevrons slide off them and trace-arrow tails break around them. The
+    // live vehicle is skipped: it moves every refresh and arrows shouldn't
+    // chase it.
+    function routeObstacles() {
+      const out = [];
+      map.eachLayer(layer => {
+        const pane = layer.options && layer.options.pane;
+        if (pane === 'routeArrows' || pane === 'routeStops' || layer === vehicleRTMarker) return;
+        if (layer instanceof L.CircleMarker) {
+          out.push({ p: map.project(layer.getLatLng()), r: layer.getRadius() + (layer.options.weight || 0) / 2 });
+        } else if (layer instanceof L.Marker && layer.options.icon) {
+          const io = layer.options.icon.options || {};
+          const size = L.point(io.iconSize || [25, 41]);
+          const anchor = io.iconAnchor ? L.point(io.iconAnchor) : size.divideBy(2);
+          const p = map.project(layer.getLatLng()).subtract(anchor).add(size.divideBy(2));
+          out.push({ p, r: Math.max(size.x, size.y) / 2 });
+        }
+      });
+      return out;
+    }
 
     function clearRouteLine() {
       if (polyline) { map.removeLayer(polyline); polyline = null; }
@@ -3164,6 +3209,7 @@
       routeArrows.latlngs = [];
       routeArrows.stops = [];
       routeArrows.terminals = [];
+      routeArrows.crossings = [];
       routeArrows.iconCache.clear();
     }
 
@@ -3182,7 +3228,200 @@
       routeArrows.stops = stopLatLngs || [];
       routeArrows.terminals = terminalLatLngs || [];
       routeArrows.color = readableTextColor(routeColor);
+      routeArrows.crossings = findCrossings(latlngs);
       layoutRouteArrows();
+    }
+
+    // Project the shape at the current zoom and expose it as a path you can
+    // walk by pixel distance: pointAt(d), the segment containing d, and the
+    // heading (radians, 0 = screen-up, clockwise) of that segment.
+    function projectPath(latlngs) {
+      const px = latlngs.map(ll => map.project(ll));
+      const cum = [0];
+      for (let i = 1; i < px.length; i++) cum.push(cum[i-1] + px[i].distanceTo(px[i-1]));
+      const total = cum[cum.length - 1];
+      let hint = 1;
+      const segAt = d => {
+        d = Math.max(0, Math.min(total, d));
+        if (cum[hint-1] <= d && d <= cum[hint]) return hint;
+        let lo = 1, hi = px.length - 1;
+        while (lo < hi) { const mid = (lo + hi) >> 1; if (cum[mid] < d) lo = mid + 1; else hi = mid; }
+        hint = lo;
+        return lo;
+      };
+      const pointAt = d => {
+        d = Math.max(0, Math.min(total, d));
+        const i = segAt(d), a = px[i-1], b = px[i], seg = cum[i] - cum[i-1];
+        const t = seg > 0 ? (d - cum[i-1]) / seg : 0;
+        return L.point(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t);
+      };
+      const segHeading = d => {
+        let i = segAt(d);
+        while (i < px.length - 1 && cum[i] === cum[i-1]) i++; // skip zero-length segments
+        const a = px[i-1], b = px[i];
+        return Math.atan2(b.x - a.x, -(b.y - a.y));
+      };
+      return { px, cum, total, segAt, pointAt, segHeading };
+    }
+
+    // Self-crossings of the shape, computed once per trip. Web Mercator at
+    // any zoom is just a scale of zoom 0, so whether two segments cross, the
+    // angle they cross at and the *fraction* of the path where it happens
+    // are all zoom-independent. Sweep over segments sorted by minX.
+    function findCrossings(latlngs) {
+      const n = latlngs.length;
+      if (n < 4) return [];
+      const p = latlngs.map(ll => map.project(ll, 18));
+      const cum = [0];
+      for (let i = 1; i < n; i++) cum.push(cum[i-1] + p[i].distanceTo(p[i-1]));
+      const total = cum[n-1];
+      if (!(total > 0)) return [];
+      const segs = [];
+      for (let i = 0; i < n - 1; i++) segs.push({ i, minX: Math.min(p[i].x, p[i+1].x), maxX: Math.max(p[i].x, p[i+1].x) });
+      segs.sort((a, b) => a.minX - b.minX);
+      const cross = (o, a, b) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+      const maxCos = Math.cos(ROUTE_CROSS_ANGLE * Math.PI / 180);
+      const out = [];
+      for (let s = 0; s < segs.length; s++) {
+        const A = segs[s];
+        for (let t = s + 1; t < segs.length && segs[t].minX <= A.maxX; t++) {
+          const B = segs[t];
+          if (Math.abs(A.i - B.i) < 2) continue;
+          const a = p[A.i], b = p[A.i+1], c = p[B.i], d = p[B.i+1];
+          const d1 = cross(c, d, a), d2 = cross(c, d, b), d3 = cross(a, b, c), d4 = cross(a, b, d);
+          if (!(d1 * d2 < 0 && d3 * d4 < 0)) continue; // proper crossings only: no touching, no overlap
+          const ux = b.x - a.x, uy = b.y - a.y, vx = d.x - c.x, vy = d.y - c.y;
+          const cosang = Math.abs(ux * vx + uy * vy) / (Math.hypot(ux, uy) * Math.hypot(vx, vy));
+          if (cosang > maxCos) continue; // near-parallel: an out-and-back overlap, not a crossing
+          const dA = cum[A.i] + (d1 / (d1 - d2)) * (cum[A.i+1] - cum[A.i]);
+          const dB = cum[B.i] + (d3 / (d3 - d4)) * (cum[B.i+1] - cum[B.i]);
+          out.push({ fA: Math.min(dA, dB) / total, fB: Math.max(dA, dB) / total });
+        }
+      }
+      return out;
+    }
+
+    // Bends and loops: sample the heading every few px, unwrap it into a
+    // continuous signed angle (so GPS zig-zags cancel), and look for runs
+    // where the turn across a short window is sharp. One feature per run.
+    function findBendFeatures(path, view) {
+      const { total, pointAt, segHeading } = path;
+      const step = ROUTE_FEATURE_STEP, W = ROUTE_FEATURE_W;
+      if (total < 2 * W + 8) return [];
+      const n = Math.floor(total / step) + 1;
+      const theta = new Float64Array(n);
+      let prev = segHeading(0), acc = prev;
+      theta[0] = acc;
+      for (let k = 1; k < n; k++) {
+        const h = segHeading(k * step);
+        let dh = h - prev;
+        if (dh > Math.PI) dh -= 2 * Math.PI; else if (dh < -Math.PI) dh += 2 * Math.PI;
+        acc += dh; theta[k] = acc; prev = h;
+      }
+      const wk = Math.max(1, Math.round(W / step));
+      const bendRad = ROUTE_BEND_DEG * Math.PI / 180;
+      const loopRad = ROUTE_LOOP_DEG * Math.PI / 180;
+      const runs = [];
+      let runStart = -1;
+      for (let k = wk; k < n - wk; k++) {
+        const sharp = Math.abs(theta[k + wk] - theta[k - wk]) >= bendRad;
+        if (sharp) { if (runStart < 0) runStart = k; }
+        else if (runStart >= 0) { runs.push([runStart, k - 1]); runStart = -1; }
+      }
+      if (runStart >= 0) runs.push([runStart, n - wk - 1]);
+      const merged = [];
+      for (const r of runs) {
+        const last = merged[merged.length - 1];
+        if (last && (r[0] - last[1]) * step < 24) last[1] = r[1]; else merged.push(r.slice());
+      }
+      const feats = [];
+      for (const [k0, k1] of merged) {
+        const a = Math.max(0, k0 - wk), b = Math.min(n - 1, k1 + wk);
+        const R = theta[b] - theta[a];
+        if (Math.abs(R) < bendRad) continue; // a notch that turns back on itself, not a bend
+        let apex = a; // where half of the rotation has happened
+        for (let k = a; k <= b; k++) { if (Math.abs(theta[k] - theta[a]) >= Math.abs(R) / 2) { apex = k; break; } }
+        const d = apex * step;
+        const p = pointAt(d);
+        if (!view.contains(p)) continue;
+        let minX = p.x, maxX = p.x, minY = p.y, maxY = p.y;
+        for (let k = a; k <= b; k++) {
+          const q = pointAt(k * step);
+          if (q.x < minX) minX = q.x; if (q.x > maxX) maxX = q.x;
+          if (q.y < minY) minY = q.y; if (q.y > maxY) maxY = q.y;
+        }
+        if (Math.hypot(maxX - minX, maxY - minY) < ROUTE_FEATURE_MIN_CHORD) continue;
+        const loop = Math.abs(R) >= loopRad;
+        feats.push({ d, tail: loop ? ROUTE_TAIL_LOOP : ROUTE_TAIL_BEND, head: ROUTE_HEAD, kind: loop ? 'loop' : 'bend' });
+      }
+      return feats;
+    }
+
+    // One arrow on each branch approaching a self-crossing, tip stopping
+    // just short of the junction so both directions read there.
+    function crossingFeatures(path, view) {
+      const { total, pointAt } = path;
+      const feats = [], seen = [];
+      for (const c of routeArrows.crossings) {
+        const dA = c.fA * total, dB = c.fB * total;
+        if (dB - dA < 60) continue; // a tiny loop: the loop arrow already covers it
+        const p = pointAt(dA);
+        if (!view.contains(p)) continue;
+        if (seen.some(q => q.distanceTo(p) < 12)) continue;
+        seen.push(p);
+        for (const d of [dA, dB]) {
+          if (d - ROUTE_HEAD - ROUTE_TAIL_CROSS < 0) continue;
+          feats.push({ d: d - ROUTE_HEAD, tail: ROUTE_TAIL_CROSS, head: 0, kind: 'cross' });
+        }
+      }
+      return feats;
+    }
+
+    // Build a trace arrow: the actual line from d-tail to d+head, plus a
+    // chevron head matching the plain chevron icon. Drawn as two polylines
+    // (halo under stroke) through the same projection as the route line.
+    function traceArrowLayers(path, feat, obstacles) {
+      const { px, cum, total, pointAt, segAt } = path;
+      let d0 = Math.max(0, feat.d - feat.tail), d1 = Math.min(total, feat.d + feat.head);
+      const onDot = p => obstacles.some(o => o.p.distanceTo(p) < o.r + 2);
+      if (onDot(pointAt(d1))) {
+        // Tip on a stop dot: nudge the whole window along the line.
+        for (const off of [6, -6, 12, -12]) {
+          const t = d1 + off;
+          if (t > 0 && t <= total && !onDot(pointAt(t))) { d0 = Math.max(0, d0 + off); d1 = t; break; }
+        }
+      }
+      if (d1 - d0 < 8) return [];
+      const ds = [];
+      for (let d = d0; d < d1; d += ROUTE_FEATURE_STEP) ds.push(d);
+      for (let i = segAt(d0); i < px.length && cum[i] < d1; i++) if (cum[i] > d0) ds.push(cum[i]); // keep corners sharp
+      ds.push(d1);
+      ds.sort((a, b) => a - b);
+      const parts = [];
+      let cur = [];
+      for (const d of ds) { // break the tail wherever it runs over a stop dot
+        const p = pointAt(d);
+        if (onDot(p)) { if (cur.length > 1) parts.push(cur); cur = []; }
+        else cur.push(p);
+      }
+      if (cur.length > 1) parts.push(cur);
+      const tip = pointAt(d1), back = pointAt(Math.max(d0, d1 - 6));
+      let ux = tip.x - back.x, uy = tip.y - back.y;
+      const len = Math.hypot(ux, uy) || 1; ux /= len; uy /= len;
+      const nx = -uy, ny = ux;
+      parts.push([
+        L.point(tip.x - 4.5 * ux + 4 * nx, tip.y - 4.5 * uy + 4 * ny),
+        tip,
+        L.point(tip.x - 4.5 * ux - 4 * nx, tip.y - 4.5 * uy - 4 * ny)
+      ]);
+      const rings = parts.map(part => part.map(p => map.unproject(p)));
+      if (!routeArrows.renderer) routeArrows.renderer = L.svg({ pane: 'routeArrows' });
+      const light = routeArrows.color === '#fff';
+      const common = { renderer: routeArrows.renderer, interactive: false, lineCap: 'round', lineJoin: 'round' };
+      return [
+        L.polyline(rings, { ...common, color: light ? '#000' : '#fff', weight: 4.5, opacity: light ? 0.45 : 0.55 }),
+        L.polyline(rings, { ...common, color: routeArrows.color, weight: 2.5, opacity: 1 })
+      ];
     }
 
     function routeArrowIcon(angleDeg) {
@@ -3211,36 +3450,56 @@
       const pts = routeArrows.latlngs;
       if (!map || pts.length < 2) return;
 
-      // Project once, then walk the path by cumulative pixel distance.
-      const px = pts.map(ll => map.project(ll));
-      const cum = [0];
-      for (let i = 1; i < px.length; i++) cum.push(cum[i-1] + px[i].distanceTo(px[i-1]));
-      const total = cum[cum.length - 1];
+      const path = projectPath(pts);
+      const { total, pointAt } = path;
       if (total < 24) return; // too short on screen for even one chevron
 
-      // Point at path distance `d` (binary search on cum, then lerp).
-      let hint = 1;
-      const pointAt = d => {
-        d = Math.max(0, Math.min(total, d));
-        let lo = 1, hi = px.length - 1;
-        if (cum[hint-1] <= d && d <= cum[hint]) lo = hi = hint;
-        while (lo < hi) { const mid = (lo + hi) >> 1; if (cum[mid] < d) lo = mid + 1; else hi = mid; }
-        hint = lo;
-        const a = px[lo-1], b = px[lo], seg = cum[lo] - cum[lo-1];
-        const t = seg > 0 ? (d - cum[lo-1]) / seg : 0;
-        return L.point(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t);
-      };
-
-      let stopPx = routeArrows.stops.map(ll => map.project(ll));
-      if (stopPx.length > 1) {
-        const gaps = stopPx.slice(1).map((p, i) => p.distanceTo(stopPx[i])).sort((a, b) => a - b);
-        if (gaps[Math.floor(gaps.length / 2)] < 14) stopPx = routeArrows.terminals.map(ll => map.project(ll));
+      // Trip stop dots (only the terminals once they're crowded and hidden,
+      // matching layoutRouteStops) plus every other marker on the map.
+      let tripDots = routeArrows.stops.map(ll => map.project(ll));
+      if (tripDots.length > 1) {
+        const gaps = tripDots.slice(1).map((p, i) => p.distanceTo(tripDots[i])).sort((a, b) => a - b);
+        if (gaps[Math.floor(gaps.length / 2)] < 14) tripDots = routeArrows.terminals.map(ll => map.project(ll));
       }
+      const obstacles = [...tripDots.map(p => ({ p, r: 6 })), ...routeObstacles()];
       const view = map.getPixelBounds().pad(0.15);
+
+      // ---- Trace arrows at features (loops > crossings > bends) ----
+      const prio = { loop: 0, cross: 1, bend: 2 };
+      const candidates = [...findBendFeatures(path, view), ...crossingFeatures(path, view)]
+        .sort((a, b) => prio[a.kind] - prio[b.kind]);
+      // Keep a feature unless it sits on top of one already kept: close along
+      // the path, or (for out-and-back spurs, where two corners share one
+      // spot on screen) its window overlaps another's on screen. The two
+      // branch arrows of one crossing are meant to sit together, so they
+      // are exempt from the on-screen test.
+      const windowPts = f => {
+        const out = [];
+        for (let d = f.d - f.tail; d < f.d + f.head; d += 8) out.push(pointAt(d));
+        out.push(pointAt(f.d + f.head));
+        return out;
+      };
+      const kept = [];
+      for (const f of candidates) {
+        const pts = windowPts(f);
+        const clash = kept.some(k => {
+          if (Math.abs(k.f.d - f.d) < ROUTE_FEATURE_CLEAR) return true;
+          if (k.f.kind === 'cross' && f.kind === 'cross') return false;
+          return k.pts.some(q => pts.some(p => q.distanceTo(p) < 18));
+        });
+        if (!clash) kept.push({ f, pts });
+      }
+      const featurePts = [];
+      for (const { f, pts } of kept) {
+        featurePts.push(...pts);
+        for (const layer of traceArrowLayers(path, f, obstacles)) routeArrows.markers.push(layer.addTo(map));
+      }
+      const nearFeature = p => featurePts.some(q => q.distanceTo(p) < ROUTE_FEATURE_CLEAR);
+
+      // ---- Plain chevrons everywhere else ----
       const spacing = ROUTE_ARROW_SPACING_PX;
-      const stopClearance = 12; // px: keep chevrons off stop dots when possible
-      const look = 7;           // px each way used to measure local heading
-      const onStop = p => stopPx.some(sp => Math.abs(sp.x - p.x) < stopClearance && Math.abs(sp.y - p.y) < stopClearance);
+      const look = 7; // px each way used to measure local heading
+      const onStop = p => obstacles.some(o => o.p.distanceTo(p) < o.r + ROUTE_ARROW_SIZE / 2); // keep chevrons off markers when possible
       const bendAt = (d, p) => {
         const before = pointAt(d - look), after = pointAt(d + look);
         const h1 = Math.atan2(p.x - before.x, -(p.y - before.y));
@@ -3257,9 +3516,10 @@
       for (const slot of slots) {
         if (!view.contains(pointAt(slot))) continue;
         // Try the slot, then slide either way (up to 40% of the spacing) to
-        // find a spot that's on neither a stop dot nor a sharp bend. A bend
-        // is a hard skip; a stop is only a preference so chevrons still show
-        // when zoomed out and every stretch of line is covered by stops.
+        // find a spot that's on neither a stop dot, a sharp bend nor a trace
+        // arrow. Bends and trace arrows are hard skips; a stop is only a
+        // preference so chevrons still show when zoomed out and every
+        // stretch of line is covered by stops.
         let chosen = null, fallback = null;
         const maxSlide = Math.min(spacing * 0.4, total / 2 - 4);
         for (let off = 0; off <= maxSlide && !chosen; off += 4) {
@@ -3267,6 +3527,7 @@
             if (d < 4 || d > total - 4) continue;
             const p = pointAt(d);
             if (bendAt(d, p) > Math.PI / 4) continue;
+            if (nearFeature(p)) continue;
             if (onStop(p)) { if (!fallback) fallback = d; continue; }
             chosen = d; break;
           }
