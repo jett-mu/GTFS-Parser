@@ -4992,9 +4992,9 @@
 
     const NEAREST_LIST_MAX = 10;
 
-    // Lists the closest stops in the Discover/Nearby tab *and* opens a merged
-    // "near here" board on the Stops tab, so a location goes straight to
-    // "what can I catch from here". `label` names the board.
+    // Lists the closest stops in the Discover/Nearby tab. Departures are not
+    // loaded until the rider picks a stop (row tap, marker, or "Only this
+    // stop"). `label` is kept for callers but no longer names a board.
     function findNearestStops(lat, lon, label) {
       // On mobile: switch to Nearby tab and expand sheet immediately
       switchTab('m-tab-nearby');
@@ -5002,11 +5002,7 @@
 
       fetch(`/api/nearest/${lat}/${lon}?limit=${NEARBY_STOPS_FETCH_LIMIT}`)
         .then(r => r.json())
-        .then(data => {
-          displayNearestStops(data);
-          const list = data.nearest_stops || [];
-          if (list.length) loadStopsAroundPoint(lat, lon, label || 'Near here', list);
-        })
+        .then(data => displayNearestStops(data))
         .catch(() => {
           ['nearestStopsInfo','m-nearestStopsInfo'].forEach(id => {
             const el = document.getElementById(id);
@@ -5033,7 +5029,7 @@
 
         const hint = document.createElement('div');
         hint.className = 'nearest-hint';
-        hint.textContent = 'Departures from every stop within your nearby radius are on the Stops tab. Tap a stop here to focus on it.';
+        hint.textContent = 'Tap a stop to see its departures, or “Only this stop” to skip merging nearby stops.';
         container.appendChild(hint);
 
         const list = document.createElement('div');
