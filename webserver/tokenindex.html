@@ -1677,85 +1677,274 @@
       padding-right: 0;
     }
 
-    /* ===== DEPARTURE BOARD ===== */
-    .board-header-row { display: none; }
+    /* ===== DEPARTURE BOARD =====
+       Station-style board for someone standing nearby: route block,
+       destination, which stop + walk time, minutes until it leaves, and
+       on-time / late. Row markup keeps the .dep-card / .dep-time-sched /
+       .dep-time-actual / .dep-badge-slot hooks applyRTtoDepartures() uses. */
+    .board-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: var(--space-4);
+      padding: calc(var(--space-4) + var(--safe-top)) var(--space-5) var(--space-3);
+      border-bottom: 2px solid var(--text);
+      flex-shrink: 0;
+    }
+    .board-header-left { min-width: 0; }
+    .board-title {
+      font-family: var(--font-display);
+      font-size: 30px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      line-height: 1;
+      color: var(--text);
+    }
+    .board-sub {
+      font-size: 13.5px;
+      color: var(--text-muted);
+      margin-top: 7px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .board-header-right {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--space-3);
+      flex-shrink: 0;
+    }
+    .board-clock-wrap { text-align: right; }
+    .board-clock {
+      font-family: var(--font-display);
+      font-size: 30px;
+      font-weight: 600;
+      line-height: 1;
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+    .board-clock-sec { font-size: 0.55em; font-weight: 500; color: var(--text-muted); margin-left: 2px; }
+    button.board-close {
+      width: 40px;
+      height: 40px;
+      padding: 0;
+      border-radius: 50%;
+      font-size: 18px;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+    button.board-close:hover { background: var(--surface3); border-color: var(--border2); }
 
-    .board-list { max-width: 900px; gap: 6px; }
-    .board-row.dep-card { cursor: default; }
-
-    @media (min-width: 641px) {
-      .board-header-row {
-        display: flex;
-        align-items: center;
-        gap: var(--space-4);
-        max-width: 900px;
-        margin: 0 auto 6px;
-        padding: 0 var(--space-4) 8px;
-        font-family: var(--font-mono);
-        font-size: 10.5px;
-        font-weight: 700;
-        letter-spacing: 0.07em;
-        text-transform: uppercase;
-        color: var(--text-dim);
-        border-bottom: 1px solid var(--border2);
-      }
-      .board-header-row .bhr-route    { flex: 0 0 110px; }
-      .board-header-row .bhr-headsign { flex: 1; }
-      .board-header-row .bhr-time     { flex: 0 0 134px; text-align: right; }
-      .board-header-row .bhr-actual   { flex: 0 0 90px; text-align: right; }
-      .board-header-row .bhr-eta      { flex: 0 0 100px; text-align: right; }
-      .board-header-row .bhr-badge    { flex: 0 0 118px; }
-
-      .board-list {
-        border: 1px solid var(--border);
-        border-radius: var(--radius);
-        overflow: hidden;
-        background: var(--surface2);
-        gap: 0;
-      }
-
-      .board-row.dep-card {
-        flex-direction: row;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: var(--space-4);
-        padding: 10px var(--space-4) 9px;
-        border: none;
-        border-radius: 0;
-        border-bottom: 1px solid var(--border);
-        background: transparent;
-      }
-      .board-row.dep-card:last-child { border-bottom: none; }
-      .board-row.dep-card:hover { background: var(--surface3); transform: none; box-shadow: none; }
-      .board-row.dep-card.active { background: rgba(var(--accent-rgb), 0.08); box-shadow: none; }
-
-      .board-row .dep-card-top,
-      .board-row .dep-time-row { display: contents; }
-
-      .board-row .dep-route      { order: 1; flex: 0 0 110px; }
-      .board-row .dep-headsign   { order: 2; flex: 1; min-width: 0; margin: 0; font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      .board-row .dep-time       { order: 3; flex: 0 0 134px; text-align: right; font-size: 22px; }
-      .board-row .dep-time-actual { order: 4; flex: 0 0 90px; text-align: right; margin: 0; }
-      .board-row .dep-eta        { order: 5; flex: 0 0 100px; margin-left: 0; text-align: right; }
-      .board-row .dep-badge-slot { order: 6; flex: 0 0 118px; display: flex; justify-content: flex-end; }
-
-      /* Trip id / stop name sit on their own line below the flattened row */
-      .board-row .dep-card-footer {
-        order: 7;
-        flex: 1 0 100%;
-        margin-top: 2px;
-        padding-top: 6px;
-        border-top: 1px dashed var(--border);
-      }
-      .board-row .dep-stop-tag {
-        flex-shrink: 1;
-        min-width: 0;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
+    .board-chips {
+      display: flex;
+      gap: 8px;
+      max-width: 960px;
+      margin: 0 auto var(--space-3);
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      padding-bottom: 2px;
+    }
+    .board-chips::-webkit-scrollbar { display: none; }
+    .board-chips[hidden] { display: none; }
+    button.board-chip {
+      flex-shrink: 0;
+      min-height: 36px;
+      padding: 6px 14px;
+      border-radius: 4px;
+      border: 2px solid var(--border2);
+      background: transparent;
+      color: var(--text-muted);
+      font-family: var(--font-display);
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      box-shadow: inset 5px 0 0 var(--chip, transparent);
+      transition: background var(--transition), color var(--transition), border-color var(--transition);
+    }
+    button.board-chip:hover { color: var(--text); border-color: var(--text); background: transparent; }
+    button.board-chip.active {
+      background: var(--chip, var(--text));
+      border-color: var(--chip, var(--text));
+      color: var(--chip-text, var(--bg));
+      box-shadow: none;
     }
 
+    .board-list {
+      display: flex;
+      flex-direction: column;
+      max-width: 960px;
+      margin: 0 auto;
+    }
+    .board-list .skel-dep-card { margin-bottom: 6px; height: var(--board-row-h, 88px); box-sizing: border-box; overflow: hidden; }
+    .board-empty {
+      padding: 56px 20px;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 16px;
+    }
+
+    .board-row.dep-card {
+      display: grid;
+      grid-template-columns: 78px minmax(0, 1fr) auto;
+      grid-template-areas:
+        "route dest leave"
+        "route stop leave";
+      gap: 3px var(--space-4);
+      align-items: center;
+      align-content: center;
+      /* Every row is the same height regardless of whether a realtime
+         badge / struck-out time shows up in the right column. */
+      height: var(--board-row-h, 88px);
+      box-sizing: border-box;
+      padding: 0;
+      overflow: hidden;
+      border: none;
+      border-radius: 0;
+      border-bottom: 1px solid var(--border);
+      background: transparent;
+      cursor: default;
+      transition: opacity var(--transition);
+    }
+    .board-row.dep-card:hover { background: transparent; border-color: var(--border); transform: none; box-shadow: none; }
+    .board-row.dep-card:active { transform: none; }
+    .board-row.dep-card:last-child { border-bottom: none; }
+
+    .board-route {
+      grid-area: route;
+      align-self: center;
+      font-family: var(--font-display);
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      line-height: 1;
+      text-align: center;
+      padding: 9px 6px;
+      border-radius: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .board-dest {
+      grid-area: dest;
+      min-width: 0;
+      font-family: var(--font-display);
+      font-size: 22px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+      line-height: 1.1;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .board-stop {
+      grid-area: stop;
+      min-width: 0;
+      font-size: 13.5px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .board-walk { color: var(--text-dim); }
+    .board-miss { display: none; color: var(--negative); font-weight: 600; }
+    .board-row-missed { opacity: 0.45; }
+    .board-row-missed .board-miss { display: inline; }
+
+    .board-leave-wrap {
+      grid-area: leave;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 2px;
+      min-width: 104px;
+      text-align: right;
+    }
+    .board-leave {
+      font-family: var(--font-display);
+      font-size: 32px;
+      font-weight: 700;
+      height: var(--board-leave-h, 32px);
+      line-height: var(--board-leave-h, 32px);
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+    .board-leave-unit {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-muted);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin-left: 4px;
+    }
+    .board-leave.due { color: var(--accent3); }
+    .board-leave.later { font-size: 24px; }
+    .board-sched {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      height: 15px;
+      line-height: 15px;
+      font-size: 12.5px;
+      color: var(--text-dim);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+    .board-sched .dep-time-sched-strike { text-decoration: line-through; }
+    /* When the big label is already a clock time, don't repeat it underneath
+       unless RT struck it out (then the sched + actual pair still matters). */
+    .board-leave.later + .board-sched .dep-time-sched:not(.dep-time-sched-strike) { display: none; }
+    .board-sched .dep-time-actual { font-size: 12.5px; font-weight: 700; }
+    .board-sched .dep-time-actual:empty { display: none; }
+    .board-row .dep-badge-slot { height: 14px; line-height: 14px; }
+    .board-row .dep-badge-slot:empty { visibility: hidden; }
+    .board-row .rt-delay-badge {
+      background: none;
+      padding: 0;
+      border-radius: 0;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .board-row .rt-live-only { display: none; }
+
+    @media (max-width: 640px) {
+      .board-header { padding-left: var(--space-4); padding-right: var(--space-4); }
+      .board-title, .board-clock { font-size: 22px; }
+      .board-sub { font-size: 12.5px; white-space: normal; }
+      .board-header-right { gap: var(--space-2); }
+      button.board-close { width: 36px; height: 36px; padding: 0; }
+      .board-overlay .nearby-overlay-body { padding-left: var(--space-4); padding-right: var(--space-4); }
+      button.board-chip { padding: 6px 12px; font-size: 14px; }
+      .board-row.dep-card { grid-template-columns: 58px minmax(0, 1fr) auto; gap: 2px var(--space-3); --board-row-h: 82px; --board-leave-h: 26px; }
+      .board-list .skel-dep-card { --board-row-h: 82px; }
+      .board-route { font-size: 17px; padding: 8px 4px; }
+      .board-dest {
+        white-space: normal;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+      .board-dest { font-size: 17px; }
+      .board-stop { font-size: 12.5px; }
+      .board-leave-wrap { min-width: 84px; }
+      .board-leave { font-size: 26px; }
+      .board-leave.later { font-size: 20px; }
+      .board-leave-unit { font-size: 12px; }
+    }
     /* ===== TOAST ===== */
     .toast {
       position: fixed;
@@ -2524,35 +2713,24 @@
   </div>
 
   <!-- ===== DEPARTURE BOARD (fullscreen) ===== -->
-  <div id="boardOverlay" class="nearby-overlay" style="display:none">
-    <div class="nearby-overlay-header">
-      <div class="nearby-overlay-title">
-        <div class="section-title" style="margin-bottom:0">Departure board</div>
-        <div class="nearby-overlay-sub" id="boardOverlaySub"></div>
+  <div id="boardOverlay" class="nearby-overlay board-overlay" style="display:none" role="dialog" aria-modal="true" aria-label="Departure board">
+    <div class="board-header">
+      <div class="board-header-left">
+        <div class="board-title">Departures</div>
+        <div class="board-sub" id="boardOverlaySub"></div>
       </div>
-      <button class="secondary" onclick="closeDepartureBoard()" aria-label="Close">Close <span class="nearby-overlay-esc">Esc</span></button>
+      <div class="board-header-right">
+        <div class="board-clock-wrap">
+          <div class="board-clock" id="boardClock"></div>
+        </div>
+        <button type="button" class="board-close" onclick="closeDepartureBoard()" aria-label="Close departure board">&#x2715;</button>
+      </div>
     </div>
     <div class="nearby-overlay-body">
-      <div class="dep-filter-row settings-popover-wrap">
-        <button type="button" class="dep-filter-btn" id="boardFilterBtn" aria-haspopup="true" aria-expanded="false">Filter <span class="dep-filter-badge" id="boardFilterBadge" hidden>0</span></button>
-        <div class="settings-popover dep-filter-popover" id="boardFilterPopover" hidden>
-          <div class="settings-popover-title">Filter by route / destination</div>
-          <div class="dep-filter-tree" id="boardFilterTree"></div>
-          <button type="button" class="dep-filter-clear" id="boardFilterClearBtn" onclick="onBoardFilterClear()">Clear filters</button>
-        </div>
-      </div>
-      <div class="board-header-row">
-        <span class="bhr-route">Route</span>
-        <span class="bhr-headsign">Destination</span>
-        <span class="bhr-time">Departs</span>
-        <span class="bhr-actual"></span>
-        <span class="bhr-eta">Status</span>
-        <span class="bhr-badge"></span>
-      </div>
-      <div class="departures-grid nearby-dep-grid board-list" id="boardGrid"></div>
+      <div class="board-chips" id="boardChips" hidden></div>
+      <div class="board-list" id="boardGrid"></div>
     </div>
   </div>
-
   <script>
     // ===== INTRO OVERLAY =====
     (function initIntro() {
@@ -3124,10 +3302,24 @@
       // dots sit above it and direction chevrons above those; chevrons slide
       // along the line to avoid stop dots, and only overlap one when the
       // stops are so dense (zoomed out) that there is nowhere else to go.
+      // Trace arrows (bends, loops, crossings) are the only thing that says
+      // which way the line goes there, so they sit above every marker
+      // (pins, nearby dots, 600) too; only the live bus, tooltips and popups
+      // draw over them.
       map.createPane('routeStops').style.zIndex = 450;
       map.createPane('routeArrows').style.zIndex = 460;
+      map.createPane('routeTrace').style.zIndex = 620;
+      map.createPane('vehicle').style.zIndex = 630;
       map.on('moveend', layoutRouteArrows);
       map.on('zoomend', layoutRouteStops);
+      // Other markers (selected-stop pin, nearby dots, dropped pin, ...) are
+      // obstacles the arrows steer around, so re-lay them when one comes or goes.
+      map.on('layeradd layerremove', e => {
+        const pane = e.layer.options && e.layer.options.pane;
+        if (pane === 'routeArrows' || pane === 'routeTrace' || e.layer === vehicleRTMarker) return;
+        if (!routeArrows.latlngs.length || routeArrows.relayout) return;
+        routeArrows.relayout = requestAnimationFrame(() => { routeArrows.relayout = 0; layoutRouteArrows(); });
+      });
     }
 
     // Trip stop dots: full size when there's room, smaller as they crowd,
@@ -3156,15 +3348,58 @@
     // ===== ROUTE LINE + DIRECTION CHEVRONS =====
     // The trip shape is drawn as a soft dark casing under a solid route-color
     // line. Direction is shown with small chevrons drawn *inside* the line,
-    // spaced evenly in screen pixels (not by shape-point index), so density
-    // stays constant across zoom levels. Only chevrons inside the padded
-    // viewport are materialised; layoutRouteArrows() re-runs on every
-    // moveend (which also fires after a zoom).
+    // spaced evenly in screen pixels (not by shape-point index). Zooming in
+    // past the fitted view makes them denser: the slots are anchored to the
+    // line at the base zoom and subdivided in halves, so the chevrons you
+    // had stay put and new ones appear midway between them (density doubles
+    // every ROUTE_ARROW_DENSITY_ZOOM levels, down to the minimum spacing).
+    // Only chevrons inside the padded viewport are materialised;
+    // layoutRouteArrows() re-runs on every moveend (which also fires after a
+    // zoom).
     const ROUTE_LINE_WEIGHT = 7;
-    const ROUTE_ARROW_SPACING_PX = 84;
+    const ROUTE_ARROW_SPACING_PX = 84;     // at the zoom the trip was fitted to
+    const ROUTE_ARROW_DENSITY_ZOOM = 3;    // zoom levels in per doubling of chevron density
+    const ROUTE_ARROW_MIN_SPACING_PX = 40; // never closer than this, however far in
     const ROUTE_ARROW_SIZE = 16;
+    // Trace arrows: curved arrows that follow the line at bends, loops and
+    // self-crossings, where a plain chevron can't say which way the line goes.
+    const ROUTE_FEATURE_STEP = 3;       // px between heading samples
+    const ROUTE_FEATURE_W = 14;         // px half-window for measuring a turn
+    const ROUTE_BEND_DEG = 55;          // windowed turn that counts as a bend
+    const ROUTE_LOOP_DEG = 150;         // net rotation that counts as a loop / U-turn
+    const ROUTE_FEATURE_MIN_CHORD = 12; // px: a feature smaller than this on screen is unreadable
+    const ROUTE_TAIL_BEND = 20, ROUTE_TAIL_LOOP = 36, ROUTE_TAIL_CROSS = 18, ROUTE_HEAD = 10;
+    const ROUTE_CROSS_ANGLE = 30;       // deg: shallower "crossings" are overlaps, not crossings
+    const ROUTE_FEATURE_CLEAR = 30;     // px: plain chevrons keep this far from a trace arrow
     let routeCasing = null;
-    const routeArrows = { markers: [], latlngs: [], stops: [], terminals: [], color: '#fff', iconCache: new Map() };
+    const routeArrows = {
+      markers: [], latlngs: [], stops: [], terminals: [], crossings: [],
+      color: '#fff', iconCache: new Map(), renderer: null, relayout: 0, baseZoom: null
+    };
+
+    // Everything else drawn on the map that could sit on the line: the
+    // selected stop's pin, nearby / merged-board dots, search previews, the
+    // dropped pin, "your location". Returned as circles in projected px so
+    // plain chevrons slide off them (trace arrows ignore them and draw on
+    // top). The live vehicle is skipped: it moves every refresh and arrows
+    // shouldn't chase it.
+    function routeObstacles() {
+      const out = [];
+      map.eachLayer(layer => {
+        const pane = layer.options && layer.options.pane;
+        if (pane === 'routeArrows' || pane === 'routeTrace' || pane === 'routeStops' || layer === vehicleRTMarker) return;
+        if (layer instanceof L.CircleMarker) {
+          out.push({ p: map.project(layer.getLatLng()), r: layer.getRadius() + (layer.options.weight || 0) / 2 });
+        } else if (layer instanceof L.Marker && layer.options.icon) {
+          const io = layer.options.icon.options || {};
+          const size = L.point(io.iconSize || [25, 41]);
+          const anchor = io.iconAnchor ? L.point(io.iconAnchor) : size.divideBy(2);
+          const p = map.project(layer.getLatLng()).subtract(anchor).add(size.divideBy(2));
+          out.push({ p, r: Math.max(size.x, size.y) / 2 });
+        }
+      });
+      return out;
+    }
 
     function clearRouteLine() {
       if (polyline) { map.removeLayer(polyline); polyline = null; }
@@ -3174,6 +3409,8 @@
       routeArrows.latlngs = [];
       routeArrows.stops = [];
       routeArrows.terminals = [];
+      routeArrows.crossings = [];
+      routeArrows.baseZoom = null;
       routeArrows.iconCache.clear();
     }
 
@@ -3192,7 +3429,191 @@
       routeArrows.stops = stopLatLngs || [];
       routeArrows.terminals = terminalLatLngs || [];
       routeArrows.color = readableTextColor(routeColor);
+      routeArrows.crossings = findCrossings(latlngs);
+      routeArrows.baseZoom = map.getZoom();
       layoutRouteArrows();
+    }
+
+    // Project the shape at the current zoom and expose it as a path you can
+    // walk by pixel distance: pointAt(d), the segment containing d, and the
+    // heading (radians, 0 = screen-up, clockwise) of that segment.
+    function projectPath(latlngs) {
+      const px = latlngs.map(ll => map.project(ll));
+      const cum = [0];
+      for (let i = 1; i < px.length; i++) cum.push(cum[i-1] + px[i].distanceTo(px[i-1]));
+      const total = cum[cum.length - 1];
+      let hint = 1;
+      const segAt = d => {
+        d = Math.max(0, Math.min(total, d));
+        if (cum[hint-1] <= d && d <= cum[hint]) return hint;
+        let lo = 1, hi = px.length - 1;
+        while (lo < hi) { const mid = (lo + hi) >> 1; if (cum[mid] < d) lo = mid + 1; else hi = mid; }
+        hint = lo;
+        return lo;
+      };
+      const pointAt = d => {
+        d = Math.max(0, Math.min(total, d));
+        const i = segAt(d), a = px[i-1], b = px[i], seg = cum[i] - cum[i-1];
+        const t = seg > 0 ? (d - cum[i-1]) / seg : 0;
+        return L.point(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t);
+      };
+      const segHeading = d => {
+        let i = segAt(d);
+        while (i < px.length - 1 && cum[i] === cum[i-1]) i++; // skip zero-length segments
+        const a = px[i-1], b = px[i];
+        return Math.atan2(b.x - a.x, -(b.y - a.y));
+      };
+      return { px, cum, total, segAt, pointAt, segHeading };
+    }
+
+    // Self-crossings of the shape, computed once per trip. Web Mercator at
+    // any zoom is just a scale of zoom 0, so whether two segments cross, the
+    // angle they cross at and the *fraction* of the path where it happens
+    // are all zoom-independent. Sweep over segments sorted by minX.
+    function findCrossings(latlngs) {
+      const n = latlngs.length;
+      if (n < 4) return [];
+      const p = latlngs.map(ll => map.project(ll, 18));
+      const cum = [0];
+      for (let i = 1; i < n; i++) cum.push(cum[i-1] + p[i].distanceTo(p[i-1]));
+      const total = cum[n-1];
+      if (!(total > 0)) return [];
+      const segs = [];
+      for (let i = 0; i < n - 1; i++) segs.push({ i, minX: Math.min(p[i].x, p[i+1].x), maxX: Math.max(p[i].x, p[i+1].x) });
+      segs.sort((a, b) => a.minX - b.minX);
+      const cross = (o, a, b) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+      const maxCos = Math.cos(ROUTE_CROSS_ANGLE * Math.PI / 180);
+      const out = [];
+      for (let s = 0; s < segs.length; s++) {
+        const A = segs[s];
+        for (let t = s + 1; t < segs.length && segs[t].minX <= A.maxX; t++) {
+          const B = segs[t];
+          if (Math.abs(A.i - B.i) < 2) continue;
+          const a = p[A.i], b = p[A.i+1], c = p[B.i], d = p[B.i+1];
+          const d1 = cross(c, d, a), d2 = cross(c, d, b), d3 = cross(a, b, c), d4 = cross(a, b, d);
+          if (!(d1 * d2 < 0 && d3 * d4 < 0)) continue; // proper crossings only: no touching, no overlap
+          const ux = b.x - a.x, uy = b.y - a.y, vx = d.x - c.x, vy = d.y - c.y;
+          const cosang = Math.abs(ux * vx + uy * vy) / (Math.hypot(ux, uy) * Math.hypot(vx, vy));
+          if (cosang > maxCos) continue; // near-parallel: an out-and-back overlap, not a crossing
+          const dA = cum[A.i] + (d1 / (d1 - d2)) * (cum[A.i+1] - cum[A.i]);
+          const dB = cum[B.i] + (d3 / (d3 - d4)) * (cum[B.i+1] - cum[B.i]);
+          out.push({ fA: Math.min(dA, dB) / total, fB: Math.max(dA, dB) / total });
+        }
+      }
+      return out;
+    }
+
+    // Bends and loops: sample the heading every few px, unwrap it into a
+    // continuous signed angle (so GPS zig-zags cancel), and look for runs
+    // where the turn across a short window is sharp. One feature per run.
+    function findBendFeatures(path, view) {
+      const { total, pointAt, segHeading } = path;
+      const step = ROUTE_FEATURE_STEP, W = ROUTE_FEATURE_W;
+      if (total < 2 * W + 8) return [];
+      const n = Math.floor(total / step) + 1;
+      const theta = new Float64Array(n);
+      let prev = segHeading(0), acc = prev;
+      theta[0] = acc;
+      for (let k = 1; k < n; k++) {
+        const h = segHeading(k * step);
+        let dh = h - prev;
+        if (dh > Math.PI) dh -= 2 * Math.PI; else if (dh < -Math.PI) dh += 2 * Math.PI;
+        acc += dh; theta[k] = acc; prev = h;
+      }
+      const wk = Math.max(1, Math.round(W / step));
+      const bendRad = ROUTE_BEND_DEG * Math.PI / 180;
+      const loopRad = ROUTE_LOOP_DEG * Math.PI / 180;
+      const runs = [];
+      let runStart = -1;
+      for (let k = wk; k < n - wk; k++) {
+        const sharp = Math.abs(theta[k + wk] - theta[k - wk]) >= bendRad;
+        if (sharp) { if (runStart < 0) runStart = k; }
+        else if (runStart >= 0) { runs.push([runStart, k - 1]); runStart = -1; }
+      }
+      if (runStart >= 0) runs.push([runStart, n - wk - 1]);
+      const merged = [];
+      for (const r of runs) {
+        const last = merged[merged.length - 1];
+        if (last && (r[0] - last[1]) * step < 24) last[1] = r[1]; else merged.push(r.slice());
+      }
+      const feats = [];
+      for (const [k0, k1] of merged) {
+        const a = Math.max(0, k0 - wk), b = Math.min(n - 1, k1 + wk);
+        const R = theta[b] - theta[a];
+        if (Math.abs(R) < bendRad) continue; // a notch that turns back on itself, not a bend
+        let apex = a; // where half of the rotation has happened
+        for (let k = a; k <= b; k++) { if (Math.abs(theta[k] - theta[a]) >= Math.abs(R) / 2) { apex = k; break; } }
+        const d = apex * step;
+        const p = pointAt(d);
+        if (!view.contains(p)) continue;
+        let minX = p.x, maxX = p.x, minY = p.y, maxY = p.y;
+        for (let k = a; k <= b; k++) {
+          const q = pointAt(k * step);
+          if (q.x < minX) minX = q.x; if (q.x > maxX) maxX = q.x;
+          if (q.y < minY) minY = q.y; if (q.y > maxY) maxY = q.y;
+        }
+        if (Math.hypot(maxX - minX, maxY - minY) < ROUTE_FEATURE_MIN_CHORD) continue;
+        const loop = Math.abs(R) >= loopRad;
+        feats.push({ d, tail: loop ? ROUTE_TAIL_LOOP : ROUTE_TAIL_BEND, head: ROUTE_HEAD, kind: loop ? 'loop' : 'bend' });
+      }
+      return feats;
+    }
+
+    // One arrow on each branch approaching a self-crossing, tip stopping
+    // just short of the junction so both directions read there.
+    function crossingFeatures(path, view) {
+      const { total, pointAt } = path;
+      const feats = [], seen = [];
+      for (const c of routeArrows.crossings) {
+        const dA = c.fA * total, dB = c.fB * total;
+        if (dB - dA < 60) continue; // a tiny loop: the loop arrow already covers it
+        const p = pointAt(dA);
+        if (!view.contains(p)) continue;
+        if (seen.some(q => q.distanceTo(p) < 12)) continue;
+        seen.push(p);
+        for (const d of [dA, dB]) {
+          if (d - ROUTE_HEAD - ROUTE_TAIL_CROSS < 0) continue;
+          feats.push({ d: d - ROUTE_HEAD, tail: ROUTE_TAIL_CROSS, head: 0, kind: 'cross' });
+        }
+      }
+      return feats;
+    }
+
+    // Build a trace arrow: the actual line from d-tail to d+head, plus a
+    // chevron head matching the plain chevron icon. Drawn as two polylines
+    // (halo under stroke) through the same projection as the route line.
+    // Stops and other markers are ignored on purpose: a stop usually sits
+    // right at the corner, and an arrow that is broken around it or nudged
+    // off the apex stops reading as "the line turns here". The arrow is
+    // drawn whole, in a pane above the markers.
+    function traceArrowLayers(path, feat) {
+      const { px, cum, total, pointAt, segAt } = path;
+      const d0 = Math.max(0, feat.d - feat.tail), d1 = Math.min(total, feat.d + feat.head);
+      if (d1 - d0 < 8) return [];
+      const ds = [];
+      for (let d = d0; d < d1; d += ROUTE_FEATURE_STEP) ds.push(d);
+      for (let i = segAt(d0); i < px.length && cum[i] < d1; i++) if (cum[i] > d0) ds.push(cum[i]); // keep corners sharp
+      ds.push(d1);
+      ds.sort((a, b) => a - b);
+      const parts = [ds.map(pointAt)];
+      const tip = pointAt(d1), back = pointAt(Math.max(d0, d1 - 6));
+      let ux = tip.x - back.x, uy = tip.y - back.y;
+      const len = Math.hypot(ux, uy) || 1; ux /= len; uy /= len;
+      const nx = -uy, ny = ux;
+      parts.push([
+        L.point(tip.x - 4.5 * ux + 4 * nx, tip.y - 4.5 * uy + 4 * ny),
+        tip,
+        L.point(tip.x - 4.5 * ux - 4 * nx, tip.y - 4.5 * uy - 4 * ny)
+      ]);
+      const rings = parts.map(part => part.map(p => map.unproject(p)));
+      if (!routeArrows.renderer) routeArrows.renderer = L.svg({ pane: 'routeTrace' });
+      const light = routeArrows.color === '#fff';
+      // pane is set so the layeradd/layerremove relayout hook skips these.
+      const common = { renderer: routeArrows.renderer, pane: 'routeTrace', interactive: false, lineCap: 'round', lineJoin: 'round' };
+      return [
+        L.polyline(rings, { ...common, color: light ? '#000' : '#fff', weight: 4.5, opacity: light ? 0.45 : 0.55 }),
+        L.polyline(rings, { ...common, color: routeArrows.color, weight: 2.5, opacity: 1 })
+      ];
     }
 
     function routeArrowIcon(angleDeg) {
@@ -3221,36 +3642,66 @@
       const pts = routeArrows.latlngs;
       if (!map || pts.length < 2) return;
 
-      // Project once, then walk the path by cumulative pixel distance.
-      const px = pts.map(ll => map.project(ll));
-      const cum = [0];
-      for (let i = 1; i < px.length; i++) cum.push(cum[i-1] + px[i].distanceTo(px[i-1]));
-      const total = cum[cum.length - 1];
+      const path = projectPath(pts);
+      const { total, pointAt } = path;
       if (total < 24) return; // too short on screen for even one chevron
 
-      // Point at path distance `d` (binary search on cum, then lerp).
-      let hint = 1;
-      const pointAt = d => {
-        d = Math.max(0, Math.min(total, d));
-        let lo = 1, hi = px.length - 1;
-        if (cum[hint-1] <= d && d <= cum[hint]) lo = hi = hint;
-        while (lo < hi) { const mid = (lo + hi) >> 1; if (cum[mid] < d) lo = mid + 1; else hi = mid; }
-        hint = lo;
-        const a = px[lo-1], b = px[lo], seg = cum[lo] - cum[lo-1];
-        const t = seg > 0 ? (d - cum[lo-1]) / seg : 0;
-        return L.point(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t);
-      };
-
-      let stopPx = routeArrows.stops.map(ll => map.project(ll));
-      if (stopPx.length > 1) {
-        const gaps = stopPx.slice(1).map((p, i) => p.distanceTo(stopPx[i])).sort((a, b) => a - b);
-        if (gaps[Math.floor(gaps.length / 2)] < 14) stopPx = routeArrows.terminals.map(ll => map.project(ll));
+      // Trip stop dots (only the terminals once they're crowded and hidden,
+      // matching layoutRouteStops) plus every other marker on the map.
+      let tripDots = routeArrows.stops.map(ll => map.project(ll));
+      if (tripDots.length > 1) {
+        const gaps = tripDots.slice(1).map((p, i) => p.distanceTo(tripDots[i])).sort((a, b) => a - b);
+        if (gaps[Math.floor(gaps.length / 2)] < 14) tripDots = routeArrows.terminals.map(ll => map.project(ll));
       }
+      const obstacles = [...tripDots.map(p => ({ p, r: 6 })), ...routeObstacles()];
       const view = map.getPixelBounds().pad(0.15);
-      const spacing = ROUTE_ARROW_SPACING_PX;
-      const stopClearance = 12; // px: keep chevrons off stop dots when possible
-      const look = 7;           // px each way used to measure local heading
-      const onStop = p => stopPx.some(sp => Math.abs(sp.x - p.x) < stopClearance && Math.abs(sp.y - p.y) < stopClearance);
+
+      // ---- Trace arrows at features (loops > crossings > bends) ----
+      const prio = { loop: 0, cross: 1, bend: 2 };
+      const candidates = [...findBendFeatures(path, view), ...crossingFeatures(path, view)]
+        .sort((a, b) => prio[a.kind] - prio[b.kind]);
+      // Keep a feature unless it sits on top of one already kept: close along
+      // the path, or (for out-and-back spurs, where two corners share one
+      // spot on screen) its window overlaps another's on screen. The two
+      // branch arrows of one crossing are meant to sit together, so they
+      // are exempt from the on-screen test.
+      const windowPts = f => {
+        const out = [];
+        for (let d = f.d - f.tail; d < f.d + f.head; d += 8) out.push(pointAt(d));
+        out.push(pointAt(f.d + f.head));
+        return out;
+      };
+      const kept = [];
+      for (const f of candidates) {
+        const pts = windowPts(f);
+        const clash = kept.some(k => {
+          if (Math.abs(k.f.d - f.d) < ROUTE_FEATURE_CLEAR) return true;
+          if (k.f.kind === 'cross' && f.kind === 'cross') return false;
+          return k.pts.some(q => pts.some(p => q.distanceTo(p) < 18));
+        });
+        if (!clash) kept.push({ f, pts });
+      }
+      const featurePts = [];
+      for (const { f, pts } of kept) {
+        featurePts.push(...pts);
+        for (const layer of traceArrowLayers(path, f)) routeArrows.markers.push(layer.addTo(map));
+      }
+      const nearFeature = p => featurePts.some(q => q.distanceTo(p) < ROUTE_FEATURE_CLEAR);
+
+      // ---- Plain chevrons everywhere else ----
+      // Spacing at the base zoom, scaled to this zoom (so slots stay glued to
+      // the same spots on the line), then halved as many times as it takes to
+      // get near the density we want here: 84 px at the fitted zoom, halving
+      // every ROUTE_ARROW_DENSITY_ZOOM levels in, never denser than the
+      // minimum, never sparser than the base when zoomed out.
+      const dz = map.getZoom() - (routeArrows.baseZoom ?? map.getZoom());
+      const baseSpacing = ROUTE_ARROW_SPACING_PX * Math.pow(2, dz);
+      const wanted = Math.min(ROUTE_ARROW_SPACING_PX,
+        Math.max(ROUTE_ARROW_MIN_SPACING_PX, ROUTE_ARROW_SPACING_PX * Math.pow(2, -dz / ROUTE_ARROW_DENSITY_ZOOM)));
+      const halvings = Math.floor(Math.log2(baseSpacing / wanted) + 1e-9);
+      const spacing = baseSpacing / Math.pow(2, halvings);
+      const look = 7; // px each way used to measure local heading
+      const onStop = p => obstacles.some(o => o.p.distanceTo(p) < o.r + ROUTE_ARROW_SIZE / 2); // keep chevrons off markers when possible
       const bendAt = (d, p) => {
         const before = pointAt(d - look), after = pointAt(d + look);
         const h1 = Math.atan2(p.x - before.x, -(p.y - before.y));
@@ -3259,17 +3710,24 @@
         return turn;
       };
 
-      // Short on screen: one chevron at the midpoint. Otherwise one per slot.
+      // Short on screen: one chevron at the midpoint. Otherwise one per slot,
+      // offset by half the *base* spacing so each subdivision keeps the
+      // previous level's slots and adds the midpoints between them.
       const slots = [];
       if (total < spacing) slots.push(total / 2);
-      else for (let d = spacing / 2; d < total - spacing / 4; d += spacing) slots.push(d);
+      else {
+        let d = (baseSpacing / 2) % spacing;
+        if (d < spacing / 4) d += spacing; // don't start on the terminal itself
+        for (; d < total - spacing / 4; d += spacing) slots.push(d);
+      }
 
       for (const slot of slots) {
         if (!view.contains(pointAt(slot))) continue;
         // Try the slot, then slide either way (up to 40% of the spacing) to
-        // find a spot that's on neither a stop dot nor a sharp bend. A bend
-        // is a hard skip; a stop is only a preference so chevrons still show
-        // when zoomed out and every stretch of line is covered by stops.
+        // find a spot that's on neither a stop dot, a sharp bend nor a trace
+        // arrow. Bends and trace arrows are hard skips; a stop is only a
+        // preference so chevrons still show when zoomed out and every
+        // stretch of line is covered by stops.
         let chosen = null, fallback = null;
         const maxSlide = Math.min(spacing * 0.4, total / 2 - 4);
         for (let off = 0; off <= maxSlide && !chosen; off += 4) {
@@ -3277,6 +3735,7 @@
             if (d < 4 || d > total - 4) continue;
             const p = pointAt(d);
             if (bendAt(d, p) > Math.PI / 4) continue;
+            if (nearFeature(p)) continue;
             if (onStop(p)) { if (!fallback) fallback = d; continue; }
             chosen = d; break;
           }
@@ -3529,7 +3988,7 @@
         const popupTxt = `<b>Vehicle ${info.id||entity.id}</b><br>Route ${trip.route_id}<br>${label}`;
         if (!vehicleRTMarker) {
           const icon = L.divIcon({className:'vehicle-rt-marker',html:'<div></div>',iconSize:[16,16],iconAnchor:[8,8]});
-          vehicleRTMarker = L.marker(latlng,{icon,zIndexOffset:1000}).addTo(map);
+          vehicleRTMarker = L.marker(latlng,{icon,pane:'vehicle',zIndexOffset:1000}).addTo(map);
           vehicleRTMarker.bindPopup(popupTxt);
           vehicleRTMarker.bindTooltip(timeAgo(ts||rtLastVehTs), {permanent:true, direction:'top', offset:[0,-10], className:'veh-time-tooltip'});
         } else {
@@ -4970,7 +5429,6 @@
     initSettingsPopover('m-depFilterBtn', 'm-depFilterPopover');
     initSettingsPopover('multiDepFilterBtn', 'multiDepFilterPopover');
     initSettingsPopover('m-multiDepFilterBtn', 'm-multiDepFilterPopover');
-    initSettingsPopover('boardFilterBtn', 'boardFilterPopover');
 
     // ===== NEAREST STOPS =====
     function handleFindNearest(latId, lonId) {
@@ -5082,47 +5540,288 @@
     }
 
     // ===== DEPARTURE BOARD (fullscreen "More" feature) =====
-    // Fetches the 50 nearest stops (sorted by distance), takes up to
-    // BOARD_INNER_MAX within BOARD_INNER_RADIUS_KM, then tops up with up to
-    // BOARD_OUTER_MAX more stops out to BOARD_OUTER_RADIUS_KM — so sparse
-    // areas with few stops nearby still get a reasonably full board — and
-    // shows all their departures as one live, deduped board, re-checking
-    // location and refreshing the data every BOARD_REFRESH_MS.
-    const BOARD_FETCH_LIMIT = 50;
-    const BOARD_INNER_RADIUS_KM = 3;
-    const BOARD_INNER_MAX = 30;
-    const BOARD_OUTER_RADIUS_KM = 8;
-    const BOARD_OUTER_MAX = 20;
-    const BOARD_REFRESH_MS = 15000;
+    // A station-style board for someone standing nearby: every stop within
+    // BOARD_WALK_RADIUS_KM (falling back to the closest BOARD_FALLBACK_STOPS
+    // when nothing is that near), departures merged, deduped per trip (the
+    // stop closest to the user wins), sorted by RT-adjusted departure, for
+    // the rest of today's service day. Schedules refetch every
+    // BOARD_REFRESH_MS, realtime + the "N min" labels every BOARD_RT_MS, and
+    // the clock ticks every second.
+    const BOARD_WALK_RADIUS_KM = 1;
+    const BOARD_MAX_STOPS = 15;
+    const BOARD_FALLBACK_STOPS = 3;
+    const BOARD_NEAREST_LIMIT = 30;
+    const BOARD_WALK_M_PER_MIN = 80;
+    const BOARD_REFRESH_MS = 60000;
+    const BOARD_RT_MS = 15000;
     let boardOverlayOpen = false;
-    let boardRefreshId = null;
+    let boardRefreshId = null, boardRtId = null, boardClockId = null;
     let boardLat = null, boardLon = null;
     let allBoardDepartures = [];
     let lastBoardStopDatas = [];
+    let boardRouteColors = new Map(); // route_id -> route_color hex (first seen)
 
     function openDepartureBoard() {
-      const overlay = document.getElementById('boardOverlay');
-      overlay.style.display = 'flex';
+      document.getElementById('boardOverlay').style.display = 'flex';
       boardOverlayOpen = true;
       resetDepFilterState('board');
-      renderDepFilterPanel([], 'boardFilterTree', 'boardFilterBadge', 'board', renderBoardCards);
+      renderBoardRouteChips();
+      if (allBoardDepartures.length) renderBoardCards();
+      tickBoardClock();
       document.addEventListener('keydown', onBoardOverlayKeydown);
       loadDepartureBoardLocation();
-      if (boardRefreshId === null) {
-        boardRefreshId = setInterval(() => { if (boardOverlayOpen) loadDepartureBoardLocation(); }, BOARD_REFRESH_MS);
-      }
+      if (boardRefreshId === null) boardRefreshId = setInterval(() => { if (boardOverlayOpen) loadDepartureBoardLocation(); }, BOARD_REFRESH_MS);
+      if (boardRtId === null)      boardRtId      = setInterval(() => { if (boardOverlayOpen) renderBoardCards(); }, BOARD_RT_MS);
+      if (boardClockId === null)   boardClockId   = setInterval(tickBoardClock, 1000);
     }
 
     function closeDepartureBoard() {
-      const overlay = document.getElementById('boardOverlay');
-      overlay.style.display = 'none';
+      document.getElementById('boardOverlay').style.display = 'none';
       boardOverlayOpen = false;
       document.removeEventListener('keydown', onBoardOverlayKeydown);
-      if (boardRefreshId !== null) { clearInterval(boardRefreshId); boardRefreshId = null; }
+      [boardRefreshId, boardRtId, boardClockId].forEach(id => { if (id !== null) clearInterval(id); });
+      boardRefreshId = boardRtId = boardClockId = null;
     }
 
     function onBoardOverlayKeydown(e) {
       if (e.key === 'Escape') closeDepartureBoard();
+    }
+
+    function tickBoardClock() {
+      const el = document.getElementById('boardClock');
+      if (!el) return;
+      const n = new Date();
+      let h = n.getHours();
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      h = h % 12 || 12;
+      el.innerHTML = `${h}:${String(n.getMinutes()).padStart(2,'0')}<span class="board-clock-sec">:${String(n.getSeconds()).padStart(2,'0')} ${ampm}</span>`;
+    }
+
+    function setBoardMessage(text) {
+      const grid = document.getElementById('boardGrid');
+      grid.innerHTML = `<div class="board-empty">${escapeHtml(text)}</div>`;
+      grid.dataset.tripKey = '';
+    }
+
+    function walkMinutes(km) {
+      return Math.max(1, Math.ceil((km * 1000) / BOARD_WALK_M_PER_MIN));
+    }
+    function fmtWalk(km) {
+      return km * 1000 < 60 ? 'right here' : `${walkMinutes(km)} min walk`;
+    }
+
+    // ['3', 'min', ''] | ['Due', '', 'due'] | ['3:15 PM', '', 'later']
+    function fmtBoardLeave(arrival, tripId) {
+      const at = parseTime(arrival) + getRTDelaySeconds(tripId);
+      const secs = at - nowInSeconds();
+      if (secs < 0)    return ['Gone', '', 'past'];
+      if (secs <= 30)  return ['Due', '', 'due'];
+      if (secs < 3600) return [String(Math.round(secs / 60)), 'min', ''];
+      return [fmtClockShort(at), '', 'later'];
+    }
+
+    function updateBoardETAs(grid) {
+      const now = nowInSeconds();
+      grid.querySelectorAll('.board-row').forEach(row => {
+        const el = row.querySelector('.board-leave');
+        if (!el) return;
+        const [text, unit, cls] = fmtBoardLeave(row.dataset.arrival, row.dataset.tripId);
+        el.innerHTML = escapeHtml(text) + (unit ? `<span class="board-leave-unit">${unit}</span>` : '');
+        el.className = `board-leave${cls ? ' ' + cls : ''}`;
+        const secsLeft = parseTime(row.dataset.arrival) + getRTDelaySeconds(row.dataset.tripId) - now;
+        row.classList.toggle('board-row-missed', Number(row.dataset.walkSec) > secsLeft);
+      });
+    }
+
+    function loadDepartureBoardLocation() {
+      const sub = document.getElementById('boardOverlaySub');
+      if (!navigator.geolocation) {
+        sub.textContent = 'Location is not available in this browser';
+        setBoardMessage('Turn on location to see departures near you.');
+        return;
+      }
+      if (boardLat == null) {
+        const grid = document.getElementById('boardGrid');
+        grid.innerHTML = skeletonDepCards(6);
+        grid.dataset.tripKey = '';
+        sub.textContent = 'Finding you…';
+      }
+      navigator.geolocation.getCurrentPosition(pos => {
+        boardLat = pos.coords.latitude;
+        boardLon = pos.coords.longitude;
+        fetchDepartureBoard();
+      }, () => {
+        if (boardLat == null) {
+          sub.textContent = 'Location unavailable';
+          setBoardMessage('Turn on location to see departures near you.');
+        }
+      }, { maximumAge: 30000, timeout: 10000 });
+    }
+
+    function fetchDepartureBoard() {
+      if (boardLat == null || boardLon == null) return;
+      const sub = document.getElementById('boardOverlaySub');
+      if (!allBoardDepartures.length) sub.textContent = 'Finding stops near you…';
+
+      apiFetch(`/api/nearest/${boardLat}/${boardLon}?limit=${BOARD_NEAREST_LIMIT}`)
+        .then(r => r.json())
+        .then(data => {
+          // nearest_stops is sorted nearest-first: everything within walking
+          // range (capped), or the closest few when nothing is that near.
+          const all = data.nearest_stops || [];
+          let stops = all.filter(s => s.distanceKM <= BOARD_WALK_RADIUS_KM).slice(0, BOARD_MAX_STOPS);
+          if (!stops.length) stops = all.slice(0, BOARD_FALLBACK_STOPS);
+          if (!stops.length) {
+            sub.textContent = 'Near you';
+            setBoardMessage('No stops within walking distance.');
+            return;
+          }
+          const date = todayStr();
+          return Promise.all(stops.map(s =>
+            apiFetch(`/api/stop/${s.stop_id}/${date}`).then(r => r.json())
+              .then(sd => ({ ...sd, _distanceKM: s.distanceKM, _stopName: s.stop_name || sd.stop_name || '' }))
+              .catch(() => ({ error: true }))
+          )).then(stopDatas => renderDepartureBoard(stopDatas.filter(s => !s.error)));
+        })
+        .catch(() => {
+          if (!allBoardDepartures.length) {
+            sub.textContent = 'Near you';
+            setBoardMessage('Couldn’t load departures. Trying again shortly.');
+          }
+        });
+    }
+
+    function renderDepartureBoard(stopDatas) {
+      const combined = [];
+      stopDatas.forEach(s => (s.departures || []).forEach(dep => {
+        combined.push({ ...dep, _stopId: s.stop_id, _stopName: s._stopName, _distanceKM: s._distanceKM });
+      }));
+
+      // Same trip can serve more than one nearby stop (continuing down the
+      // road) — keep only the occurrence at the stop closest to the user.
+      const byTrip = new Map();
+      combined.forEach(dep => {
+        const existing = byTrip.get(dep.trip_id);
+        if (!existing || dep._distanceKM < existing._distanceKM) byTrip.set(dep.trip_id, dep);
+      });
+
+      const now = nowInSeconds();
+      allBoardDepartures = [...byTrip.values()]
+        .filter(dep => parseTime(dep.arrival_time) + getRTDelaySeconds(dep.trip_id) >= now);
+      lastBoardStopDatas = stopDatas;
+
+      boardRouteColors = new Map();
+      allBoardDepartures.forEach(dep => {
+        if (dep.route_id && !boardRouteColors.has(dep.route_id)) boardRouteColors.set(dep.route_id, dep.route_color || '');
+      });
+      // Forget chip selections for routes that are no longer on the board.
+      const st = getDepFilterState('board');
+      [...st.selected.keys()].forEach(r => { if (!boardRouteColors.has(r)) st.selected.delete(r); });
+
+      const n = stopDatas.length;
+      const farthestKM = Math.max(0, ...stopDatas.map(s => s._distanceKM || 0));
+      document.getElementById('boardOverlaySub').textContent =
+        `Near you · ${n} stop${n !== 1 ? 's' : ''} within a ${walkMinutes(farthestKM)} min walk`;
+
+      renderBoardRouteChips();
+      renderBoardCards();
+    }
+
+    // One tap-to-toggle chip per route on the board (plus "All"), stored in
+    // the shared depFilterState under 'board' as route -> 'ALL' so
+    // applyDepFilter() works unchanged.
+    function renderBoardRouteChips() {
+      const wrap = document.getElementById('boardChips');
+      if (!wrap) return;
+      const st = getDepFilterState('board');
+      const routes = [...boardRouteColors.keys()]
+        .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+      wrap.innerHTML = '';
+      const all = document.createElement('button');
+      all.type = 'button';
+      all.className = 'board-chip board-chip-all' + (st.selected.size ? '' : ' active');
+      all.textContent = 'All';
+      all.setAttribute('aria-pressed', String(st.selected.size === 0));
+      all.addEventListener('click', () => onBoardChip(null));
+      wrap.appendChild(all);
+      routes.forEach(r => {
+        const hex = boardRouteColors.get(r);
+        const on = st.selected.has(r);
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'board-chip' + (on ? ' active' : '');
+        chip.textContent = r;
+        chip.style.setProperty('--chip', hex ? `#${hex}` : 'var(--accent2)');
+        chip.style.setProperty('--chip-text', hex ? readableTextColor(hex) : '#fff');
+        chip.setAttribute('aria-pressed', String(on));
+        chip.addEventListener('click', () => onBoardChip(r));
+        wrap.appendChild(chip);
+      });
+      wrap.hidden = routes.length < 2;
+    }
+
+    function onBoardChip(routeId) {
+      const st = getDepFilterState('board');
+      if (routeId === null) st.selected = new Map();
+      else if (st.selected.has(routeId)) st.selected.delete(routeId);
+      else st.selected.set(routeId, 'ALL');
+      renderBoardRouteChips();
+      renderBoardCards();
+    }
+
+    function buildBoardRow(dep) {
+      const row = document.createElement('div');
+      row.className = 'dep-card board-row';
+      row.dataset.tripId = dep.trip_id;
+      row.dataset.arrival = dep.arrival_time;
+      row.dataset.walkSec = Math.round((dep._distanceKM * 1000 / BOARD_WALK_M_PER_MIN) * 60);
+      const bg = dep.route_color ? `#${dep.route_color}` : 'var(--accent2)';
+      const fg = dep.route_color ? readableTextColor(dep.route_color) : '#fff';
+      const stopText = dep._stopName
+        ? `${escapeHtml(dep._stopName)}<span class="board-walk"> · ${fmtWalk(dep._distanceKM)}</span>`
+        : `<span class="board-walk">${fmtWalk(dep._distanceKM)}</span>`;
+      row.innerHTML = `
+        <div class="board-route" style="background:${bg};color:${fg}">${escapeHtml(dep.route_id)}</div>
+        <div class="board-dest">${escapeHtml(dep.trip_headsign || dep.route_id)}</div>
+        <div class="board-stop">${stopText}<span class="board-miss"> · can’t make it</span></div>
+        <div class="board-leave-wrap">
+          <div class="board-leave"></div>
+          <div class="board-sched"><span class="dep-time-sched">${fmtClockShort(parseTime(dep.arrival_time))}</span><span class="dep-time-actual"></span></div>
+          <div class="dep-badge-slot"></div>
+        </div>
+      `;
+      return row;
+    }
+
+    function renderBoardCards() {
+      const grid = document.getElementById('boardGrid');
+      const now = nowInSeconds();
+      const realTime = dep => parseTime(dep.arrival_time) + getRTDelaySeconds(dep.trip_id);
+      // Re-filter and re-sort on every pass so buses drop off as they leave
+      // and reorder as realtime delays come in.
+      const rows = applyDepFilter(allBoardDepartures, 'board')
+        .filter(dep => realTime(dep) >= now)
+        .sort((a, b) => realTime(a) - realTime(b));
+
+      if (!rows.length) {
+        const st = getDepFilterState('board');
+        const picked = [...st.selected.keys()];
+        setBoardMessage(picked.length
+          ? `No more route ${picked.join(' / ')} departures today.`
+          : `Nothing else leaving today.`);
+      } else {
+        // Skip the rebuild when the same trips are already on screen in the
+        // same order — only the labels and RT badges need to move.
+        const tripKey = rows.map(d => d.trip_id).join(',');
+        if (grid.dataset.tripKey !== tripKey) {
+          grid.dataset.tripKey = tripKey;
+          grid.innerHTML = '';
+          rows.forEach(dep => grid.appendChild(buildBoardRow(dep)));
+        }
+        updateBoardETAs(grid);
+      }
+
+      lastBoardStopDatas.forEach(s => { reapplyCachedRT(s.stop_id); loadRTStopUpdates(s.stop_id); });
     }
 
     // ===== TRIP STOPS OVERLAY =====
@@ -5149,151 +5848,6 @@
 
     function onTripStopsOverlayKeydown(e) {
       if (e.key === 'Escape') closeTripStops();
-    }
-
-    function loadDepartureBoardLocation() {
-      const sub = document.getElementById('boardOverlaySub');
-      if (!navigator.geolocation) { sub.textContent = 'Geolocation is not supported by this browser.'; return; }
-
-      if (boardLat == null) {
-        const grid = document.getElementById('boardGrid');
-        grid.innerHTML = skeletonDepCards(5);
-        grid.dataset.tripKey = '';
-        sub.textContent = 'Locating you…';
-      }
-
-      navigator.geolocation.getCurrentPosition(pos => {
-        boardLat = pos.coords.latitude;
-        boardLon = pos.coords.longitude;
-        fetchDepartureBoard();
-      }, () => {
-        if (boardLat == null) {
-          sub.textContent = 'Unable to get your location.';
-          document.getElementById('boardGrid').innerHTML = '';
-        }
-      });
-    }
-
-    function fetchDepartureBoard() {
-      if (boardLat == null || boardLon == null) return;
-      const sub = document.getElementById('boardOverlaySub');
-      sub.textContent = 'Finding nearby stops…';
-
-      apiFetch(`/api/nearest/${boardLat}/${boardLon}?limit=${BOARD_FETCH_LIMIT}`)
-        .then(r => r.json())
-        .then(data => {
-          // nearest_stops is sorted nearest-first: take up to BOARD_INNER_MAX
-          // within the inner radius, then keep adding stops (still sorted by
-          // distance) until BOARD_OUTER_MAX more are added or the outer
-          // radius is exceeded.
-          const all = data.nearest_stops || [];
-          const inner = all.filter(s => s.distanceKM <= BOARD_INNER_RADIUS_KM).slice(0, BOARD_INNER_MAX);
-          const innerIds = new Set(inner.map(s => s.stop_id));
-          const outer = [];
-          for (const s of all) {
-            if (outer.length >= BOARD_OUTER_MAX) break;
-            if (s.distanceKM > BOARD_OUTER_RADIUS_KM) break;
-            if (innerIds.has(s.stop_id)) continue;
-            outer.push(s);
-          }
-          const stops = [...inner, ...outer];
-          if (!stops.length) {
-            sub.textContent = `No stops found within ${BOARD_OUTER_RADIUS_KM} km.`;
-            document.getElementById('boardGrid').innerHTML = '';
-            return;
-          }
-          sub.textContent = `Loading departures from ${stops.length} stop${stops.length !== 1 ? 's' : ''}…`;
-          const date = document.getElementById('dateInput')?.value || todayStr();
-          return Promise.all(stops.map(s => Promise.all([
-            apiFetch(`/api/stop/${s.stop_id}/${date}`).then(r => r.json()),
-            apiFetch(`/api/stopinfo/${s.stop_id}`).then(r => r.json())
-          ]).then(([sd, info]) => ({ ...sd, _distanceKM: s.distanceKM, _stopName: info.stop_name || sd.stop_name, _stopCode: info.stop_code }))
-          )).then(stopDatas => renderDepartureBoard(stopDatas.filter(s => !s.error)));
-        })
-        .catch(() => {
-          sub.textContent = 'Error loading departure board.';
-          document.getElementById('boardGrid').innerHTML = '';
-        });
-    }
-
-    function renderDepartureBoard(stopDatas) {
-      const combined = [];
-      stopDatas.forEach(s => (s.departures || []).forEach(dep => {
-        combined.push({ ...dep, _stopId: s.stop_id, _stopName: s._stopName, _stopCode: s._stopCode, _distanceKM: s._distanceKM });
-      }));
-
-      // Same trip can serve more than one nearby stop (continuing down the
-      // road) — keep only the occurrence at the stop closest to the user.
-      const byTrip = new Map();
-      combined.forEach(dep => {
-        const existing = byTrip.get(dep.trip_id);
-        if (!existing || dep._distanceKM < existing._distanceKM) byTrip.set(dep.trip_id, dep);
-      });
-
-      // Drop buses that have already departed so the board stays sorted
-      // with the next bus on top and refreshes as buses pass.
-      const now = nowInSeconds();
-      allBoardDepartures = [...byTrip.values()]
-        .filter(dep => parseTime(dep.arrival_time) + getRTDelaySeconds(dep.trip_id) >= now)
-        .sort((a, b) =>
-          (parseTime(a.arrival_time) + getRTDelaySeconds(a.trip_id)) -
-          (parseTime(b.arrival_time) + getRTDelaySeconds(b.trip_id))
-        );
-      lastBoardStopDatas = stopDatas;
-
-      renderDepFilterPanel(allBoardDepartures, 'boardFilterTree', 'boardFilterBadge', 'board', renderBoardCards);
-      renderBoardCards();
-    }
-
-    function onBoardFilterClear() {
-      resetDepFilterState('board');
-      renderDepFilterPanel(allBoardDepartures, 'boardFilterTree', 'boardFilterBadge', 'board', renderBoardCards);
-      renderBoardCards();
-    }
-
-    function renderBoardCards() {
-      const grid = document.getElementById('boardGrid');
-      const sub = document.getElementById('boardOverlaySub');
-      const deduped = applyDepFilter(allBoardDepartures, 'board');
-
-      sub.textContent = `${deduped.length} departure${deduped.length !== 1 ? 's' : ''} · within ${BOARD_OUTER_RADIUS_KM} km`;
-
-      const tripKey = deduped.map(d => d.trip_id).join(',');
-      if (grid.dataset.tripKey !== tripKey) {
-        grid.dataset.tripKey = tripKey;
-        grid.innerHTML = '';
-        deduped.forEach(dep => {
-          const card = document.createElement('div');
-          card.className = 'dep-card board-row';
-          card.dataset.tripId = dep.trip_id;
-          card.dataset.arrival = dep.arrival_time;
-          const color = dep.route_color ? `#${dep.route_color}` : 'var(--accent2)';
-          card.innerHTML = `
-            <div class="dep-card-top">
-              <div class="dep-route"><span class="dep-dot" style="background:${color}"></span>${dep.route_id}</div>
-              <div class="dep-badge-slot"></div>
-            </div>
-            <div class="dep-time-row">
-              <div class="dep-time"><span class="dep-time-sched">${fmtTime(dep.arrival_time)}</span></div>
-              <div class="dep-time-actual"></div>
-              <div class="dep-eta" data-arrival="${dep.arrival_time}" data-trip-id="${dep.trip_id}"></div>
-            </div>
-            ${dep.trip_headsign ? `<div class="dep-headsign">${dep.trip_headsign}</div>` : ''}
-            <div class="dep-card-footer">
-              <div class="dep-trip">Trip ${dep.trip_id}</div>
-              <div class="dep-stop-tag">${dep._stopName ? dep._stopName + ' · ' : ''}${dep._stopCode ? 'Stop ' + dep._stopCode + ' · ' : ''}${dep._distanceKM.toFixed(2)} km</div>
-            </div>
-          `;
-          grid.appendChild(card);
-        });
-      }
-
-      if (!deduped.length) {
-        grid.innerHTML = `<div style="padding:40px 20px;text-align:center;color:var(--text-muted);font-size:14px">No upcoming departures nearby.</div>`;
-      }
-
-      updateGridETAs(grid);
-      lastBoardStopDatas.forEach(s => { reapplyCachedRT(s.stop_id); loadRTStopUpdates(s.stop_id); });
     }
 
     // ===== MOBILE SHEET =====
