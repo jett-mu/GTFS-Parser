@@ -713,12 +713,36 @@
       border: 1px solid var(--border2);
       border-radius: var(--card-radius);
       box-shadow: var(--shadow-2);
-      max-height: 260px;
+      max-height: 320px;
       overflow-y: auto;
       overscroll-behavior: contain;
       z-index: 30;
     }
     .stop-search-results.visible { display: block; }
+
+    .stop-search-field { position: relative; display: flex; }
+    .stop-search-field input[type="text"] { width: 100%; padding-right: 34px; }
+    .stop-search-clear {
+      position: absolute;
+      top: 50%;
+      right: 5px;
+      transform: translateY(-50%);
+      width: 26px;
+      height: 26px;
+      padding: 0;
+      border: none;
+      border-radius: 50%;
+      background: transparent;
+      color: var(--text-dim);
+      font-size: 19px;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+    .stop-search-clear:hover { background: var(--surface3); color: var(--text); border: none; }
+    .stop-search-clear[hidden] { display: none; }
 
     .stop-search-item {
       display: flex;
@@ -732,15 +756,61 @@
       touch-action: manipulation;
     }
     .stop-search-item:last-child { border-bottom: none; }
-    .stop-search-item:hover, .stop-search-item.active { background: var(--surface3); }
+    .stop-search-item:hover { background: var(--surface3); }
+    .stop-search-item.active { background: var(--surface3); box-shadow: inset 2px 0 0 var(--accent); }
 
     .stop-search-name {
+      flex: 1;
       font-size: 13px;
       color: var(--text);
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
       min-width: 0;
+    }
+    .stop-search-hl {
+      background: rgba(var(--accent-rgb), 0.2);
+      color: inherit;
+      border-radius: 2px;
+      padding: 0 1px;
+    }
+    .stop-search-count {
+      flex-shrink: 0;
+      font-size: 10.5px;
+      font-weight: 600;
+      padding: 1px 7px;
+      border-radius: 999px;
+      background: rgba(var(--accent-rgb), 0.15);
+      color: var(--accent);
+    }
+    .stop-search-section {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 7px 10px 3px;
+      font-size: 10.5px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+    .stop-search-section button {
+      background: none;
+      border: none;
+      padding: 0;
+      font-size: 10.5px;
+      font-weight: 500;
+      letter-spacing: 0;
+      text-transform: none;
+      color: var(--accent);
+      cursor: pointer;
+    }
+    .stop-search-section button:hover { background: none; border: none; text-decoration: underline; }
+    .stop-search-loading {
+      padding: 10px;
+      font-size: 12.5px;
+      color: var(--text-muted);
+      text-align: center;
     }
 
     .stop-search-id {
@@ -1004,6 +1074,7 @@
       justify-content: space-between;
       align-items: center;
       cursor: pointer;
+      gap: 8px;
       transition: border-color var(--transition), background var(--transition), transform 0.15s;
       touch-action: manipulation;
       min-height: 44px;
@@ -1015,6 +1086,23 @@
     .nearest-stop-item:active { transform: scale(0.98); }
     .nearest-stop-item .ns-id { color: var(--text); font-family: var(--font-mono); font-size: 13px; }
     .nearest-stop-item .ns-dist { color: var(--text-muted); font-size: 12px; }
+    .nearest-stop-item .ns-main { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
+    /* Full stop name, always: wrap rather than truncate — the name is what the rider is choosing by. */
+    .nearest-stop-item .ns-name { color: var(--text); font-size: 13.5px; line-height: 1.3; white-space: normal; overflow-wrap: anywhere; }
+    .nearest-stop-item .ns-meta { color: var(--text-muted); font-family: var(--font-mono); font-size: 11.5px; }
+    .nearest-stop-item .ns-only-btn {
+      flex-shrink: 0;
+      align-self: center;
+      background: none;
+      border: none;
+      padding: 6px 4px 6px 10px;
+      font-size: 11.5px;
+      color: var(--accent);
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .nearest-stop-item .ns-only-btn:hover { background: none; border: none; text-decoration: underline; }
+    .nearest-hint { font-size: 12px; color: var(--text-muted); line-height: 1.4; margin-bottom: 8px; }
 
     .date-row {
       display: flex;
@@ -1049,6 +1137,8 @@
     .leaflet-popup-tip { background: var(--surface) !important; }
     .leaflet-popup-close-button { color: var(--text-dim) !important; }
     .leaflet-popup-close-button:hover { color: var(--text) !important; }
+    .leaflet-routeArrows-pane { pointer-events: none; }
+    .route-arrow { display: block; }
 
     .stop-popup { min-width: 190px; }
     .stop-popup-header {
@@ -1506,6 +1596,7 @@
 
       button { padding: 11px 14px; }
       input[type="text"], input[type="date"], select { padding: 11px 12px; }
+      .stop-search-item { padding: 11px 12px; }
       .pagination-btn { padding: 10px 14px; }
       .show-all-deps-btn { padding: 8px 12px; }
 
@@ -1586,85 +1677,274 @@
       padding-right: 0;
     }
 
-    /* ===== DEPARTURE BOARD ===== */
-    .board-header-row { display: none; }
+    /* ===== DEPARTURE BOARD =====
+       Station-style board for someone standing nearby: route block,
+       destination, which stop + walk time, minutes until it leaves, and
+       on-time / late. Row markup keeps the .dep-card / .dep-time-sched /
+       .dep-time-actual / .dep-badge-slot hooks applyRTtoDepartures() uses. */
+    .board-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: var(--space-4);
+      padding: calc(var(--space-4) + var(--safe-top)) var(--space-5) var(--space-3);
+      border-bottom: 2px solid var(--text);
+      flex-shrink: 0;
+    }
+    .board-header-left { min-width: 0; }
+    .board-title {
+      font-family: var(--font-display);
+      font-size: 30px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      line-height: 1;
+      color: var(--text);
+    }
+    .board-sub {
+      font-size: 13.5px;
+      color: var(--text-muted);
+      margin-top: 7px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .board-header-right {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--space-3);
+      flex-shrink: 0;
+    }
+    .board-clock-wrap { text-align: right; }
+    .board-clock {
+      font-family: var(--font-display);
+      font-size: 30px;
+      font-weight: 600;
+      line-height: 1;
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+    .board-clock-sec { font-size: 0.55em; font-weight: 500; color: var(--text-muted); margin-left: 2px; }
+    button.board-close {
+      width: 40px;
+      height: 40px;
+      padding: 0;
+      border-radius: 50%;
+      font-size: 18px;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+    button.board-close:hover { background: var(--surface3); border-color: var(--border2); }
 
-    .board-list { max-width: 900px; gap: 6px; }
-    .board-row.dep-card { cursor: default; }
-
-    @media (min-width: 641px) {
-      .board-header-row {
-        display: flex;
-        align-items: center;
-        gap: var(--space-4);
-        max-width: 900px;
-        margin: 0 auto 6px;
-        padding: 0 var(--space-4) 8px;
-        font-family: var(--font-mono);
-        font-size: 10.5px;
-        font-weight: 700;
-        letter-spacing: 0.07em;
-        text-transform: uppercase;
-        color: var(--text-dim);
-        border-bottom: 1px solid var(--border2);
-      }
-      .board-header-row .bhr-route    { flex: 0 0 110px; }
-      .board-header-row .bhr-headsign { flex: 1; }
-      .board-header-row .bhr-time     { flex: 0 0 134px; text-align: right; }
-      .board-header-row .bhr-actual   { flex: 0 0 90px; text-align: right; }
-      .board-header-row .bhr-eta      { flex: 0 0 100px; text-align: right; }
-      .board-header-row .bhr-badge    { flex: 0 0 118px; }
-
-      .board-list {
-        border: 1px solid var(--border);
-        border-radius: var(--radius);
-        overflow: hidden;
-        background: var(--surface2);
-        gap: 0;
-      }
-
-      .board-row.dep-card {
-        flex-direction: row;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: var(--space-4);
-        padding: 10px var(--space-4) 9px;
-        border: none;
-        border-radius: 0;
-        border-bottom: 1px solid var(--border);
-        background: transparent;
-      }
-      .board-row.dep-card:last-child { border-bottom: none; }
-      .board-row.dep-card:hover { background: var(--surface3); transform: none; box-shadow: none; }
-      .board-row.dep-card.active { background: rgba(var(--accent-rgb), 0.08); box-shadow: none; }
-
-      .board-row .dep-card-top,
-      .board-row .dep-time-row { display: contents; }
-
-      .board-row .dep-route      { order: 1; flex: 0 0 110px; }
-      .board-row .dep-headsign   { order: 2; flex: 1; min-width: 0; margin: 0; font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      .board-row .dep-time       { order: 3; flex: 0 0 134px; text-align: right; font-size: 22px; }
-      .board-row .dep-time-actual { order: 4; flex: 0 0 90px; text-align: right; margin: 0; }
-      .board-row .dep-eta        { order: 5; flex: 0 0 100px; margin-left: 0; text-align: right; }
-      .board-row .dep-badge-slot { order: 6; flex: 0 0 118px; display: flex; justify-content: flex-end; }
-
-      /* Trip id / stop name sit on their own line below the flattened row */
-      .board-row .dep-card-footer {
-        order: 7;
-        flex: 1 0 100%;
-        margin-top: 2px;
-        padding-top: 6px;
-        border-top: 1px dashed var(--border);
-      }
-      .board-row .dep-stop-tag {
-        flex-shrink: 1;
-        min-width: 0;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
+    .board-chips {
+      display: flex;
+      gap: 8px;
+      max-width: 960px;
+      margin: 0 auto var(--space-3);
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      padding-bottom: 2px;
+    }
+    .board-chips::-webkit-scrollbar { display: none; }
+    .board-chips[hidden] { display: none; }
+    button.board-chip {
+      flex-shrink: 0;
+      min-height: 36px;
+      padding: 6px 14px;
+      border-radius: 4px;
+      border: 2px solid var(--border2);
+      background: transparent;
+      color: var(--text-muted);
+      font-family: var(--font-display);
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      box-shadow: inset 5px 0 0 var(--chip, transparent);
+      transition: background var(--transition), color var(--transition), border-color var(--transition);
+    }
+    button.board-chip:hover { color: var(--text); border-color: var(--text); background: transparent; }
+    button.board-chip.active {
+      background: var(--chip, var(--text));
+      border-color: var(--chip, var(--text));
+      color: var(--chip-text, var(--bg));
+      box-shadow: none;
     }
 
+    .board-list {
+      display: flex;
+      flex-direction: column;
+      max-width: 960px;
+      margin: 0 auto;
+    }
+    .board-list .skel-dep-card { margin-bottom: 6px; height: var(--board-row-h, 88px); box-sizing: border-box; overflow: hidden; }
+    .board-empty {
+      padding: 56px 20px;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 16px;
+    }
+
+    .board-row.dep-card {
+      display: grid;
+      grid-template-columns: 78px minmax(0, 1fr) auto;
+      grid-template-areas:
+        "route dest leave"
+        "route stop leave";
+      gap: 3px var(--space-4);
+      align-items: center;
+      align-content: center;
+      /* Every row is the same height regardless of whether a realtime
+         badge / struck-out time shows up in the right column. */
+      height: var(--board-row-h, 88px);
+      box-sizing: border-box;
+      padding: 0;
+      overflow: hidden;
+      border: none;
+      border-radius: 0;
+      border-bottom: 1px solid var(--border);
+      background: transparent;
+      cursor: default;
+      transition: opacity var(--transition);
+    }
+    .board-row.dep-card:hover { background: transparent; border-color: var(--border); transform: none; box-shadow: none; }
+    .board-row.dep-card:active { transform: none; }
+    .board-row.dep-card:last-child { border-bottom: none; }
+
+    .board-route {
+      grid-area: route;
+      align-self: center;
+      font-family: var(--font-display);
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      line-height: 1;
+      text-align: center;
+      padding: 9px 6px;
+      border-radius: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .board-dest {
+      grid-area: dest;
+      min-width: 0;
+      font-family: var(--font-display);
+      font-size: 22px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+      line-height: 1.1;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .board-stop {
+      grid-area: stop;
+      min-width: 0;
+      font-size: 13.5px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .board-walk { color: var(--text-dim); }
+    .board-miss { display: none; color: var(--negative); font-weight: 600; }
+    .board-row-missed { opacity: 0.45; }
+    .board-row-missed .board-miss { display: inline; }
+
+    .board-leave-wrap {
+      grid-area: leave;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 2px;
+      min-width: 104px;
+      text-align: right;
+    }
+    .board-leave {
+      font-family: var(--font-display);
+      font-size: 32px;
+      font-weight: 700;
+      height: var(--board-leave-h, 32px);
+      line-height: var(--board-leave-h, 32px);
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+    .board-leave-unit {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-muted);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin-left: 4px;
+    }
+    .board-leave.due { color: var(--accent3); }
+    .board-leave.later { font-size: 24px; }
+    .board-sched {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      height: 15px;
+      line-height: 15px;
+      font-size: 12.5px;
+      color: var(--text-dim);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+    .board-sched .dep-time-sched-strike { text-decoration: line-through; }
+    /* When the big label is already a clock time, don't repeat it underneath
+       unless RT struck it out (then the sched + actual pair still matters). */
+    .board-leave.later + .board-sched .dep-time-sched:not(.dep-time-sched-strike) { display: none; }
+    .board-sched .dep-time-actual { font-size: 12.5px; font-weight: 700; }
+    .board-sched .dep-time-actual:empty { display: none; }
+    .board-row .dep-badge-slot { height: 14px; line-height: 14px; }
+    .board-row .dep-badge-slot:empty { visibility: hidden; }
+    .board-row .rt-delay-badge {
+      background: none;
+      padding: 0;
+      border-radius: 0;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .board-row .rt-live-only { display: none; }
+
+    @media (max-width: 640px) {
+      .board-header { padding-left: var(--space-4); padding-right: var(--space-4); }
+      .board-title, .board-clock { font-size: 22px; }
+      .board-sub { font-size: 12.5px; white-space: normal; }
+      .board-header-right { gap: var(--space-2); }
+      button.board-close { width: 36px; height: 36px; padding: 0; }
+      .board-overlay .nearby-overlay-body { padding-left: var(--space-4); padding-right: var(--space-4); }
+      button.board-chip { padding: 6px 12px; font-size: 14px; }
+      .board-row.dep-card { grid-template-columns: 58px minmax(0, 1fr) auto; gap: 2px var(--space-3); --board-row-h: 82px; --board-leave-h: 26px; }
+      .board-list .skel-dep-card { --board-row-h: 82px; }
+      .board-route { font-size: 17px; padding: 8px 4px; }
+      .board-dest {
+        white-space: normal;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+      .board-dest { font-size: 17px; }
+      .board-stop { font-size: 12.5px; }
+      .board-leave-wrap { min-width: 84px; }
+      .board-leave { font-size: 26px; }
+      .board-leave.later { font-size: 20px; }
+      .board-leave-unit { font-size: 12px; }
+    }
     /* ===== TOAST ===== */
     .toast {
       position: fixed;
@@ -1998,7 +2278,7 @@
                   <input type="checkbox" id="mergeCrossStreetsToggle" />
                   Merge reversed cross-streets
                 </label>
-                <label class="toggle-row" for="includeNearbyToggle" title="Also include any other stops within this distance of the matched stops">
+                <label class="toggle-row" for="includeNearbyToggle" title="Merge departures from every stop within this distance — e.g. both sides of the street. Turn off to see one stop at a time.">
                   <input type="checkbox" id="includeNearbyToggle" checked />
                   Include all stops within
                   <input type="number" id="includeNearbyRadius" class="radius-input" min="1" max="5000" step="1" value="75" aria-label="Radius in meters" />
@@ -2013,17 +2293,14 @@
           </div>
 
           <div class="field-block stop-search-wrap">
-            <label class="input-row-label" for="stopSearchInput">Search by name</label>
-            <input type="text" id="stopSearchInput" placeholder="e.g. Main St" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Search stops by name" />
-            <div class="stop-search-results" id="stopSearchResults"></div>
-          </div>
-
-          <div class="field-block">
-            <label class="input-row-label" for="stopIdInput">Or by stop ID</label>
-            <div class="input-group">
-              <input type="text" id="stopIdInput" placeholder="Stop ID, e.g. 4901" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Stop ID" />
-              <button class="primary" onclick="handleLoadStop('stopIdInput','dateInput')">Load stop</button>
+            <label class="input-row-label" for="stopSearchInput">Name or stop number</label>
+            <div class="stop-search-field">
+              <input type="text" id="stopSearchInput" placeholder="e.g. Main St or 1867" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Find a stop by name, ID or code" />
+              <button type="button" class="stop-search-clear" aria-label="Clear search" hidden>&times;</button>
             </div>
+            <!-- Hidden: holds the currently loaded stop id so date changes / map clicks can reload it -->
+            <input type="hidden" id="stopIdInput" />
+            <div class="stop-search-results" id="stopSearchResults"></div>
           </div>
 
           <div class="field-block">
@@ -2050,7 +2327,7 @@
         <div id="departuresSection" style="display:none">
           <div class="departures-section-header">
             <div class="section-title">Departures</div>
-            <button class="show-all-deps-btn" id="showAllDepsBtn" onclick="cycleDepView('d')">Show all</button>
+            <button class="show-all-deps-btn" id="showAllDepsBtn" onclick="cycleDepView('d')" title="Click to change the time window">Showing next 3h</button>
           </div>
           <div class="dep-filter-row settings-popover-wrap">
             <button type="button" class="dep-filter-btn" id="depFilterBtn" aria-haspopup="true" aria-expanded="false">Filter <span class="dep-filter-badge" id="depFilterBadge" hidden>0</span></button>
@@ -2078,7 +2355,7 @@
         <div id="multiDeparturesSection" style="display:none">
           <div class="departures-section-header">
             <div class="section-title">Combined departures</div>
-            <button class="show-all-deps-btn" id="showAllMultiDepsBtn" onclick="cycleMultiDepView('d')">Show all</button>
+            <button class="show-all-deps-btn" id="showAllMultiDepsBtn" onclick="cycleMultiDepView('d')" title="Click to change the time window">Showing next 3h</button>
           </div>
           <div class="dep-filter-row settings-popover-wrap">
             <button type="button" class="dep-filter-btn" id="multiDepFilterBtn" aria-haspopup="true" aria-expanded="false">Filter <span class="dep-filter-badge" id="multiDepFilterBadge" hidden>0</span></button>
@@ -2163,7 +2440,7 @@
           </div>
           <div class="input-group">
             <button class="secondary tab-accent-btn" style="flex:1" onclick="handleFindNearest('latInput','lonInput')">Search nearby</button>
-            <button class="secondary tab-accent-btn" style="flex:1" onclick="useMyLocation('latInput','lonInput')">Use my location</button>
+            <button class="secondary tab-accent-btn" style="flex:1" onclick="useMyLocation('latInput','lonInput',true)">Use my location</button>
           </div>
           <button class="secondary tab-accent-btn" style="width:100%" onclick="showUserLocation()">Show my location on map</button>
           <button class="pick-mode-btn tab-accent-btn" id="pickModeBtn" onclick="setPickMode(!pickModeActive)">Pick a point on the map</button>
@@ -2239,7 +2516,7 @@
                 <input type="checkbox" id="m-mergeCrossStreetsToggle" />
                 Merge reversed cross-streets
               </label>
-              <label class="toggle-row" for="m-includeNearbyToggle" title="Also include any other stops within this distance of the matched stops">
+              <label class="toggle-row" for="m-includeNearbyToggle" title="Merge departures from every stop within this distance — e.g. both sides of the street. Turn off to see one stop at a time.">
                 <input type="checkbox" id="m-includeNearbyToggle" checked />
                 Include all stops within
                 <input type="number" id="m-includeNearbyRadius" class="radius-input" min="1" max="5000" step="1" value="75" aria-label="Radius in meters" />
@@ -2254,17 +2531,13 @@
         </div>
 
         <div class="field-block stop-search-wrap">
-          <label class="input-row-label" for="m-stopSearchInput">Search by name</label>
-          <input type="text" id="m-stopSearchInput" placeholder="e.g. Main St" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Search stops by name" />
-          <div class="stop-search-results" id="m-stopSearchResults"></div>
-        </div>
-
-        <div class="field-block">
-          <label class="input-row-label" for="m-stopIdInput">Or by stop ID</label>
-          <div class="input-group">
-            <input type="text" id="m-stopIdInput" placeholder="Stop ID" autocapitalize="off" autocorrect="off" spellcheck="false" />
-            <button class="primary" onclick="handleLoadStop('m-stopIdInput','m-dateInput')">Load stop</button>
+          <label class="input-row-label" for="m-stopSearchInput">Name or stop number</label>
+          <div class="stop-search-field">
+            <input type="text" id="m-stopSearchInput" placeholder="e.g. Main St or 1867" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Find a stop by name, ID or code" />
+            <button type="button" class="stop-search-clear" aria-label="Clear search" hidden>&times;</button>
           </div>
+          <input type="hidden" id="m-stopIdInput" />
+          <div class="stop-search-results" id="m-stopSearchResults"></div>
         </div>
         <div class="field-block">
           <label class="input-row-label" for="m-dateInput">Date</label>
@@ -2289,7 +2562,7 @@
         <div id="m-departuresSection" style="display:none">
           <div class="departures-section-header">
             <div class="section-title">Departures</div>
-            <button class="show-all-deps-btn" id="m-showAllDepsBtn" onclick="cycleDepView('m')">Show all</button>
+            <button class="show-all-deps-btn" id="m-showAllDepsBtn" onclick="cycleDepView('m')" title="Tap to change the time window">Showing next 3h</button>
           </div>
           <div class="dep-filter-row settings-popover-wrap">
             <button type="button" class="dep-filter-btn" id="m-depFilterBtn" aria-haspopup="true" aria-expanded="false">Filter <span class="dep-filter-badge" id="m-depFilterBadge" hidden>0</span></button>
@@ -2317,7 +2590,7 @@
         <div id="m-multiDeparturesSection" style="display:none">
           <div class="departures-section-header">
             <div class="section-title">Combined departures</div>
-            <button class="show-all-deps-btn" id="m-showAllMultiDepsBtn" onclick="cycleMultiDepView('m')">Show all</button>
+            <button class="show-all-deps-btn" id="m-showAllMultiDepsBtn" onclick="cycleMultiDepView('m')" title="Tap to change the time window">Showing next 3h</button>
           </div>
           <div class="dep-filter-row settings-popover-wrap">
             <button type="button" class="dep-filter-btn" id="m-multiDepFilterBtn" aria-haspopup="true" aria-expanded="false">Filter <span class="dep-filter-badge" id="m-multiDepFilterBadge" hidden>0</span></button>
@@ -2440,35 +2713,24 @@
   </div>
 
   <!-- ===== DEPARTURE BOARD (fullscreen) ===== -->
-  <div id="boardOverlay" class="nearby-overlay" style="display:none">
-    <div class="nearby-overlay-header">
-      <div class="nearby-overlay-title">
-        <div class="section-title" style="margin-bottom:0">Departure board</div>
-        <div class="nearby-overlay-sub" id="boardOverlaySub"></div>
+  <div id="boardOverlay" class="nearby-overlay board-overlay" style="display:none" role="dialog" aria-modal="true" aria-label="Departure board">
+    <div class="board-header">
+      <div class="board-header-left">
+        <div class="board-title">Departures</div>
+        <div class="board-sub" id="boardOverlaySub"></div>
       </div>
-      <button class="secondary" onclick="closeDepartureBoard()" aria-label="Close">Close <span class="nearby-overlay-esc">Esc</span></button>
+      <div class="board-header-right">
+        <div class="board-clock-wrap">
+          <div class="board-clock" id="boardClock"></div>
+        </div>
+        <button type="button" class="board-close" onclick="closeDepartureBoard()" aria-label="Close departure board">&#x2715;</button>
+      </div>
     </div>
     <div class="nearby-overlay-body">
-      <div class="dep-filter-row settings-popover-wrap">
-        <button type="button" class="dep-filter-btn" id="boardFilterBtn" aria-haspopup="true" aria-expanded="false">Filter <span class="dep-filter-badge" id="boardFilterBadge" hidden>0</span></button>
-        <div class="settings-popover dep-filter-popover" id="boardFilterPopover" hidden>
-          <div class="settings-popover-title">Filter by route / destination</div>
-          <div class="dep-filter-tree" id="boardFilterTree"></div>
-          <button type="button" class="dep-filter-clear" id="boardFilterClearBtn" onclick="onBoardFilterClear()">Clear filters</button>
-        </div>
-      </div>
-      <div class="board-header-row">
-        <span class="bhr-route">Route</span>
-        <span class="bhr-headsign">Destination</span>
-        <span class="bhr-time">Departs</span>
-        <span class="bhr-actual"></span>
-        <span class="bhr-eta">Status</span>
-        <span class="bhr-badge"></span>
-      </div>
-      <div class="departures-grid nearby-dep-grid board-list" id="boardGrid"></div>
+      <div class="board-chips" id="boardChips" hidden></div>
+      <div class="board-list" id="boardGrid"></div>
     </div>
   </div>
-
   <script>
     // ===== INTRO OVERLAY =====
     (function initIntro() {
@@ -2512,13 +2774,13 @@
         dTab: 'sb-tab-stop', mTab: 'm-tab-stop',
         dTarget: '#stopSearchInput', mTarget: '#m-stopSearchInput',
         title: 'Find a stop',
-        desc: 'Search by name, or enter a stop ID or stop code directly to jump straight to it.'
+        desc: 'Type part of a stop name, or the stop number from the sign, and pick a match. On a keyboard use \u2191 \u2193 and Enter. Your recent stops appear whenever the box is empty.'
       },
       {
         dTab: 'sb-tab-stop', mTab: 'm-tab-stop',
         dTarget: '#stopSettingsBtn', mTarget: '#m-stopSettingsBtn',
         title: 'Search settings',
-        desc: 'By default a name search merges every stop sharing that exact name — like both sides of an intersection — into one combined departure board. Open this menu to turn that off, merge reversed cross-streets, adjust the nearby radius, or stop truncating duplicate trips.'
+        desc: 'By default a name search merges every stop sharing that exact name — like both sides of an intersection — into one combined departure board, and dropping a pin or using your location merges every stop within the nearby radius of that point. Open this menu to turn that off, merge reversed cross-streets, adjust the radius, or stop truncating duplicate trips.'
       },
       {
         dTab: 'sb-tab-triproute', mTab: 'm-tab-trip',
@@ -2684,6 +2946,15 @@
     let multiStopsRequestId = 0;
     let currentMultiStopName = null;
     let currentMultiStopIds = [];
+
+    // What the Stops tab is showing right now, so a date change, the 15 s
+    // refresh and the search-settings toggles re-run the *same* view instead
+    // of collapsing a merged board to one stop or drifting to a name search.
+    //   { kind: 'single', stopId }            one stop
+    //   { kind: 'name',   name }              every stop sharing a name (+ nearby)
+    //   { kind: 'nearby', stopId }            a stop plus everything within the radius
+    //   { kind: 'point',  lat, lon, label }   everything within the radius of a map point
+    let currentStopView = null;
 
     // ===== UTILS =====
     function showEls(ids, display) {
@@ -3017,6 +3288,458 @@
         attribution:'© OpenStreetMap contributors'
       }).addTo(map);
       map.on('click', onMapClick);
+      // Route line lives in the default overlay pane (400). The trip's stop
+      // dots sit above it and direction chevrons above those; chevrons slide
+      // along the line to avoid stop dots, and only overlap one when the
+      // stops are so dense (zoomed out) that there is nowhere else to go.
+      // Trace arrows (bends, loops, crossings) are the only thing that says
+      // which way the line goes there, so they sit above every marker
+      // (pins, nearby dots, 600) too; only the live bus, tooltips and popups
+      // draw over them.
+      map.createPane('routeStops').style.zIndex = 450;
+      map.createPane('routeArrows').style.zIndex = 460;
+      map.createPane('routeTrace').style.zIndex = 620;
+      map.createPane('vehicle').style.zIndex = 630;
+      map.on('moveend', layoutRouteArrows);
+      map.on('zoomend', layoutRouteStops);
+      // Other markers (selected-stop pin, nearby dots, dropped pin, ...) are
+      // obstacles the arrows steer around, so re-lay them when one comes or goes.
+      map.on('layeradd layerremove', e => {
+        const pane = e.layer.options && e.layer.options.pane;
+        if (pane === 'routeArrows' || pane === 'routeTrace' || e.layer === vehicleRTMarker) return;
+        if (!routeArrows.latlngs.length || routeArrows.relayout) return;
+        routeArrows.relayout = requestAnimationFrame(() => { routeArrows.relayout = 0; layoutRouteArrows(); });
+      });
+    }
+
+    // Trip stop dots: full size when there's room, smaller as they crowd,
+    // and hidden (except the two terminals) when zoomed out so far that the
+    // dots would merge into a solid bead chain along the line.
+    function layoutRouteStops() {
+      if (!map || stopMarkers.length < 2) return;
+      const px = stopMarkers.map(m => map.project(m.getLatLng()));
+      const gaps = px.slice(1).map((p, i) => p.distanceTo(px[i])).sort((a, b) => a - b);
+      const median = gaps[Math.floor(gaps.length / 2)];
+      let style;
+      if (median >= 26)      style = { radius: 4.5, weight: 2.5 };
+      else if (median >= 14) style = { radius: 3,   weight: 2 };
+      else                   style = null; // crowded: terminals only
+      stopMarkers.forEach(m => {
+        const terminal = !!m.isTerminal;
+        if (style) m.setStyle({ ...style, opacity: 1, fillOpacity: 1 });
+        else if (terminal) m.setStyle({ radius: 4, weight: 2.5, opacity: 1, fillOpacity: 1 });
+        else m.setStyle({ opacity: 0, fillOpacity: 0 });
+        // Hidden dots shouldn't catch clicks or show a hand cursor.
+        const el = m.getElement && m.getElement();
+        if (el) el.style.pointerEvents = (style || terminal) ? '' : 'none';
+      });
+    }
+
+    // ===== ROUTE LINE + DIRECTION CHEVRONS =====
+    // The trip shape is drawn as a soft dark casing under a solid route-color
+    // line. Direction is shown with small chevrons drawn *inside* the line,
+    // spaced evenly in screen pixels (not by shape-point index). Zooming in
+    // past the fitted view makes them denser: the slots are anchored to the
+    // line at the base zoom and subdivided in halves, so the chevrons you
+    // had stay put and new ones appear midway between them (density doubles
+    // every ROUTE_ARROW_DENSITY_ZOOM levels, down to the minimum spacing).
+    // Only chevrons inside the padded viewport are materialised;
+    // layoutRouteArrows() re-runs on every moveend (which also fires after a
+    // zoom).
+    const ROUTE_LINE_WEIGHT = 7;
+    const ROUTE_ARROW_SPACING_PX = 84;     // at the zoom the trip was fitted to
+    const ROUTE_ARROW_DENSITY_ZOOM = 3;    // zoom levels in per doubling of chevron density
+    const ROUTE_ARROW_MIN_SPACING_PX = 40; // never closer than this, however far in
+    const ROUTE_ARROW_SIZE = 16;
+    // Trace arrows: curved arrows that follow the line at bends, loops and
+    // self-crossings, where a plain chevron can't say which way the line goes.
+    const ROUTE_FEATURE_STEP = 3;       // px between heading samples
+    const ROUTE_FEATURE_W = 14;         // px half-window for measuring a turn
+    const ROUTE_BEND_DEG = 55;          // windowed turn that counts as a bend
+    const ROUTE_LOOP_DEG = 150;         // net rotation that counts as a loop / U-turn
+    const ROUTE_FEATURE_MIN_CHORD = 12; // px: a feature smaller than this on screen is unreadable
+    const ROUTE_TAIL_BEND = 20, ROUTE_TAIL_LOOP = 36, ROUTE_TAIL_CROSS = 18, ROUTE_HEAD = 10;
+    const ROUTE_CROSS_ANGLE = 30;       // deg: shallower "crossings" are overlaps, not crossings
+    const ROUTE_FEATURE_CLEAR = 30;     // px: plain chevrons keep this far from a trace arrow
+    let routeCasing = null;
+    const routeArrows = {
+      markers: [], latlngs: [], stops: [], terminals: [], crossings: [],
+      color: '#fff', iconCache: new Map(), renderer: null, relayout: 0, baseZoom: null
+    };
+
+    // Everything else drawn on the map that could sit on the line: the
+    // selected stop's pin, nearby / merged-board dots, search previews, the
+    // dropped pin, "your location". Returned as circles in projected px so
+    // plain chevrons slide off them (trace arrows ignore them and draw on
+    // top). The live vehicle is skipped: it moves every refresh and arrows
+    // shouldn't chase it.
+    function routeObstacles() {
+      const out = [];
+      map.eachLayer(layer => {
+        const pane = layer.options && layer.options.pane;
+        if (pane === 'routeArrows' || pane === 'routeTrace' || pane === 'routeStops' || layer === vehicleRTMarker) return;
+        if (layer instanceof L.CircleMarker) {
+          out.push({ p: map.project(layer.getLatLng()), r: layer.getRadius() + (layer.options.weight || 0) / 2 });
+        } else if (layer instanceof L.Marker && layer.options.icon) {
+          const io = layer.options.icon.options || {};
+          const size = L.point(io.iconSize || [25, 41]);
+          const anchor = io.iconAnchor ? L.point(io.iconAnchor) : size.divideBy(2);
+          const p = map.project(layer.getLatLng()).subtract(anchor).add(size.divideBy(2));
+          out.push({ p, r: Math.max(size.x, size.y) / 2 });
+        }
+      });
+      return out;
+    }
+
+    function clearRouteLine() {
+      if (polyline) { map.removeLayer(polyline); polyline = null; }
+      if (routeCasing) { map.removeLayer(routeCasing); routeCasing = null; }
+      routeArrows.markers.forEach(m => map.removeLayer(m));
+      routeArrows.markers = [];
+      routeArrows.latlngs = [];
+      routeArrows.stops = [];
+      routeArrows.terminals = [];
+      routeArrows.crossings = [];
+      routeArrows.baseZoom = null;
+      routeArrows.iconCache.clear();
+    }
+
+    function drawRouteLine(latlngs, routeColor, stopLatLngs, terminalLatLngs) {
+      clearRouteLine();
+      if (!latlngs.length) return;
+      routeCasing = L.polyline(latlngs, {
+        color: '#000', weight: ROUTE_LINE_WEIGHT + 3, opacity: 0.25,
+        lineJoin: 'round', lineCap: 'round', interactive: false
+      }).addTo(map);
+      polyline = L.polyline(latlngs, {
+        color: routeColor, weight: ROUTE_LINE_WEIGHT, opacity: 1,
+        lineJoin: 'round', lineCap: 'round', interactive: false
+      }).addTo(map);
+      routeArrows.latlngs = latlngs;
+      routeArrows.stops = stopLatLngs || [];
+      routeArrows.terminals = terminalLatLngs || [];
+      routeArrows.color = readableTextColor(routeColor);
+      routeArrows.crossings = findCrossings(latlngs);
+      routeArrows.baseZoom = map.getZoom();
+      layoutRouteArrows();
+    }
+
+    // Project the shape at the current zoom and expose it as a path you can
+    // walk by pixel distance: pointAt(d), the segment containing d, and the
+    // heading (radians, 0 = screen-up, clockwise) of that segment.
+    function projectPath(latlngs) {
+      const px = latlngs.map(ll => map.project(ll));
+      const cum = [0];
+      for (let i = 1; i < px.length; i++) cum.push(cum[i-1] + px[i].distanceTo(px[i-1]));
+      const total = cum[cum.length - 1];
+      let hint = 1;
+      const segAt = d => {
+        d = Math.max(0, Math.min(total, d));
+        if (cum[hint-1] <= d && d <= cum[hint]) return hint;
+        let lo = 1, hi = px.length - 1;
+        while (lo < hi) { const mid = (lo + hi) >> 1; if (cum[mid] < d) lo = mid + 1; else hi = mid; }
+        hint = lo;
+        return lo;
+      };
+      const pointAt = d => {
+        d = Math.max(0, Math.min(total, d));
+        const i = segAt(d), a = px[i-1], b = px[i], seg = cum[i] - cum[i-1];
+        const t = seg > 0 ? (d - cum[i-1]) / seg : 0;
+        return L.point(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t);
+      };
+      const segHeading = d => {
+        let i = segAt(d);
+        while (i < px.length - 1 && cum[i] === cum[i-1]) i++; // skip zero-length segments
+        const a = px[i-1], b = px[i];
+        return Math.atan2(b.x - a.x, -(b.y - a.y));
+      };
+      return { px, cum, total, segAt, pointAt, segHeading };
+    }
+
+    // Self-crossings of the shape, computed once per trip. Web Mercator at
+    // any zoom is just a scale of zoom 0, so whether two segments cross, the
+    // angle they cross at and the *fraction* of the path where it happens
+    // are all zoom-independent. Sweep over segments sorted by minX.
+    function findCrossings(latlngs) {
+      const n = latlngs.length;
+      if (n < 4) return [];
+      const p = latlngs.map(ll => map.project(ll, 18));
+      const cum = [0];
+      for (let i = 1; i < n; i++) cum.push(cum[i-1] + p[i].distanceTo(p[i-1]));
+      const total = cum[n-1];
+      if (!(total > 0)) return [];
+      const segs = [];
+      for (let i = 0; i < n - 1; i++) segs.push({ i, minX: Math.min(p[i].x, p[i+1].x), maxX: Math.max(p[i].x, p[i+1].x) });
+      segs.sort((a, b) => a.minX - b.minX);
+      const cross = (o, a, b) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+      const maxCos = Math.cos(ROUTE_CROSS_ANGLE * Math.PI / 180);
+      const out = [];
+      for (let s = 0; s < segs.length; s++) {
+        const A = segs[s];
+        for (let t = s + 1; t < segs.length && segs[t].minX <= A.maxX; t++) {
+          const B = segs[t];
+          if (Math.abs(A.i - B.i) < 2) continue;
+          const a = p[A.i], b = p[A.i+1], c = p[B.i], d = p[B.i+1];
+          const d1 = cross(c, d, a), d2 = cross(c, d, b), d3 = cross(a, b, c), d4 = cross(a, b, d);
+          if (!(d1 * d2 < 0 && d3 * d4 < 0)) continue; // proper crossings only: no touching, no overlap
+          const ux = b.x - a.x, uy = b.y - a.y, vx = d.x - c.x, vy = d.y - c.y;
+          const cosang = Math.abs(ux * vx + uy * vy) / (Math.hypot(ux, uy) * Math.hypot(vx, vy));
+          if (cosang > maxCos) continue; // near-parallel: an out-and-back overlap, not a crossing
+          const dA = cum[A.i] + (d1 / (d1 - d2)) * (cum[A.i+1] - cum[A.i]);
+          const dB = cum[B.i] + (d3 / (d3 - d4)) * (cum[B.i+1] - cum[B.i]);
+          out.push({ fA: Math.min(dA, dB) / total, fB: Math.max(dA, dB) / total });
+        }
+      }
+      return out;
+    }
+
+    // Bends and loops: sample the heading every few px, unwrap it into a
+    // continuous signed angle (so GPS zig-zags cancel), and look for runs
+    // where the turn across a short window is sharp. One feature per run.
+    function findBendFeatures(path, view) {
+      const { total, pointAt, segHeading } = path;
+      const step = ROUTE_FEATURE_STEP, W = ROUTE_FEATURE_W;
+      if (total < 2 * W + 8) return [];
+      const n = Math.floor(total / step) + 1;
+      const theta = new Float64Array(n);
+      let prev = segHeading(0), acc = prev;
+      theta[0] = acc;
+      for (let k = 1; k < n; k++) {
+        const h = segHeading(k * step);
+        let dh = h - prev;
+        if (dh > Math.PI) dh -= 2 * Math.PI; else if (dh < -Math.PI) dh += 2 * Math.PI;
+        acc += dh; theta[k] = acc; prev = h;
+      }
+      const wk = Math.max(1, Math.round(W / step));
+      const bendRad = ROUTE_BEND_DEG * Math.PI / 180;
+      const loopRad = ROUTE_LOOP_DEG * Math.PI / 180;
+      const runs = [];
+      let runStart = -1;
+      for (let k = wk; k < n - wk; k++) {
+        const sharp = Math.abs(theta[k + wk] - theta[k - wk]) >= bendRad;
+        if (sharp) { if (runStart < 0) runStart = k; }
+        else if (runStart >= 0) { runs.push([runStart, k - 1]); runStart = -1; }
+      }
+      if (runStart >= 0) runs.push([runStart, n - wk - 1]);
+      const merged = [];
+      for (const r of runs) {
+        const last = merged[merged.length - 1];
+        if (last && (r[0] - last[1]) * step < 24) last[1] = r[1]; else merged.push(r.slice());
+      }
+      const feats = [];
+      for (const [k0, k1] of merged) {
+        const a = Math.max(0, k0 - wk), b = Math.min(n - 1, k1 + wk);
+        const R = theta[b] - theta[a];
+        if (Math.abs(R) < bendRad) continue; // a notch that turns back on itself, not a bend
+        let apex = a; // where half of the rotation has happened
+        for (let k = a; k <= b; k++) { if (Math.abs(theta[k] - theta[a]) >= Math.abs(R) / 2) { apex = k; break; } }
+        const d = apex * step;
+        const p = pointAt(d);
+        if (!view.contains(p)) continue;
+        let minX = p.x, maxX = p.x, minY = p.y, maxY = p.y;
+        for (let k = a; k <= b; k++) {
+          const q = pointAt(k * step);
+          if (q.x < minX) minX = q.x; if (q.x > maxX) maxX = q.x;
+          if (q.y < minY) minY = q.y; if (q.y > maxY) maxY = q.y;
+        }
+        if (Math.hypot(maxX - minX, maxY - minY) < ROUTE_FEATURE_MIN_CHORD) continue;
+        const loop = Math.abs(R) >= loopRad;
+        feats.push({ d, tail: loop ? ROUTE_TAIL_LOOP : ROUTE_TAIL_BEND, head: ROUTE_HEAD, kind: loop ? 'loop' : 'bend' });
+      }
+      return feats;
+    }
+
+    // One arrow on each branch approaching a self-crossing, tip stopping
+    // just short of the junction so both directions read there.
+    function crossingFeatures(path, view) {
+      const { total, pointAt } = path;
+      const feats = [], seen = [];
+      for (const c of routeArrows.crossings) {
+        const dA = c.fA * total, dB = c.fB * total;
+        if (dB - dA < 60) continue; // a tiny loop: the loop arrow already covers it
+        const p = pointAt(dA);
+        if (!view.contains(p)) continue;
+        if (seen.some(q => q.distanceTo(p) < 12)) continue;
+        seen.push(p);
+        for (const d of [dA, dB]) {
+          if (d - ROUTE_HEAD - ROUTE_TAIL_CROSS < 0) continue;
+          feats.push({ d: d - ROUTE_HEAD, tail: ROUTE_TAIL_CROSS, head: 0, kind: 'cross' });
+        }
+      }
+      return feats;
+    }
+
+    // Build a trace arrow: the actual line from d-tail to d+head, plus a
+    // chevron head matching the plain chevron icon. Drawn as two polylines
+    // (halo under stroke) through the same projection as the route line.
+    // Stops and other markers are ignored on purpose: a stop usually sits
+    // right at the corner, and an arrow that is broken around it or nudged
+    // off the apex stops reading as "the line turns here". The arrow is
+    // drawn whole, in a pane above the markers.
+    function traceArrowLayers(path, feat) {
+      const { px, cum, total, pointAt, segAt } = path;
+      const d0 = Math.max(0, feat.d - feat.tail), d1 = Math.min(total, feat.d + feat.head);
+      if (d1 - d0 < 8) return [];
+      const ds = [];
+      for (let d = d0; d < d1; d += ROUTE_FEATURE_STEP) ds.push(d);
+      for (let i = segAt(d0); i < px.length && cum[i] < d1; i++) if (cum[i] > d0) ds.push(cum[i]); // keep corners sharp
+      ds.push(d1);
+      ds.sort((a, b) => a - b);
+      const parts = [ds.map(pointAt)];
+      const tip = pointAt(d1), back = pointAt(Math.max(d0, d1 - 6));
+      let ux = tip.x - back.x, uy = tip.y - back.y;
+      const len = Math.hypot(ux, uy) || 1; ux /= len; uy /= len;
+      const nx = -uy, ny = ux;
+      parts.push([
+        L.point(tip.x - 4.5 * ux + 4 * nx, tip.y - 4.5 * uy + 4 * ny),
+        tip,
+        L.point(tip.x - 4.5 * ux - 4 * nx, tip.y - 4.5 * uy - 4 * ny)
+      ]);
+      const rings = parts.map(part => part.map(p => map.unproject(p)));
+      if (!routeArrows.renderer) routeArrows.renderer = L.svg({ pane: 'routeTrace' });
+      const light = routeArrows.color === '#fff';
+      // pane is set so the layeradd/layerremove relayout hook skips these.
+      const common = { renderer: routeArrows.renderer, pane: 'routeTrace', interactive: false, lineCap: 'round', lineJoin: 'round' };
+      return [
+        L.polyline(rings, { ...common, color: light ? '#000' : '#fff', weight: 4.5, opacity: light ? 0.45 : 0.55 }),
+        L.polyline(rings, { ...common, color: routeArrows.color, weight: 2.5, opacity: 1 })
+      ];
+    }
+
+    function routeArrowIcon(angleDeg) {
+      const deg = Math.round(angleDeg / 3) * 3; // quantise so icons are shared
+      let icon = routeArrows.iconCache.get(deg);
+      if (icon) return icon;
+      const s = ROUTE_ARROW_SIZE, c = s / 2;
+      const halo = routeArrows.color === '#fff' ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.55)';
+      // Chevron pointing "up"; rotated clockwise by `deg` to match travel.
+      const path = `M${c-4} ${c+2.25} L${c} ${c-2.25} L${c+4} ${c+2.25}`;
+      icon = L.divIcon({
+        className: '',
+        html: `<svg class="route-arrow" width="${s}" height="${s}" viewBox="0 0 ${s} ${s}" style="transform:rotate(${deg}deg)" aria-hidden="true">
+                 <path d="${path}" fill="none" stroke="${halo}" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+                 <path d="${path}" fill="none" stroke="${routeArrows.color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+               </svg>`,
+        iconSize: [s, s], iconAnchor: [c, c]
+      });
+      routeArrows.iconCache.set(deg, icon);
+      return icon;
+    }
+
+    function layoutRouteArrows() {
+      routeArrows.markers.forEach(m => map.removeLayer(m));
+      routeArrows.markers = [];
+      const pts = routeArrows.latlngs;
+      if (!map || pts.length < 2) return;
+
+      const path = projectPath(pts);
+      const { total, pointAt } = path;
+      if (total < 24) return; // too short on screen for even one chevron
+
+      // Trip stop dots (only the terminals once they're crowded and hidden,
+      // matching layoutRouteStops) plus every other marker on the map.
+      let tripDots = routeArrows.stops.map(ll => map.project(ll));
+      if (tripDots.length > 1) {
+        const gaps = tripDots.slice(1).map((p, i) => p.distanceTo(tripDots[i])).sort((a, b) => a - b);
+        if (gaps[Math.floor(gaps.length / 2)] < 14) tripDots = routeArrows.terminals.map(ll => map.project(ll));
+      }
+      const obstacles = [...tripDots.map(p => ({ p, r: 6 })), ...routeObstacles()];
+      const view = map.getPixelBounds().pad(0.15);
+
+      // ---- Trace arrows at features (loops > crossings > bends) ----
+      const prio = { loop: 0, cross: 1, bend: 2 };
+      const candidates = [...findBendFeatures(path, view), ...crossingFeatures(path, view)]
+        .sort((a, b) => prio[a.kind] - prio[b.kind]);
+      // Keep a feature unless it sits on top of one already kept: close along
+      // the path, or (for out-and-back spurs, where two corners share one
+      // spot on screen) its window overlaps another's on screen. The two
+      // branch arrows of one crossing are meant to sit together, so they
+      // are exempt from the on-screen test.
+      const windowPts = f => {
+        const out = [];
+        for (let d = f.d - f.tail; d < f.d + f.head; d += 8) out.push(pointAt(d));
+        out.push(pointAt(f.d + f.head));
+        return out;
+      };
+      const kept = [];
+      for (const f of candidates) {
+        const pts = windowPts(f);
+        const clash = kept.some(k => {
+          if (Math.abs(k.f.d - f.d) < ROUTE_FEATURE_CLEAR) return true;
+          if (k.f.kind === 'cross' && f.kind === 'cross') return false;
+          return k.pts.some(q => pts.some(p => q.distanceTo(p) < 18));
+        });
+        if (!clash) kept.push({ f, pts });
+      }
+      const featurePts = [];
+      for (const { f, pts } of kept) {
+        featurePts.push(...pts);
+        for (const layer of traceArrowLayers(path, f)) routeArrows.markers.push(layer.addTo(map));
+      }
+      const nearFeature = p => featurePts.some(q => q.distanceTo(p) < ROUTE_FEATURE_CLEAR);
+
+      // ---- Plain chevrons everywhere else ----
+      // Spacing at the base zoom, scaled to this zoom (so slots stay glued to
+      // the same spots on the line), then halved as many times as it takes to
+      // get near the density we want here: 84 px at the fitted zoom, halving
+      // every ROUTE_ARROW_DENSITY_ZOOM levels in, never denser than the
+      // minimum, never sparser than the base when zoomed out.
+      const dz = map.getZoom() - (routeArrows.baseZoom ?? map.getZoom());
+      const baseSpacing = ROUTE_ARROW_SPACING_PX * Math.pow(2, dz);
+      const wanted = Math.min(ROUTE_ARROW_SPACING_PX,
+        Math.max(ROUTE_ARROW_MIN_SPACING_PX, ROUTE_ARROW_SPACING_PX * Math.pow(2, -dz / ROUTE_ARROW_DENSITY_ZOOM)));
+      const halvings = Math.floor(Math.log2(baseSpacing / wanted) + 1e-9);
+      const spacing = baseSpacing / Math.pow(2, halvings);
+      const look = 7; // px each way used to measure local heading
+      const onStop = p => obstacles.some(o => o.p.distanceTo(p) < o.r + ROUTE_ARROW_SIZE / 2); // keep chevrons off markers when possible
+      const bendAt = (d, p) => {
+        const before = pointAt(d - look), after = pointAt(d + look);
+        const h1 = Math.atan2(p.x - before.x, -(p.y - before.y));
+        const h2 = Math.atan2(after.x - p.x, -(after.y - p.y));
+        let turn = Math.abs(h2 - h1); if (turn > Math.PI) turn = 2 * Math.PI - turn;
+        return turn;
+      };
+
+      // Short on screen: one chevron at the midpoint. Otherwise one per slot,
+      // offset by half the *base* spacing so each subdivision keeps the
+      // previous level's slots and adds the midpoints between them.
+      const slots = [];
+      if (total < spacing) slots.push(total / 2);
+      else {
+        let d = (baseSpacing / 2) % spacing;
+        if (d < spacing / 4) d += spacing; // don't start on the terminal itself
+        for (; d < total - spacing / 4; d += spacing) slots.push(d);
+      }
+
+      for (const slot of slots) {
+        if (!view.contains(pointAt(slot))) continue;
+        // Try the slot, then slide either way (up to 40% of the spacing) to
+        // find a spot that's on neither a stop dot, a sharp bend nor a trace
+        // arrow. Bends and trace arrows are hard skips; a stop is only a
+        // preference so chevrons still show when zoomed out and every
+        // stretch of line is covered by stops.
+        let chosen = null, fallback = null;
+        const maxSlide = Math.min(spacing * 0.4, total / 2 - 4);
+        for (let off = 0; off <= maxSlide && !chosen; off += 4) {
+          for (const d of (off === 0 ? [slot] : [slot - off, slot + off])) {
+            if (d < 4 || d > total - 4) continue;
+            const p = pointAt(d);
+            if (bendAt(d, p) > Math.PI / 4) continue;
+            if (nearFeature(p)) continue;
+            if (onStop(p)) { if (!fallback) fallback = d; continue; }
+            chosen = d; break;
+          }
+        }
+        const d = chosen ?? fallback;
+        if (d == null) continue;
+        const p = pointAt(d);
+        const before = pointAt(d - look), after = pointAt(d + look);
+        const angle = Math.atan2(after.x - before.x, -(after.y - before.y)) * 180 / Math.PI; // 0° = screen-up
+        routeArrows.markers.push(L.marker(map.unproject(p), {
+          icon: routeArrowIcon(angle), pane: 'routeArrows',
+          interactive: false, keyboard: false
+        }).addTo(map));
+      }
     }
 
     function onMapClick(e) {
@@ -3028,7 +3751,7 @@
       const pinIcon = L.divIcon({className:'click-pin-marker',html:'<div></div>',iconSize:[12,12],iconAnchor:[6,6]});
       clickPinMarker = L.marker([lat,lng],{icon:pinIcon}).addTo(map);
       clickPinMarker.bindPopup(`${lat.toFixed(5)}, ${lng.toFixed(5)}`).openPopup();
-      findNearestStops(lat,lng);
+      findNearestStops(lat,lng,'Near the pin');
       setPickMode(false);
     }
 
@@ -3097,8 +3820,7 @@
     function displayTrip(data) {
       stopMarkers.forEach(m => map.removeLayer(m));
       stopMarkers = [];
-      if (polyline) map.removeLayer(polyline);
-      if (window._dirArrows) { window._dirArrows.forEach(m => map.removeLayer(m)); window._dirArrows = []; }
+      clearRouteLine();
 
       tripStopsData = data.stops || [];
 
@@ -3113,27 +3835,23 @@
       document.getElementById('m-tripInfo').innerHTML = html;
 
       const latlngs = data.pos_markers.map(p => [p.lat,p.lng]);
-      polyline = L.polyline(latlngs,{color:data.route_color,weight:4,opacity:0.85}).addTo(map);
+      const stopLatLngs = data.stops.map(s => [s.lat,s.lng]);
+      // stops aren't guaranteed to be in sequence order, so find terminals by sequence.
+      const seqs = data.stops.map(s => +s.stop_sequence);
+      const minSeq = Math.min(...seqs), maxSeq = Math.max(...seqs);
+      const isTerminal = s => +s.stop_sequence === minSeq || +s.stop_sequence === maxSeq;
+      const terminalLatLngs = data.stops.filter(isTerminal).map(s => [s.lat,s.lng]);
+      // fitBounds first so the initial chevron layout matches the final zoom.
       if (latlngs.length) map.fitBounds(L.latLngBounds(latlngs));
+      drawRouteLine(latlngs, data.route_color, stopLatLngs, terminalLatLngs);
 
-      window._dirArrows = [];
-      const STEP = 20;
-      const markers = data.pos_markers;
-      for (let i = STEP; i < markers.length-1; i += STEP) {
-        const a = markers[i-1], b = markers[i];
-        const angle = Math.atan2(b.lng-a.lng,b.lat-a.lat)*180/Math.PI - 89;
-        const icon = L.divIcon({
-          className:'',
-          html:`<div style="width:22px;height:22px;display:flex;align-items:center;justify-content:center;transform:rotate(${angle}deg);color:#fff;font-size:20px;line-height:1;text-shadow:0 0 3px rgba(0,0,0,0.5);pointer-events:none;">➔</div>`,
-          iconSize:[22,22],iconAnchor:[11,11]
-        });
-        window._dirArrows.push(L.marker([b.lat,b.lng],{icon,interactive:false}).addTo(map));
-      }
-
+      const stopFill = readableTextColor(data.route_color);
       data.stops.forEach(stop => {
         const m = L.circleMarker([stop.lat,stop.lng],{
-          color:data.route_color,fillColor:data.route_color,fillOpacity:0.8,radius:5,weight:2
+          pane:'routeStops',
+          color:data.route_color,fillColor:stopFill,fillOpacity:1,radius:4.5,weight:2.5
         }).addTo(map);
+        m.isTerminal = isTerminal(stop);
         const headerTextColor = readableTextColor(data.route_color);
         m.bindPopup(`
           <div class="stop-popup">
@@ -3161,6 +3879,7 @@
         `);
         stopMarkers.push(m);
       });
+      layoutRouteStops();
     }
 
     // ===== RT VEHICLE =====
@@ -3259,7 +3978,7 @@
         const popupTxt = `<b>Vehicle ${info.id||entity.id}</b><br>Route ${trip.route_id}<br>${label}`;
         if (!vehicleRTMarker) {
           const icon = L.divIcon({className:'vehicle-rt-marker',html:'<div></div>',iconSize:[16,16],iconAnchor:[8,8]});
-          vehicleRTMarker = L.marker(latlng,{icon,zIndexOffset:1000}).addTo(map);
+          vehicleRTMarker = L.marker(latlng,{icon,pane:'vehicle',zIndexOffset:1000}).addTo(map);
           vehicleRTMarker.bindPopup(popupTxt);
           vehicleRTMarker.bindTooltip(timeAgo(ts||rtLastVehTs), {permanent:true, direction:'top', offset:[0,-10], className:'veh-time-tooltip'});
         } else {
@@ -3395,21 +4114,21 @@
         if (!sec) return;
         if (showAll) {
           renderDepartureCards(base, stopId, p);
-          if (btn) btn.textContent = 'Next 3h only';
+          if (btn) btn.textContent = `Showing all ${base.length}`;
           if (label) label.textContent = `${base.length} departure${base.length!==1?'s':''} total`;
         } else if (showN4) {
           const next4 = filterNext4(base);
           renderDepartureCards(next4, stopId, p);
-          if (btn) btn.textContent = `Show all ${base.length}`;
+          if (btn) btn.textContent = 'Showing next 4';
           if (label) label.textContent = 'Next 4 departures';
         } else {
           const filtered = filterNext3h(base);
           renderDepartureCards(filtered, stopId, p);
           if (filtered.length === 0) {
-            if (btn) btn.textContent = `Show all ${base.length}`;
+            if (btn) btn.textContent = 'Showing next 3h';
             if (label) label.textContent = 'No departures in the next 3 hours';
           } else {
-            if (btn) btn.textContent = 'Next 4';
+            if (btn) btn.textContent = 'Showing next 3h';
             if (label) label.textContent = `Next 3 hours · ${filtered.length} departure${filtered.length!==1?'s':''}`;
           }
         }
@@ -3425,8 +4144,9 @@
     }
 
     function cycleDepView(prefix) {
-      // When the 3h window is empty, its button reads "Show all N" (there's
-      // no point offering a "Next 4" step in between), so skip straight to
+      // The button names the window currently showing; clicking cycles
+      // 3h → next 4 → all. When the 3h window is empty there's no point in
+      // a "next 4" step in between, so skip straight to
       // the all-departures state instead of following the normal 3-way cycle.
       const empty3h = filterNext3h(applyDepFilter(allDepartures, 'dep-' + prefix)).length === 0;
       if (prefix === 'd') {
@@ -3521,12 +4241,6 @@
     }
 
     // ===== STOP =====
-    function handleLoadStop(stopInputId, dateInputId) {
-      const v = document.getElementById(stopInputId)?.value.trim();
-      const date = document.getElementById(dateInputId)?.value || todayStr();
-      if (v) loadStop(v, date);
-    }
-
     function loadStop(stopId, date) {
       date = date || todayStr();
       clearMultiStopDisplay();
@@ -3539,6 +4253,36 @@
           hideEls(['stopHeader','m-stopHeader']);
           hideEls(['departuresSection','m-departuresSection']);
         });
+    }
+
+    function currentDateStr() {
+      return document.getElementById('dateInput')?.value
+        || document.getElementById('m-dateInput')?.value
+        || todayStr();
+    }
+
+    function reloadCurrentStopView(date, isRefresh) {
+      const view = currentStopView;
+      if (!view) return false;
+      date = date || currentDateStr();
+      switch (view.kind) {
+        case 'single': if (!isRefresh) loadStop(view.stopId, date); break;
+        case 'name':   loadMultiStops(view.name, date, !!isRefresh); break;
+        case 'nearby':
+          if (includeNearbyEnabled()) loadStopWithNearby(view.stopId, date, !!isRefresh);
+          else if (!isRefresh) loadStop(view.stopId, date);
+          break;
+        case 'point':  loadStopsAroundPoint(view.lat, view.lon, view.label, null, date, !!isRefresh); break;
+      }
+      return true;
+    }
+
+    // "Only this stop": narrow whatever is showing to a single stop's board.
+    function loadStopOnly(stopId, date) {
+      date = date || currentDateStr();
+      clearNearestStopMarkers();
+      ['stopIdInput','m-stopIdInput'].forEach(id => { const el=document.getElementById(id); if(el) el.value=stopId; });
+      loadStop(stopId, date);
     }
 
     // Entry point for clicking a stop marker on the map: shows that stop's
@@ -3554,10 +4298,11 @@
       }
     }
 
-    function loadStopWithNearby(stopId, date) {
+    function loadStopWithNearby(stopId, date, isRefresh) {
       date = date || todayStr();
       const requestId = ++multiStopsRequestId;
       const radiusKM = includeNearbyRadiusM() / 1000;
+      currentStopView = { kind: 'nearby', stopId: String(stopId) };
 
       const run = () => fetch(`/api/stop/${stopId}/${date}`).then(r => r.json())
         .then(origin => {
@@ -3574,13 +4319,324 @@
         })
         .then(result => {
           if (!result || requestId !== multiStopsRequestId) return;
-          displayMultiStops(result.name, result.stops, false);
+          displayMultiStops(result.name, result.stops, !!isRefresh);
         })
-        .catch(() => { if (requestId === multiStopsRequestId) showToast('Error loading stop.'); });
+        .catch(() => { if (requestId === multiStopsRequestId && !isRefresh) showToast('Error loading stop.'); });
 
+      if (isRefresh) { run(); return; }
       clearSingleStopDisplay();
       hideEls(['multiStopHeader', 'm-multiStopHeader']);
       withMinSpinner(['multiStopLoading', 'm-multiStopLoading'], 'flex', run);
+    }
+
+    // Location-first board: every stop within the nearby radius of a map
+    // point (a dropped pin, the rider's GPS fix, or typed coordinates),
+    // merged into one departure board. Falls back to the single closest stop
+    // when nothing is inside the radius or the include-nearby toggle is off.
+    // `nearest` is an already-fetched /api/nearest list, or null to fetch.
+    function loadStopsAroundPoint(lat, lon, label, nearest, date, isRefresh) {
+      date = date || todayStr();
+      const requestId = ++multiStopsRequestId;
+      const radiusKM = includeNearbyRadiusM() / 1000;
+      currentStopView = { kind: 'point', lat, lon, label };
+
+      const getNearest = nearest
+        ? Promise.resolve(nearest)
+        : fetch(`/api/nearest/${lat}/${lon}?limit=${NEARBY_STOPS_FETCH_LIMIT}`).then(r => r.json()).then(d => d.nearest_stops || []);
+
+      const run = () => getNearest
+        .then(list => {
+          if (requestId !== multiStopsRequestId) return null;
+          if (!list.length) return { stops: [] };
+          let chosen = includeNearbyEnabled() ? list.filter(n => n.distanceKM <= radiusKM) : [];
+          if (!chosen.length) chosen = [list[0]];
+          chosen = chosen.slice(0, NEARBY_STOPS_FETCH_LIMIT);
+          return Promise.all(chosen.map(n => fetch(`/api/stop/${n.stop_id}/${date}`).then(r => r.json())))
+            .then(stops => ({ stops: stops.filter(s => !s.error) }));
+        })
+        .then(result => {
+          if (!result || requestId !== multiStopsRequestId) return;
+          if (!result.stops.length) { if (!isRefresh) showToast('No stops found near this location.'); return; }
+          displayMultiStops(label, result.stops, !!isRefresh);
+          if (!isRefresh) {
+            // keep the pin in view alongside the stops it pulled in
+            const bounds = L.latLngBounds([[lat, lon], ...result.stops.map(st => [st.lat, st.lon])]);
+            map.fitBounds(bounds.pad(0.3), { maxZoom: 17 });
+          }
+        })
+        .catch(() => { if (requestId === multiStopsRequestId && !isRefresh) showToast('Error loading nearby stops.'); });
+
+      if (isRefresh) { run(); return; }
+      clearSingleStopDisplay();
+      hideEls(['multiStopHeader', 'm-multiStopHeader']);
+      withMinSpinner(['multiStopLoading', 'm-multiStopLoading'], 'flex', run);
+    }
+
+    // ===== SEARCH DROPDOWN HELPERS (shared by stop + route search) =====
+    const SEARCH_DEBOUNCE_MS = 150;
+    const STOP_SEARCH_MIN_CHARS = 2;
+    const SEARCH_MAX_ROWS = 8;
+    const canHoverPointer = (() => { try { return window.matchMedia('(hover: hover)').matches; } catch (e) { return false; } })();
+
+    function debounce(fn, ms) {
+      let timer = null;
+      const wrapped = function (...args) {
+        clearTimeout(timer);
+        timer = setTimeout(() => { timer = null; fn.apply(this, args); }, ms);
+      };
+      wrapped.cancel = () => { clearTimeout(timer); timer = null; };
+      return wrapped;
+    }
+
+    // Wires the combobox/listbox ARIA roles so screen readers announce the
+    // dropdown, and remembers the input on the list so hide/show helpers that
+    // only receive the list element can keep the attributes in sync.
+    function bindSearchDropdown(input, results) {
+      results._input = input;
+      input.setAttribute('role', 'combobox');
+      input.setAttribute('aria-autocomplete', 'list');
+      input.setAttribute('aria-expanded', 'false');
+      input.setAttribute('aria-controls', results.id);
+      results.setAttribute('role', 'listbox');
+    }
+
+    function showStopSearchResults(results) {
+      results.classList.add('visible');
+      if (results._input) results._input.setAttribute('aria-expanded', 'true');
+    }
+
+    function hideStopSearchResults(results) {
+      results.classList.remove('visible');
+      if (results._input) {
+        results._input.setAttribute('aria-expanded', 'false');
+        results._input.removeAttribute('aria-activedescendant');
+      }
+      clearSearchPreview();
+    }
+
+    function setActiveSearchItem(results, item) {
+      results.querySelectorAll('.stop-search-item.active').forEach(el => el.classList.remove('active'));
+      if (!item) { if (results._input) results._input.removeAttribute('aria-activedescendant'); return; }
+      item.classList.add('active');
+      item.scrollIntoView({ block: 'nearest' });
+      if (item.id && results._input) results._input.setAttribute('aria-activedescendant', item.id);
+      if (item._preview) item._preview();
+    }
+
+    // Arrow keys move the highlight, Enter picks, Escape closes. `onEnter`
+    // receives the highlighted item (or null) and the full list of items.
+    function attachDropdownKeyboard(input, results, onEnter) {
+      input.addEventListener('keydown', e => {
+        const items = Array.from(results.querySelectorAll('.stop-search-item'));
+        if (e.key === 'Escape') {
+          if (results.classList.contains('visible')) { e.preventDefault(); hideStopSearchResults(results); }
+          else input.blur();
+          return;
+        }
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+          if (!items.length) return;
+          e.preventDefault();
+          if (!results.classList.contains('visible')) showStopSearchResults(results);
+          const cur = items.findIndex(el => el.classList.contains('active'));
+          const next = e.key === 'ArrowDown'
+            ? (cur < 0 ? 0 : (cur + 1) % items.length)
+            : (cur < 0 ? items.length - 1 : (cur - 1 + items.length) % items.length);
+          setActiveSearchItem(results, items[next]);
+        } else if (e.key === 'Enter') {
+          e.preventDefault();
+          const active = results.classList.contains('visible')
+            ? items.find(el => el.classList.contains('active')) || null
+            : null;
+          onEnter(active, results.classList.contains('visible') ? items : []);
+        }
+      });
+    }
+
+    // Appends `text` to `el`, wrapping the part that matches `query` (or,
+    // failing that, each query word) in <mark>. Built from text nodes, so
+    // stop names are never interpreted as HTML.
+    function appendHighlighted(el, text, query) {
+      text = String(text == null ? '' : text);
+      const q = (query || '').trim().toLowerCase();
+      if (!q) { el.textContent = text; return; }
+      const lower = text.toLowerCase();
+      let ranges = [];
+      const whole = lower.indexOf(q);
+      if (whole >= 0) {
+        ranges.push([whole, whole + q.length]);
+      } else {
+        q.split(/[\s\/,&-]+/).filter(t => t.length >= 2).forEach(t => {
+          const i = lower.indexOf(t);
+          if (i >= 0) ranges.push([i, i + t.length]);
+        });
+        ranges.sort((a, b) => a[0] - b[0]);
+        const merged = [];
+        ranges.forEach(r => { if (!merged.length || r[0] >= merged[merged.length - 1][1]) merged.push(r); });
+        ranges = merged;
+      }
+      let pos = 0;
+      ranges.forEach(([from, to]) => {
+        if (from > pos) el.appendChild(document.createTextNode(text.slice(pos, from)));
+        const mark = document.createElement('mark');
+        mark.className = 'stop-search-hl';
+        mark.textContent = text.slice(from, to);
+        el.appendChild(mark);
+        pos = to;
+      });
+      if (pos < text.length) el.appendChild(document.createTextNode(text.slice(pos)));
+    }
+
+    // Builds one dropdown row. `pick` runs on click/tap/Enter; `preview`
+    // (optional) runs on hover or keyboard highlight.
+    function makeSearchRow(results, { id, primary, query, secondary, badge, pick, preview }) {
+      const item = document.createElement('div');
+      item.className = 'stop-search-item';
+      item.setAttribute('role', 'option');
+      item.setAttribute('aria-selected', 'false');
+      if (id) item.id = id;
+
+      const name = document.createElement('span');
+      name.className = 'stop-search-name';
+      appendHighlighted(name, primary, query);
+      item.appendChild(name);
+
+      if (badge) {
+        const b = document.createElement('span');
+        b.className = 'stop-search-count';
+        b.textContent = badge;
+        item.appendChild(b);
+      }
+      if (secondary) {
+        const sec = document.createElement('span');
+        sec.className = 'stop-search-id';
+        appendHighlighted(sec, secondary, query);
+        item.appendChild(sec);
+      }
+
+      item._pick = pick;
+      item._preview = preview || null;
+
+      // mousedown (not click) so it fires before the input's blur hides the list
+      item.addEventListener('mousedown', e => { e.preventDefault(); pick(); });
+      // Touch: pick on a tap, but not after a scroll gesture. preventDefault on
+      // touchend also suppresses the emulated mousedown so it doesn't fire twice.
+      let touchMoved = false;
+      item.addEventListener('touchstart', () => { touchMoved = false; }, { passive: true });
+      item.addEventListener('touchmove', () => { touchMoved = true; }, { passive: true });
+      item.addEventListener('touchend', e => { if (touchMoved) return; e.preventDefault(); pick(); });
+      if (preview && canHoverPointer) item.addEventListener('mouseenter', preview);
+
+      results.appendChild(item);
+      return item;
+    }
+
+    function renderSearchMessage(results, className, text) {
+      results.innerHTML = '';
+      const el = document.createElement('div');
+      el.className = className;
+      el.textContent = text;
+      results.appendChild(el);
+      showStopSearchResults(results);
+    }
+
+    // Shows a "Searching…" row only when there's nothing useful on screen yet;
+    // otherwise the previous results stay put until the new ones arrive.
+    function showStopSearchLoading(results) {
+      results.setAttribute('aria-busy', 'true');
+      if (results.dataset.mode !== 'search' || !results.querySelector('.stop-search-item')) {
+        results.dataset.mode = 'loading';
+        renderSearchMessage(results, 'stop-search-loading', 'Searching…');
+      }
+    }
+
+    // ----- map preview of hovered/highlighted results -----
+    let searchPreviewLayer = null;
+
+    function clearSearchPreview() {
+      if (searchPreviewLayer && typeof map !== 'undefined' && map) map.removeLayer(searchPreviewLayer);
+      searchPreviewLayer = null;
+    }
+
+    function showSearchPreview(points) {
+      if (typeof map === 'undefined' || !map) return;
+      clearSearchPreview();
+      const pts = (points || []).filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lon) && (p.lat !== 0 || p.lon !== 0));
+      if (!pts.length) return;
+      const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#2B5FAD';
+      searchPreviewLayer = L.layerGroup(pts.map(p => L.circleMarker([p.lat, p.lon], {
+        radius: 9, color: accent, weight: 2, dashArray: '4 3',
+        fillColor: accent, fillOpacity: 0.15, interactive: false
+      }))).addTo(map);
+      const bounds = L.latLngBounds(pts.map(p => [p.lat, p.lon]));
+      if (!map.getBounds().contains(bounds)) map.panTo(bounds.getCenter());
+    }
+
+    // ----- recent stops (localStorage) -----
+    const RECENT_STOPS_KEY = 'gtfs-recent-stops';
+    const RECENT_STOPS_MAX = 6;
+
+    function getRecentStops() {
+      try {
+        const v = JSON.parse(localStorage.getItem(RECENT_STOPS_KEY) || '[]');
+        return Array.isArray(v) ? v.filter(r => r && r.stop_id != null && r.stop_name) : [];
+      } catch (e) { return []; }
+    }
+
+    function rememberRecentStop(match) {
+      const entry = {
+        stop_id: String(match.stop_id),
+        stop_name: match.stop_name || '',
+        stop_code: match.stop_code || '',
+        lat: match.lat, lon: match.lon,
+        group: !!match._group,
+        members: match._members ? match._members.map(m => ({ stop_id: String(m.stop_id), lat: m.lat, lon: m.lon })) : undefined
+      };
+      const rest = getRecentStops().filter(r => !(String(r.stop_id) === entry.stop_id && !!r.group === entry.group));
+      try { localStorage.setItem(RECENT_STOPS_KEY, JSON.stringify([entry, ...rest].slice(0, RECENT_STOPS_MAX))); } catch (e) {}
+    }
+
+    function clearRecentStops() {
+      try { localStorage.removeItem(RECENT_STOPS_KEY); } catch (e) {}
+    }
+
+    function renderRecentStops(results, onSelect) {
+      const recents = getRecentStops();
+      results.innerHTML = '';
+      results.removeAttribute('aria-busy');
+      if (!recents.length) { results.dataset.mode = 'empty'; hideStopSearchResults(results); return; }
+      results.dataset.mode = 'recent';
+
+      const header = document.createElement('div');
+      header.className = 'stop-search-section';
+      const title = document.createElement('span');
+      title.textContent = 'Recent';
+      const clearBtn = document.createElement('button');
+      clearBtn.type = 'button';
+      clearBtn.textContent = 'Clear';
+      clearBtn.addEventListener('mousedown', e => {
+        e.preventDefault();
+        clearRecentStops();
+        results.innerHTML = '';
+        hideStopSearchResults(results);
+      });
+      header.appendChild(title);
+      header.appendChild(clearBtn);
+      results.appendChild(header);
+
+      recents.forEach((r, i) => {
+        const match = { stop_id: r.stop_id, stop_name: r.stop_name, stop_code: r.stop_code, lat: r.lat, lon: r.lon };
+        if (r.group && r.members) { match._group = true; match._members = r.members; }
+        const previewPts = r.group && r.members ? r.members : [r];
+        makeSearchRow(results, {
+          id: `${results.id}-recent-${i}`,
+          primary: r.stop_name,
+          badge: r.group && r.members && r.members.length > 1 ? `${r.members.length} stops` : '',
+          secondary: r.group ? '' : (r.stop_code || r.stop_id),
+          pick: () => onSelect(match, results),
+          preview: () => showSearchPreview(previewPts)
+        });
+      });
+      showStopSearchResults(results);
     }
 
     // ===== STOP NAME SEARCH =====
@@ -3591,80 +4647,158 @@
       const input = document.getElementById(inputId);
       const results = document.getElementById(resultsId);
       if (!input || !results) return;
+      bindSearchDropdown(input, results);
 
-      input.addEventListener('input', () => {
+      const clearBtn = input.parentElement ? input.parentElement.querySelector('.stop-search-clear') : null;
+      const syncClearBtn = () => { if (clearBtn) clearBtn.hidden = !input.value; };
+      syncClearBtn();
+
+      const debouncedRun = debounce(q => runStopSearch(q, results, onSelect, false), SEARCH_DEBOUNCE_MS);
+
+      const onQueryChange = () => {
+        syncClearBtn();
         const q = input.value.trim();
-        if (!q) { hideStopSearchResults(results); return; }
-        runStopSearch(q, results, onSelect);
-      });
+        if (q.length < STOP_SEARCH_MIN_CHARS) {
+          debouncedRun.cancel();
+          ++stopSearchRequestId; // drop any in-flight response
+          renderRecentStops(results, onSelect);
+          return;
+        }
+        showStopSearchLoading(results);
+        debouncedRun(q);
+      };
+
+      input.addEventListener('input', onQueryChange);
 
       input.addEventListener('focus', () => {
-        if (results.childElementCount) results.classList.add('visible');
+        const q = input.value.trim();
+        if (q.length < STOP_SEARCH_MIN_CHARS) renderRecentStops(results, onSelect);
+        else if (results.childElementCount) showStopSearchResults(results);
       });
 
       input.addEventListener('blur', () => {
         // delay so a click on a result registers before the list is hidden
         setTimeout(() => hideStopSearchResults(results), 150);
       });
+
+      if (clearBtn) {
+        clearBtn.addEventListener('mousedown', e => {
+          e.preventDefault();
+          input.value = '';
+          input.focus();
+          onQueryChange();
+        });
+      }
+
+      attachDropdownKeyboard(input, results, (active, items) => {
+        if (active) { active._pick(); return; }
+        // Enter with nothing highlighted: load the stop whose ID/code exactly
+        // matches what was typed (the "stop number from the sign" case), or the
+        // only result if there is just one. Search immediately if a debounced
+        // request hasn't fired yet.
+        const q = input.value.trim();
+        if (q.length < STOP_SEARCH_MIN_CHARS || results.dataset.mode === 'recent') return;
+        debouncedRun.cancel();
+        if (results.dataset.mode === 'search' && results._query === q) {
+          const exact = findExactStopMatch(results._matches || [], q);
+          if (exact) onSelect(exact, results);
+          else if (items.length) items[0]._pick();
+          return;
+        }
+        showStopSearchLoading(results);
+        runStopSearch(q, results, onSelect, true);
+      });
     }
 
-    function hideStopSearchResults(results) {
-      results.classList.remove('visible');
+    // The number shown beside a result: the stop code by default, but the
+    // stop ID when that's what the typed query actually matches, so the
+    // highlighted digits are the ones the rider typed.
+    function stopSideNumber(stop, query) {
+      const q = (query || '').trim().toLowerCase();
+      const code = String(stop.stop_code || '');
+      const id = String(stop.stop_id || '');
+      if (q && code && code.toLowerCase().includes(q)) return code;
+      if (q && id && id.toLowerCase().includes(q)) return id;
+      return code || id;
     }
 
-    function runStopSearch(query, results, onSelect) {
+    function findExactStopMatch(matches, query) {
+      const q = query.trim().toLowerCase();
+      return matches.find(m => String(m.stop_id).toLowerCase() === q || String(m.stop_code || '').toLowerCase() === q)
+        || (matches.length === 1 ? matches[0] : null);
+    }
+
+    function runStopSearch(query, results, onSelect, pickExactOnArrive) {
       const requestId = ++stopSearchRequestId;
       fetch(`/api/searchstop/${encodeURIComponent(query)}`)
         .then(r => r.json())
         .then(data => {
           if (requestId !== stopSearchRequestId) return; // superseded by a later keystroke
-          renderStopSearchResults(data.matches || [], results, onSelect);
+          results.removeAttribute('aria-busy');
+          const matches = data.matches || [];
+          if (pickExactOnArrive) {
+            const exact = findExactStopMatch(matches, query);
+            if (exact) { onSelect(exact, results); return; }
+          }
+          renderStopSearchResults(matches, results, onSelect, query);
         })
         .catch(() => {
           if (requestId !== stopSearchRequestId) return;
-          results.innerHTML = '';
-          hideStopSearchResults(results);
+          results.removeAttribute('aria-busy');
+          results.dataset.mode = 'error';
+          renderSearchMessage(results, 'stop-search-empty', 'Couldn’t search right now — try again');
         });
     }
 
-    function renderStopSearchResults(matches, results, onSelect) {
+    // Collapse stops that share a name into one row when the "search stops
+    // with same name" setting is on, since picking any of them loads the
+    // merged board anyway. Honours the merge-reversed-cross-streets setting.
+    function groupStopMatches(matches) {
+      if (!searchMultipleStopsEnabled()) return matches.map(m => ({ name: m.stop_name, stops: [m] }));
+      const useCanonical = mergeCrossStreetsEnabled() && typeof canonicalStopKey === 'function';
+      const groups = new Map();
+      matches.forEach(m => {
+        const key = useCanonical ? canonicalStopKey(m.stop_name) : String(m.stop_name || '').trim().toUpperCase();
+        if (!groups.has(key)) groups.set(key, { name: m.stop_name, stops: [] });
+        groups.get(key).stops.push(m);
+      });
+      return Array.from(groups.values());
+    }
+
+    function renderStopSearchResults(matches, results, onSelect, query) {
       results.innerHTML = '';
+      results.dataset.mode = 'search';
+      results._query = query;
+      results._matches = matches;
 
       if (!matches.length) {
-        const empty = document.createElement('div');
-        empty.className = 'stop-search-empty';
-        empty.textContent = 'No matching stops';
-        results.appendChild(empty);
-        results.classList.add('visible');
+        renderSearchMessage(results, 'stop-search-empty', `No stops match “${query}”`);
         return;
       }
 
-      matches.forEach(m => {
-        const item = document.createElement('div');
-        item.className = 'stop-search-item';
-
-        const name = document.createElement('span');
-        name.className = 'stop-search-name';
-        name.textContent = m.stop_name;
-
-        const id = document.createElement('span');
-        id.className = 'stop-search-id';
-        id.textContent = `#${m.stop_id}`;
-
-        item.appendChild(name);
-        item.appendChild(id);
-        item.addEventListener('mousedown', e => {
-          e.preventDefault(); // fires before the input's blur handler hides the list
-          onSelect(m, results);
+      groupStopMatches(matches).slice(0, SEARCH_MAX_ROWS).forEach((g, i) => {
+        const first = g.stops[0];
+        const match = g.stops.length > 1
+          ? { ...first, _group: true, _members: g.stops }
+          : first;
+        makeSearchRow(results, {
+          id: `${results.id}-opt-${i}`,
+          primary: g.name,
+          query,
+          badge: g.stops.length > 1 ? `${g.stops.length} stops` : '',
+          secondary: g.stops.length > 1 ? '' : stopSideNumber(first, query),
+          pick: () => onSelect(match, results),
+          preview: () => showSearchPreview(g.stops)
         });
-        results.appendChild(item);
       });
 
-      results.classList.add('visible');
+      showStopSearchResults(results);
     }
 
     function selectStopFromSearch(match, results) {
       hideStopSearchResults(results);
+      if (results._input) results._input.blur(); // dismiss the mobile keyboard
+      rememberRecentStop(match);
 
       const date = document.getElementById('dateInput')?.value
         || document.getElementById('m-dateInput')?.value
@@ -3676,7 +4810,10 @@
       });
       ['stopSearchInput', 'm-stopSearchInput'].forEach(id => {
         const el = document.getElementById(id);
-        if (el) el.value = match.stop_name;
+        if (!el) return;
+        el.value = match.stop_name;
+        const clearBtn = el.parentElement ? el.parentElement.querySelector('.stop-search-clear') : null;
+        if (clearBtn) clearBtn.hidden = false;
       });
 
       if (searchMultipleStopsEnabled()) {
@@ -3695,19 +4832,34 @@
       const input = document.getElementById(inputId);
       const results = document.getElementById(resultsId);
       if (!input || !results) return;
+      bindSearchDropdown(input, results);
+
+      const debouncedRun = debounce(q => runRouteSearch(q, results, dateInputId), SEARCH_DEBOUNCE_MS);
 
       input.addEventListener('input', () => {
         const q = input.value.trim();
-        if (!q) { hideStopSearchResults(results); return; }
-        runRouteSearch(q, results, dateInputId);
+        if (!q) {
+          debouncedRun.cancel();
+          ++routeSearchRequestId;
+          results.innerHTML = '';
+          hideStopSearchResults(results);
+          return;
+        }
+        showStopSearchLoading(results);
+        debouncedRun(q);
       });
 
       input.addEventListener('focus', () => {
-        if (results.childElementCount) results.classList.add('visible');
+        if (results.childElementCount) showStopSearchResults(results);
       });
 
       input.addEventListener('blur', () => {
         setTimeout(() => hideStopSearchResults(results), 150);
+      });
+
+      attachDropdownKeyboard(input, results, (active, items) => {
+        const target = active || items[0];
+        if (target && target._pick) target._pick();
       });
     }
 
@@ -3717,49 +4869,37 @@
         .then(r => r.json())
         .then(data => {
           if (requestId !== routeSearchRequestId) return; // superseded by a later keystroke
-          renderRouteSearchResults(data.matches || [], results, dateInputId);
+          results.removeAttribute('aria-busy');
+          renderRouteSearchResults(data.matches || [], results, dateInputId, query);
         })
         .catch(() => {
           if (requestId !== routeSearchRequestId) return;
-          results.innerHTML = '';
-          hideStopSearchResults(results);
+          results.removeAttribute('aria-busy');
+          results.dataset.mode = 'error';
+          renderSearchMessage(results, 'stop-search-empty', 'Couldn’t search right now — try again');
         });
     }
 
-    function renderRouteSearchResults(matches, results, dateInputId) {
+    function renderRouteSearchResults(matches, results, dateInputId, query) {
       results.innerHTML = '';
+      results.dataset.mode = 'search';
 
       if (!matches.length) {
-        const empty = document.createElement('div');
-        empty.className = 'stop-search-empty';
-        empty.textContent = 'No matching routes';
-        results.appendChild(empty);
-        results.classList.add('visible');
+        renderSearchMessage(results, 'stop-search-empty', `No routes match “${query}”`);
         return;
       }
 
-      matches.forEach(m => {
-        const item = document.createElement('div');
-        item.className = 'stop-search-item';
-
-        const name = document.createElement('span');
-        name.className = 'stop-search-name';
-        name.textContent = m.route_short_name ? `${m.route_short_name} — ${m.route_long_name}` : m.route_long_name;
-
-        const id = document.createElement('span');
-        id.className = 'stop-search-id';
-        id.textContent = `#${m.route_id}`;
-
-        item.appendChild(name);
-        item.appendChild(id);
-        item.addEventListener('mousedown', e => {
-          e.preventDefault(); // fires before the input's blur handler hides the list
-          selectRouteFromSearch(m, results, dateInputId);
+      matches.slice(0, SEARCH_MAX_ROWS).forEach((m, i) => {
+        makeSearchRow(results, {
+          id: `${results.id}-opt-${i}`,
+          primary: m.route_short_name ? `${m.route_short_name} — ${m.route_long_name}` : m.route_long_name,
+          query,
+          secondary: `#${m.route_id}`,
+          pick: () => selectRouteFromSearch(m, results, dateInputId)
         });
-        results.appendChild(item);
       });
 
-      results.classList.add('visible');
+      showStopSearchResults(results);
     }
 
     function selectRouteFromSearch(match, results, dateInputId) {
@@ -3853,6 +4993,7 @@
     function loadMultiStops(stopName, date, isRefresh) {
       date = date || todayStr();
       const requestId = ++multiStopsRequestId;
+      currentStopView = { kind: 'name', name: stopName };
       const mergeReversed = mergeCrossStreetsEnabled();
       const includeNearby = includeNearbyEnabled();
       const radiusKM = includeNearbyRadiusM() / 1000;
@@ -3952,7 +5093,7 @@
     }
 
     function displayMultiStops(stopName, stops, isRefresh) {
-      if (!stops.length) { if (!isRefresh) showToast('No exact-name matches found.'); return; }
+      if (!stops.length) { if (!isRefresh) showToast('No stops to show.'); return; }
 
       currentMultiStopName = stopName;
       currentMultiStopIds = stops.map(s => s.stop_id);
@@ -4013,6 +5154,7 @@
                 <div class="stop-popup-card-val">${escapeHtml(s.stop_id)}</div>
               </div>
             </div>
+            <button class="secondary stop-popup-btn" data-stop-id="${escapeHtml(s.stop_id)}" onclick="loadStopOnly(this.dataset.stopId)">Only this stop</button>
           </div>
         `);
         // circleMarker is a Path, not a Marker — Leaflet's built-in popup
@@ -4085,21 +5227,21 @@
         if (!sec) return;
         if (showAll) {
           renderMultiDepartureCards(base, p);
-          if (btn) btn.textContent = 'Next 3h only';
+          if (btn) btn.textContent = `Showing all ${base.length}`;
           if (label) label.textContent = `${base.length} departure${base.length !== 1 ? 's' : ''} total, across all matching stops`;
         } else if (showN4) {
           const next4 = filterNext4(base);
           renderMultiDepartureCards(next4, p);
-          if (btn) btn.textContent = `Show all ${base.length}`;
+          if (btn) btn.textContent = 'Showing next 4';
           if (label) label.textContent = 'Next 4 departures, across all matching stops';
         } else {
           const filtered = filterNext3h(base);
           renderMultiDepartureCards(filtered, p);
           if (filtered.length === 0) {
-            if (btn) btn.textContent = `Show all ${base.length}`;
+            if (btn) btn.textContent = 'Showing next 3h';
             if (label) label.textContent = 'No departures in the next 3 hours';
           } else {
-            if (btn) btn.textContent = 'Next 4';
+            if (btn) btn.textContent = 'Showing next 3h';
             if (label) label.textContent = `Next 3 hours · ${filtered.length} departure${filtered.length !== 1 ? 's' : ''}, across all matching stops`;
           }
         }
@@ -4139,7 +5281,7 @@
     function startMultiDepsRefresh() {
       if (multiDepsRefreshId !== null) clearInterval(multiDepsRefreshId);
       multiDepsRefreshId = setInterval(() => {
-        if (currentMultiStopName) loadMultiStops(currentMultiStopName, document.getElementById('dateInput')?.value || todayStr(), true);
+        if (currentStopView && currentStopView.kind !== 'single') reloadCurrentStopView(currentDateStr(), true);
       }, 15000);
     }
 
@@ -4178,6 +5320,7 @@
       showingAllDeps_d = false; showingNext4_d = false;
       showingAllDeps_m = false; showingNext4_m = false;
       currentStopId = data.stop_id;
+      currentStopView = { kind: 'single', stopId: String(data.stop_id) };
 
       resetDepFilterState('dep-d'); resetDepFilterState('dep-m');
       renderDepFilterPanel(allDepartures, 'depFilterTree', 'depFilterBadge', 'dep-d', () => updateDeparturesView(currentStopId));
@@ -4198,16 +5341,21 @@
 
     // Sync date inputs
     document.getElementById('m-dateInput').value = todayStr();
+    // Changing the date re-runs whatever view is showing (single stop, merged
+    // by name, nearby, or around a point) rather than always reloading one stop.
+    function onDateChanged(value) {
+      if (reloadCurrentStopView(value, false)) return;
+      const v = (document.getElementById('stopIdInput')?.value || document.getElementById('m-stopIdInput')?.value || '').trim();
+      if (v) loadStop(v, value);
+    }
     document.getElementById('m-dateInput').addEventListener('change', e => {
       document.getElementById('dateInput').value = e.target.value;
-      const v = document.getElementById('m-stopIdInput')?.value.trim();
-      if (v) loadStop(v, e.target.value);
+      onDateChanged(e.target.value);
     });
 
     document.getElementById('dateInput').addEventListener('change', e => {
       document.getElementById('m-dateInput').value = e.target.value;
-      const v = document.getElementById('stopIdInput')?.value.trim();
-      if (v) loadStop(v, e.target.value);
+      onDateChanged(e.target.value);
     });
 
     // Keeps a desktop/mobile pair of inputs (checkbox or number) in sync,
@@ -4234,9 +5382,8 @@
     // Re-run the active multi-stop search so flipping a setting updates
     // results immediately.
     function reRunMultiStopSearch() {
-      if (!currentMultiStopName) return;
-      const date = document.getElementById('dateInput')?.value || document.getElementById('m-dateInput')?.value || todayStr();
-      loadMultiStops(currentMultiStopName, date);
+      if (!currentStopView || currentStopView.kind === 'single') return;
+      reloadCurrentStopView(currentDateStr(), false);
     }
 
     // "Search stops with same name" is independent from the merge/nearby/
@@ -4272,13 +5419,12 @@
     initSettingsPopover('m-depFilterBtn', 'm-depFilterPopover');
     initSettingsPopover('multiDepFilterBtn', 'multiDepFilterPopover');
     initSettingsPopover('m-multiDepFilterBtn', 'm-multiDepFilterPopover');
-    initSettingsPopover('boardFilterBtn', 'boardFilterPopover');
 
     // ===== NEAREST STOPS =====
     function handleFindNearest(latId, lonId) {
-      const lat = document.getElementById(latId)?.value.trim();
-      const lon = document.getElementById(lonId)?.value.trim();
-      if (lat && lon) findNearestStops(lat, lon);
+      const lat = parseFloat(document.getElementById(latId)?.value.trim());
+      const lon = parseFloat(document.getElementById(lonId)?.value.trim());
+      if (Number.isFinite(lat) && Number.isFinite(lon)) findNearestStops(lat, lon, `Near ${lat.toFixed(4)}, ${lon.toFixed(4)}`);
       else showToast('Enter both latitude and longitude first.');
     }
 
@@ -4287,7 +5433,7 @@
         const {latitude:lat,longitude:lon} = pos.coords;
         ['latInput','m-latInput'].forEach(id => { const el=document.getElementById(id); if(el) el.value=lat; });
         ['lonInput','m-lonInput'].forEach(id => { const el=document.getElementById(id); if(el) el.value=lon; });
-        if (search) findNearestStops(lat, lon);
+        if (search) findNearestStops(lat, lon, 'Near you');
       }, () => showToast('Unable to get your location.'));
     }
 
@@ -4302,14 +5448,19 @@
       }, () => showToast('Unable to get your location.'));
     }
 
-    function findNearestStops(lat, lon) {
+    const NEAREST_LIST_MAX = 10;
+
+    // Lists the closest stops in the Discover/Nearby tab. Departures are not
+    // loaded until the rider picks a stop (row tap, marker, or "Only this
+    // stop"). `label` is kept for callers but no longer names a board.
+    function findNearestStops(lat, lon, label) {
       // On mobile: switch to Nearby tab and expand sheet immediately
       switchTab('m-tab-nearby');
       if (isMobile()) expandSheet();
 
-      fetch(`/api/nearest/${lat}/${lon}`)
+      fetch(`/api/nearest/${lat}/${lon}?limit=${NEARBY_STOPS_FETCH_LIMIT}`)
         .then(r => r.json())
-        .then(displayNearestStops)
+        .then(data => displayNearestStops(data))
         .catch(() => {
           ['nearestStopsInfo','m-nearestStopsInfo'].forEach(id => {
             const el = document.getElementById(id);
@@ -4322,29 +5473,40 @@
       clearNearestStopMarkers();
       window.nearestStopsMarkers = [];
 
+      const stops = (data.nearest_stops || []).slice(0, NEAREST_LIST_MAX);
+
       ['nearestStopsInfo','m-nearestStopsInfo'].forEach(containerId => {
         const container = document.getElementById(containerId);
         if (!container) return;
         container.innerHTML = `<div class="section-title" style="margin-bottom:7px">Nearest stops</div>`;
 
-        if (!data.nearest_stops.length) {
+        if (!stops.length) {
           container.innerHTML += `<div style="font-size:13px;color:var(--text-muted)">No stops found near this location.</div>`;
           return;
         }
 
+        const hint = document.createElement('div');
+        hint.className = 'nearest-hint';
+        hint.textContent = 'Tap a stop to see its departures, or “Only this stop” to skip merging nearby stops.';
+        container.appendChild(hint);
+
         const list = document.createElement('div');
         list.style.cssText = 'display:flex;flex-direction:column;gap:5px';
 
-        data.nearest_stops.forEach(stop => {
+        stops.forEach(stop => {
           const item = document.createElement('div');
           item.className = 'nearest-stop-item';
-          item.innerHTML = `<span class="ns-id">${stop.stop_id}</span><span class="ns-dist">${stop.distanceKM.toFixed(2)} km</span>`;
+          item.setAttribute('role', 'button');
+          item.innerHTML = `<div class="ns-main"><span class="ns-name">${escapeHtml(stop.stop_name || `Stop ${stop.stop_id}`)}</span><span class="ns-meta">${escapeHtml(stop.stop_code || stop.stop_id)} · ${stop.distanceKM.toFixed(2)} km</span></div><button type="button" class="ns-only-btn">Only this stop</button>`;
+          // Row: same as tapping the stop's marker (merges nearby when the setting is on).
           item.addEventListener('click', () => {
             clearNearestStopMarkers();
-            ['stopIdInput','m-stopIdInput'].forEach(id => { const el=document.getElementById(id); if(el) el.value=stop.stop_id; });
-            const date = document.getElementById('dateInput').value || todayStr();
-            loadStop(stop.stop_id, date);
-            // On mobile: loadStop already calls switchTab('m-tab-stop') + expandSheet()
+            handleStopMarkerClick(stop.stop_id);
+          });
+          // "Only this stop": always a single-stop board.
+          item.querySelector('.ns-only-btn').addEventListener('click', e => {
+            e.stopPropagation();
+            loadStopOnly(stop.stop_id);
           });
           list.appendChild(item);
         });
@@ -4352,63 +5514,304 @@
         container.appendChild(list);
       });
 
-      if (data.nearest_stops.length) {
+      if (stops.length) {
         const nearestStopColor = getComputedStyle(document.documentElement).getPropertyValue('--accent2').trim();
-        data.nearest_stops.forEach(stop => {
+        stops.forEach(stop => {
           const m = L.circleMarker([stop.stop_lat,stop.stop_lon],{
             color:nearestStopColor,fillColor:nearestStopColor,fillOpacity:0.7,radius:7,weight:2
           }).addTo(map);
-          m.bindPopup(`Stop ${stop.stop_id} · ${stop.distanceKM.toFixed(2)} km`);
+          m.bindPopup(`${escapeHtml(stop.stop_name || 'Stop ' + stop.stop_id)}<br>${escapeHtml(stop.stop_code || stop.stop_id)} · ${stop.distanceKM.toFixed(2)} km`);
           m.on('click', () => { clearNearestStopMarkers(); handleStopMarkerClick(stop.stop_id); });
           window.nearestStopsMarkers.push(m);
         });
-        const bounds = L.latLngBounds(data.nearest_stops.map(s => [s.stop_lat,s.stop_lon]));
+        const bounds = L.latLngBounds(stops.map(s => [s.stop_lat,s.stop_lon]));
         map.fitBounds(bounds.pad(0.15));
       }
     }
 
     // ===== DEPARTURE BOARD (fullscreen "More" feature) =====
-    // Fetches the 50 nearest stops (sorted by distance), takes up to
-    // BOARD_INNER_MAX within BOARD_INNER_RADIUS_KM, then tops up with up to
-    // BOARD_OUTER_MAX more stops out to BOARD_OUTER_RADIUS_KM — so sparse
-    // areas with few stops nearby still get a reasonably full board — and
-    // shows all their departures as one live, deduped board, re-checking
-    // location and refreshing the data every BOARD_REFRESH_MS.
-    const BOARD_FETCH_LIMIT = 50;
-    const BOARD_INNER_RADIUS_KM = 3;
-    const BOARD_INNER_MAX = 30;
-    const BOARD_OUTER_RADIUS_KM = 8;
-    const BOARD_OUTER_MAX = 20;
-    const BOARD_REFRESH_MS = 15000;
+    // A station-style board for someone standing nearby: every stop within
+    // BOARD_WALK_RADIUS_KM (falling back to the closest BOARD_FALLBACK_STOPS
+    // when nothing is that near), departures merged, deduped per trip (the
+    // stop closest to the user wins), sorted by RT-adjusted departure, for
+    // the rest of today's service day. Schedules refetch every
+    // BOARD_REFRESH_MS, realtime + the "N min" labels every BOARD_RT_MS, and
+    // the clock ticks every second.
+    const BOARD_WALK_RADIUS_KM = 1;
+    const BOARD_MAX_STOPS = 15;
+    const BOARD_FALLBACK_STOPS = 3;
+    const BOARD_NEAREST_LIMIT = 30;
+    const BOARD_WALK_M_PER_MIN = 80;
+    const BOARD_REFRESH_MS = 60000;
+    const BOARD_RT_MS = 15000;
     let boardOverlayOpen = false;
-    let boardRefreshId = null;
+    let boardRefreshId = null, boardRtId = null, boardClockId = null;
     let boardLat = null, boardLon = null;
     let allBoardDepartures = [];
     let lastBoardStopDatas = [];
+    let boardRouteColors = new Map(); // route_id -> route_color hex (first seen)
 
     function openDepartureBoard() {
-      const overlay = document.getElementById('boardOverlay');
-      overlay.style.display = 'flex';
+      document.getElementById('boardOverlay').style.display = 'flex';
       boardOverlayOpen = true;
       resetDepFilterState('board');
-      renderDepFilterPanel([], 'boardFilterTree', 'boardFilterBadge', 'board', renderBoardCards);
+      renderBoardRouteChips();
+      if (allBoardDepartures.length) renderBoardCards();
+      tickBoardClock();
       document.addEventListener('keydown', onBoardOverlayKeydown);
       loadDepartureBoardLocation();
-      if (boardRefreshId === null) {
-        boardRefreshId = setInterval(() => { if (boardOverlayOpen) loadDepartureBoardLocation(); }, BOARD_REFRESH_MS);
-      }
+      if (boardRefreshId === null) boardRefreshId = setInterval(() => { if (boardOverlayOpen) loadDepartureBoardLocation(); }, BOARD_REFRESH_MS);
+      if (boardRtId === null)      boardRtId      = setInterval(() => { if (boardOverlayOpen) renderBoardCards(); }, BOARD_RT_MS);
+      if (boardClockId === null)   boardClockId   = setInterval(tickBoardClock, 1000);
     }
 
     function closeDepartureBoard() {
-      const overlay = document.getElementById('boardOverlay');
-      overlay.style.display = 'none';
+      document.getElementById('boardOverlay').style.display = 'none';
       boardOverlayOpen = false;
       document.removeEventListener('keydown', onBoardOverlayKeydown);
-      if (boardRefreshId !== null) { clearInterval(boardRefreshId); boardRefreshId = null; }
+      [boardRefreshId, boardRtId, boardClockId].forEach(id => { if (id !== null) clearInterval(id); });
+      boardRefreshId = boardRtId = boardClockId = null;
     }
 
     function onBoardOverlayKeydown(e) {
       if (e.key === 'Escape') closeDepartureBoard();
+    }
+
+    function tickBoardClock() {
+      const el = document.getElementById('boardClock');
+      if (!el) return;
+      const n = new Date();
+      let h = n.getHours();
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      h = h % 12 || 12;
+      el.innerHTML = `${h}:${String(n.getMinutes()).padStart(2,'0')}<span class="board-clock-sec">:${String(n.getSeconds()).padStart(2,'0')} ${ampm}</span>`;
+    }
+
+    function setBoardMessage(text) {
+      const grid = document.getElementById('boardGrid');
+      grid.innerHTML = `<div class="board-empty">${escapeHtml(text)}</div>`;
+      grid.dataset.tripKey = '';
+    }
+
+    function walkMinutes(km) {
+      return Math.max(1, Math.ceil((km * 1000) / BOARD_WALK_M_PER_MIN));
+    }
+    function fmtWalk(km) {
+      return km * 1000 < 60 ? 'right here' : `${walkMinutes(km)} min walk`;
+    }
+
+    // ['3', 'min', ''] | ['Due', '', 'due'] | ['3:15 PM', '', 'later']
+    function fmtBoardLeave(arrival, tripId) {
+      const at = parseTime(arrival) + getRTDelaySeconds(tripId);
+      const secs = at - nowInSeconds();
+      if (secs < 0)    return ['Gone', '', 'past'];
+      if (secs <= 30)  return ['Due', '', 'due'];
+      if (secs < 3600) return [String(Math.round(secs / 60)), 'min', ''];
+      return [fmtClockShort(at), '', 'later'];
+    }
+
+    function updateBoardETAs(grid) {
+      const now = nowInSeconds();
+      grid.querySelectorAll('.board-row').forEach(row => {
+        const el = row.querySelector('.board-leave');
+        if (!el) return;
+        const [text, unit, cls] = fmtBoardLeave(row.dataset.arrival, row.dataset.tripId);
+        el.innerHTML = escapeHtml(text) + (unit ? `<span class="board-leave-unit">${unit}</span>` : '');
+        el.className = `board-leave${cls ? ' ' + cls : ''}`;
+        const secsLeft = parseTime(row.dataset.arrival) + getRTDelaySeconds(row.dataset.tripId) - now;
+        row.classList.toggle('board-row-missed', Number(row.dataset.walkSec) > secsLeft);
+      });
+    }
+
+    function loadDepartureBoardLocation() {
+      const sub = document.getElementById('boardOverlaySub');
+      if (!navigator.geolocation) {
+        sub.textContent = 'Location is not available in this browser';
+        setBoardMessage('Turn on location to see departures near you.');
+        return;
+      }
+      if (boardLat == null) {
+        const grid = document.getElementById('boardGrid');
+        grid.innerHTML = skeletonDepCards(6);
+        grid.dataset.tripKey = '';
+        sub.textContent = 'Finding you…';
+      }
+      navigator.geolocation.getCurrentPosition(pos => {
+        boardLat = pos.coords.latitude;
+        boardLon = pos.coords.longitude;
+        fetchDepartureBoard();
+      }, () => {
+        if (boardLat == null) {
+          sub.textContent = 'Location unavailable';
+          setBoardMessage('Turn on location to see departures near you.');
+        }
+      }, { maximumAge: 30000, timeout: 10000 });
+    }
+
+    function fetchDepartureBoard() {
+      if (boardLat == null || boardLon == null) return;
+      const sub = document.getElementById('boardOverlaySub');
+      if (!allBoardDepartures.length) sub.textContent = 'Finding stops near you…';
+
+      fetch(`/api/nearest/${boardLat}/${boardLon}?limit=${BOARD_NEAREST_LIMIT}`)
+        .then(r => r.json())
+        .then(data => {
+          // nearest_stops is sorted nearest-first: everything within walking
+          // range (capped), or the closest few when nothing is that near.
+          const all = data.nearest_stops || [];
+          let stops = all.filter(s => s.distanceKM <= BOARD_WALK_RADIUS_KM).slice(0, BOARD_MAX_STOPS);
+          if (!stops.length) stops = all.slice(0, BOARD_FALLBACK_STOPS);
+          if (!stops.length) {
+            sub.textContent = 'Near you';
+            setBoardMessage('No stops within walking distance.');
+            return;
+          }
+          const date = todayStr();
+          return Promise.all(stops.map(s =>
+            fetch(`/api/stop/${s.stop_id}/${date}`).then(r => r.json())
+              .then(sd => ({ ...sd, _distanceKM: s.distanceKM, _stopName: s.stop_name || sd.stop_name || '' }))
+              .catch(() => ({ error: true }))
+          )).then(stopDatas => renderDepartureBoard(stopDatas.filter(s => !s.error)));
+        })
+        .catch(() => {
+          if (!allBoardDepartures.length) {
+            sub.textContent = 'Near you';
+            setBoardMessage('Couldn’t load departures. Trying again shortly.');
+          }
+        });
+    }
+
+    function renderDepartureBoard(stopDatas) {
+      const combined = [];
+      stopDatas.forEach(s => (s.departures || []).forEach(dep => {
+        combined.push({ ...dep, _stopId: s.stop_id, _stopName: s._stopName, _distanceKM: s._distanceKM });
+      }));
+
+      // Same trip can serve more than one nearby stop (continuing down the
+      // road) — keep only the occurrence at the stop closest to the user.
+      const byTrip = new Map();
+      combined.forEach(dep => {
+        const existing = byTrip.get(dep.trip_id);
+        if (!existing || dep._distanceKM < existing._distanceKM) byTrip.set(dep.trip_id, dep);
+      });
+
+      const now = nowInSeconds();
+      allBoardDepartures = [...byTrip.values()]
+        .filter(dep => parseTime(dep.arrival_time) + getRTDelaySeconds(dep.trip_id) >= now);
+      lastBoardStopDatas = stopDatas;
+
+      boardRouteColors = new Map();
+      allBoardDepartures.forEach(dep => {
+        if (dep.route_id && !boardRouteColors.has(dep.route_id)) boardRouteColors.set(dep.route_id, dep.route_color || '');
+      });
+      // Forget chip selections for routes that are no longer on the board.
+      const st = getDepFilterState('board');
+      [...st.selected.keys()].forEach(r => { if (!boardRouteColors.has(r)) st.selected.delete(r); });
+
+      const n = stopDatas.length;
+      const farthestKM = Math.max(0, ...stopDatas.map(s => s._distanceKM || 0));
+      document.getElementById('boardOverlaySub').textContent =
+        `Near you · ${n} stop${n !== 1 ? 's' : ''} within a ${walkMinutes(farthestKM)} min walk`;
+
+      renderBoardRouteChips();
+      renderBoardCards();
+    }
+
+    // One tap-to-toggle chip per route on the board (plus "All"), stored in
+    // the shared depFilterState under 'board' as route -> 'ALL' so
+    // applyDepFilter() works unchanged.
+    function renderBoardRouteChips() {
+      const wrap = document.getElementById('boardChips');
+      if (!wrap) return;
+      const st = getDepFilterState('board');
+      const routes = [...boardRouteColors.keys()]
+        .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+      wrap.innerHTML = '';
+      const all = document.createElement('button');
+      all.type = 'button';
+      all.className = 'board-chip board-chip-all' + (st.selected.size ? '' : ' active');
+      all.textContent = 'All';
+      all.setAttribute('aria-pressed', String(st.selected.size === 0));
+      all.addEventListener('click', () => onBoardChip(null));
+      wrap.appendChild(all);
+      routes.forEach(r => {
+        const hex = boardRouteColors.get(r);
+        const on = st.selected.has(r);
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'board-chip' + (on ? ' active' : '');
+        chip.textContent = r;
+        chip.style.setProperty('--chip', hex ? `#${hex}` : 'var(--accent2)');
+        chip.style.setProperty('--chip-text', hex ? readableTextColor(hex) : '#fff');
+        chip.setAttribute('aria-pressed', String(on));
+        chip.addEventListener('click', () => onBoardChip(r));
+        wrap.appendChild(chip);
+      });
+      wrap.hidden = routes.length < 2;
+    }
+
+    function onBoardChip(routeId) {
+      const st = getDepFilterState('board');
+      if (routeId === null) st.selected = new Map();
+      else if (st.selected.has(routeId)) st.selected.delete(routeId);
+      else st.selected.set(routeId, 'ALL');
+      renderBoardRouteChips();
+      renderBoardCards();
+    }
+
+    function buildBoardRow(dep) {
+      const row = document.createElement('div');
+      row.className = 'dep-card board-row';
+      row.dataset.tripId = dep.trip_id;
+      row.dataset.arrival = dep.arrival_time;
+      row.dataset.walkSec = Math.round((dep._distanceKM * 1000 / BOARD_WALK_M_PER_MIN) * 60);
+      const bg = dep.route_color ? `#${dep.route_color}` : 'var(--accent2)';
+      const fg = dep.route_color ? readableTextColor(dep.route_color) : '#fff';
+      const stopText = dep._stopName
+        ? `${escapeHtml(dep._stopName)}<span class="board-walk"> · ${fmtWalk(dep._distanceKM)}</span>`
+        : `<span class="board-walk">${fmtWalk(dep._distanceKM)}</span>`;
+      row.innerHTML = `
+        <div class="board-route" style="background:${bg};color:${fg}">${escapeHtml(dep.route_id)}</div>
+        <div class="board-dest">${escapeHtml(dep.trip_headsign || dep.route_id)}</div>
+        <div class="board-stop">${stopText}<span class="board-miss"> · can’t make it</span></div>
+        <div class="board-leave-wrap">
+          <div class="board-leave"></div>
+          <div class="board-sched"><span class="dep-time-sched">${fmtClockShort(parseTime(dep.arrival_time))}</span><span class="dep-time-actual"></span></div>
+          <div class="dep-badge-slot"></div>
+        </div>
+      `;
+      return row;
+    }
+
+    function renderBoardCards() {
+      const grid = document.getElementById('boardGrid');
+      const now = nowInSeconds();
+      const realTime = dep => parseTime(dep.arrival_time) + getRTDelaySeconds(dep.trip_id);
+      // Re-filter and re-sort on every pass so buses drop off as they leave
+      // and reorder as realtime delays come in.
+      const rows = applyDepFilter(allBoardDepartures, 'board')
+        .filter(dep => realTime(dep) >= now)
+        .sort((a, b) => realTime(a) - realTime(b));
+
+      if (!rows.length) {
+        const st = getDepFilterState('board');
+        const picked = [...st.selected.keys()];
+        setBoardMessage(picked.length
+          ? `No more route ${picked.join(' / ')} departures today.`
+          : `Nothing else leaving today.`);
+      } else {
+        // Skip the rebuild when the same trips are already on screen in the
+        // same order — only the labels and RT badges need to move.
+        const tripKey = rows.map(d => d.trip_id).join(',');
+        if (grid.dataset.tripKey !== tripKey) {
+          grid.dataset.tripKey = tripKey;
+          grid.innerHTML = '';
+          rows.forEach(dep => grid.appendChild(buildBoardRow(dep)));
+        }
+        updateBoardETAs(grid);
+      }
+
+      lastBoardStopDatas.forEach(s => { reapplyCachedRT(s.stop_id); loadRTStopUpdates(s.stop_id); });
     }
 
     // ===== TRIP STOPS OVERLAY =====
@@ -4435,151 +5838,6 @@
 
     function onTripStopsOverlayKeydown(e) {
       if (e.key === 'Escape') closeTripStops();
-    }
-
-    function loadDepartureBoardLocation() {
-      const sub = document.getElementById('boardOverlaySub');
-      if (!navigator.geolocation) { sub.textContent = 'Geolocation is not supported by this browser.'; return; }
-
-      if (boardLat == null) {
-        const grid = document.getElementById('boardGrid');
-        grid.innerHTML = skeletonDepCards(5);
-        grid.dataset.tripKey = '';
-        sub.textContent = 'Locating you…';
-      }
-
-      navigator.geolocation.getCurrentPosition(pos => {
-        boardLat = pos.coords.latitude;
-        boardLon = pos.coords.longitude;
-        fetchDepartureBoard();
-      }, () => {
-        if (boardLat == null) {
-          sub.textContent = 'Unable to get your location.';
-          document.getElementById('boardGrid').innerHTML = '';
-        }
-      });
-    }
-
-    function fetchDepartureBoard() {
-      if (boardLat == null || boardLon == null) return;
-      const sub = document.getElementById('boardOverlaySub');
-      sub.textContent = 'Finding nearby stops…';
-
-      fetch(`/api/nearest/${boardLat}/${boardLon}?limit=${BOARD_FETCH_LIMIT}`)
-        .then(r => r.json())
-        .then(data => {
-          // nearest_stops is sorted nearest-first: take up to BOARD_INNER_MAX
-          // within the inner radius, then keep adding stops (still sorted by
-          // distance) until BOARD_OUTER_MAX more are added or the outer
-          // radius is exceeded.
-          const all = data.nearest_stops || [];
-          const inner = all.filter(s => s.distanceKM <= BOARD_INNER_RADIUS_KM).slice(0, BOARD_INNER_MAX);
-          const innerIds = new Set(inner.map(s => s.stop_id));
-          const outer = [];
-          for (const s of all) {
-            if (outer.length >= BOARD_OUTER_MAX) break;
-            if (s.distanceKM > BOARD_OUTER_RADIUS_KM) break;
-            if (innerIds.has(s.stop_id)) continue;
-            outer.push(s);
-          }
-          const stops = [...inner, ...outer];
-          if (!stops.length) {
-            sub.textContent = `No stops found within ${BOARD_OUTER_RADIUS_KM} km.`;
-            document.getElementById('boardGrid').innerHTML = '';
-            return;
-          }
-          sub.textContent = `Loading departures from ${stops.length} stop${stops.length !== 1 ? 's' : ''}…`;
-          const date = document.getElementById('dateInput')?.value || todayStr();
-          return Promise.all(stops.map(s => Promise.all([
-            fetch(`/api/stop/${s.stop_id}/${date}`).then(r => r.json()),
-            fetch(`/api/stopinfo/${s.stop_id}`).then(r => r.json())
-          ]).then(([sd, info]) => ({ ...sd, _distanceKM: s.distanceKM, _stopName: info.stop_name || sd.stop_name, _stopCode: info.stop_code }))
-          )).then(stopDatas => renderDepartureBoard(stopDatas.filter(s => !s.error)));
-        })
-        .catch(() => {
-          sub.textContent = 'Error loading departure board.';
-          document.getElementById('boardGrid').innerHTML = '';
-        });
-    }
-
-    function renderDepartureBoard(stopDatas) {
-      const combined = [];
-      stopDatas.forEach(s => (s.departures || []).forEach(dep => {
-        combined.push({ ...dep, _stopId: s.stop_id, _stopName: s._stopName, _stopCode: s._stopCode, _distanceKM: s._distanceKM });
-      }));
-
-      // Same trip can serve more than one nearby stop (continuing down the
-      // road) — keep only the occurrence at the stop closest to the user.
-      const byTrip = new Map();
-      combined.forEach(dep => {
-        const existing = byTrip.get(dep.trip_id);
-        if (!existing || dep._distanceKM < existing._distanceKM) byTrip.set(dep.trip_id, dep);
-      });
-
-      // Drop buses that have already departed so the board stays sorted
-      // with the next bus on top and refreshes as buses pass.
-      const now = nowInSeconds();
-      allBoardDepartures = [...byTrip.values()]
-        .filter(dep => parseTime(dep.arrival_time) + getRTDelaySeconds(dep.trip_id) >= now)
-        .sort((a, b) =>
-          (parseTime(a.arrival_time) + getRTDelaySeconds(a.trip_id)) -
-          (parseTime(b.arrival_time) + getRTDelaySeconds(b.trip_id))
-        );
-      lastBoardStopDatas = stopDatas;
-
-      renderDepFilterPanel(allBoardDepartures, 'boardFilterTree', 'boardFilterBadge', 'board', renderBoardCards);
-      renderBoardCards();
-    }
-
-    function onBoardFilterClear() {
-      resetDepFilterState('board');
-      renderDepFilterPanel(allBoardDepartures, 'boardFilterTree', 'boardFilterBadge', 'board', renderBoardCards);
-      renderBoardCards();
-    }
-
-    function renderBoardCards() {
-      const grid = document.getElementById('boardGrid');
-      const sub = document.getElementById('boardOverlaySub');
-      const deduped = applyDepFilter(allBoardDepartures, 'board');
-
-      sub.textContent = `${deduped.length} departure${deduped.length !== 1 ? 's' : ''} · within ${BOARD_OUTER_RADIUS_KM} km`;
-
-      const tripKey = deduped.map(d => d.trip_id).join(',');
-      if (grid.dataset.tripKey !== tripKey) {
-        grid.dataset.tripKey = tripKey;
-        grid.innerHTML = '';
-        deduped.forEach(dep => {
-          const card = document.createElement('div');
-          card.className = 'dep-card board-row';
-          card.dataset.tripId = dep.trip_id;
-          card.dataset.arrival = dep.arrival_time;
-          const color = dep.route_color ? `#${dep.route_color}` : 'var(--accent2)';
-          card.innerHTML = `
-            <div class="dep-card-top">
-              <div class="dep-route"><span class="dep-dot" style="background:${color}"></span>${dep.route_id}</div>
-              <div class="dep-badge-slot"></div>
-            </div>
-            <div class="dep-time-row">
-              <div class="dep-time"><span class="dep-time-sched">${fmtTime(dep.arrival_time)}</span></div>
-              <div class="dep-time-actual"></div>
-              <div class="dep-eta" data-arrival="${dep.arrival_time}" data-trip-id="${dep.trip_id}"></div>
-            </div>
-            ${dep.trip_headsign ? `<div class="dep-headsign">${dep.trip_headsign}</div>` : ''}
-            <div class="dep-card-footer">
-              <div class="dep-trip">Trip ${dep.trip_id}</div>
-              <div class="dep-stop-tag">${dep._stopName ? dep._stopName + ' · ' : ''}${dep._stopCode ? 'Stop ' + dep._stopCode + ' · ' : ''}${dep._distanceKM.toFixed(2)} km</div>
-            </div>
-          `;
-          grid.appendChild(card);
-        });
-      }
-
-      if (!deduped.length) {
-        grid.innerHTML = `<div style="padding:40px 20px;text-align:center;color:var(--text-muted);font-size:14px">No upcoming departures nearby.</div>`;
-      }
-
-      updateGridETAs(grid);
-      lastBoardStopDatas.forEach(s => { reapplyCachedRT(s.stop_id); loadRTStopUpdates(s.stop_id); });
     }
 
     // ===== MOBILE SHEET =====
@@ -4684,10 +5942,8 @@
 
     // ===== KEYBOARD SHORTCUTS (desktop) =====
     document.getElementById('tripIdInput').addEventListener('keypress', e => { if(e.key==='Enter') handleLoadTrip('tripIdInput'); });
-    document.getElementById('stopIdInput').addEventListener('keypress', e => { if(e.key==='Enter') handleLoadStop('stopIdInput','dateInput'); });
     document.getElementById('routeIdInput').addEventListener('keypress', e => { if(e.key==='Enter') handleLoadRoute('routeIdInput','dateInput'); });
     document.getElementById('m-tripIdInput').addEventListener('keypress', e => { if(e.key==='Enter') handleLoadTrip('m-tripIdInput'); });
-    document.getElementById('m-stopIdInput').addEventListener('keypress', e => { if(e.key==='Enter') handleLoadStop('m-stopIdInput','m-dateInput'); });
     document.getElementById('m-routeIdInput').addEventListener('keypress', e => { if(e.key==='Enter') handleLoadRoute('m-routeIdInput','m-dateInput'); });
 
     // ===== INIT =====
