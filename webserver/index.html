@@ -1726,21 +1726,6 @@
       white-space: nowrap;
     }
     .board-clock-sec { font-size: 0.55em; font-weight: 500; color: var(--text-muted); margin-left: 2px; }
-    .board-live {
-      display: inline-flex;
-      align-items: center;
-      justify-content: flex-end;
-      gap: 6px;
-      margin-top: 7px;
-      font-size: 11px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.09em;
-      color: var(--text-dim);
-    }
-    .board-live .rt-pulse { background: var(--text-dim); animation: none; }
-    .board-live.live { color: var(--positive); }
-    .board-live.live .rt-pulse { background: var(--positive); animation: rt-pulse 2s ease-in-out infinite; }
     button.board-close {
       width: 40px;
       height: 40px;
@@ -1799,7 +1784,7 @@
       max-width: 960px;
       margin: 0 auto;
     }
-    .board-list .skel-dep-card { margin-bottom: 6px; }
+    .board-list .skel-dep-card { margin-bottom: 6px; height: var(--board-row-h, 88px); box-sizing: border-box; overflow: hidden; }
     .board-empty {
       padding: 56px 20px;
       text-align: center;
@@ -1815,7 +1800,13 @@
         "route stop leave";
       gap: 3px var(--space-4);
       align-items: center;
-      padding: 13px 0;
+      align-content: center;
+      /* Every row is the same height regardless of whether a realtime
+         badge / struck-out time shows up in the right column. */
+      height: var(--board-row-h, 88px);
+      box-sizing: border-box;
+      padding: 0;
+      overflow: hidden;
       border: none;
       border-radius: 0;
       border-bottom: 1px solid var(--border);
@@ -1875,7 +1866,7 @@
       display: flex;
       flex-direction: column;
       align-items: flex-end;
-      gap: 3px;
+      gap: 2px;
       min-width: 104px;
       text-align: right;
     }
@@ -1883,7 +1874,8 @@
       font-family: var(--font-display);
       font-size: 32px;
       font-weight: 700;
-      line-height: 1;
+      height: var(--board-leave-h, 32px);
+      line-height: var(--board-leave-h, 32px);
       color: var(--text);
       font-variant-numeric: tabular-nums;
       white-space: nowrap;
@@ -1902,6 +1894,8 @@
       display: flex;
       align-items: baseline;
       gap: 6px;
+      height: 15px;
+      line-height: 15px;
       font-size: 12.5px;
       color: var(--text-dim);
       font-variant-numeric: tabular-nums;
@@ -1913,7 +1907,8 @@
     .board-leave.later + .board-sched .dep-time-sched:not(.dep-time-sched-strike) { display: none; }
     .board-sched .dep-time-actual { font-size: 12.5px; font-weight: 700; }
     .board-sched .dep-time-actual:empty { display: none; }
-    .board-row .dep-badge-slot:empty { display: none; }
+    .board-row .dep-badge-slot { height: 14px; line-height: 14px; }
+    .board-row .dep-badge-slot:empty { visibility: hidden; }
     .board-row .rt-delay-badge {
       background: none;
       padding: 0;
@@ -1933,9 +1928,10 @@
       button.board-close { width: 36px; height: 36px; padding: 0; }
       .board-overlay .nearby-overlay-body { padding-left: var(--space-4); padding-right: var(--space-4); }
       button.board-chip { padding: 6px 12px; font-size: 14px; }
-      .board-row.dep-card { grid-template-columns: 58px minmax(0, 1fr) auto; gap: 2px var(--space-3); padding: 11px 0; }
+      .board-row.dep-card { grid-template-columns: 58px minmax(0, 1fr) auto; gap: 2px var(--space-3); --board-row-h: 82px; --board-leave-h: 26px; }
+      .board-list .skel-dep-card { --board-row-h: 82px; }
       .board-route { font-size: 17px; padding: 8px 4px; }
-      .board-dest, .board-stop {
+      .board-dest {
         white-space: normal;
         display: -webkit-box;
         -webkit-line-clamp: 2;
@@ -2726,7 +2722,6 @@
       <div class="board-header-right">
         <div class="board-clock-wrap">
           <div class="board-clock" id="boardClock"></div>
-          <div class="board-live" id="boardLive"><span class="rt-pulse"></span><span class="board-live-text">Scheduled</span></div>
         </div>
         <button type="button" class="board-close" onclick="closeDepartureBoard()" aria-label="Close departure board">&#x2715;</button>
       </div>
@@ -5594,18 +5589,6 @@
       const ampm = h >= 12 ? 'PM' : 'AM';
       h = h % 12 || 12;
       el.innerHTML = `${h}:${String(n.getMinutes()).padStart(2,'0')}<span class="board-clock-sec">:${String(n.getSeconds()).padStart(2,'0')} ${ampm}</span>`;
-      updateBoardLiveIndicator();
-    }
-
-    function updateBoardLiveIndicator() {
-      const el = document.getElementById('boardLive');
-      if (!el) return;
-      const fresh = lastBoardStopDatas.some(s => {
-        const c = rtStopCache.get(s.stop_id);
-        return c && (Date.now() - c.receivedAt) < RT_STALE_MS && (c.data.entity || []).length > 0;
-      });
-      el.classList.toggle('live', fresh);
-      el.querySelector('.board-live-text').textContent = fresh ? 'Live' : 'Scheduled';
     }
 
     function setBoardMessage(text) {
@@ -5833,7 +5816,6 @@
       }
 
       lastBoardStopDatas.forEach(s => { reapplyCachedRT(s.stop_id); loadRTStopUpdates(s.stop_id); });
-      updateBoardLiveIndicator();
     }
 
     // ===== TRIP STOPS OVERLAY =====
