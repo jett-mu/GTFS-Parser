@@ -17,7 +17,7 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&family=Saira:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
       --radius: 4px;
@@ -31,6 +31,7 @@
       --font-display: 'Oswald', sans-serif;
       --font-body: 'Inter', sans-serif;
       --font-mono: 'IBM Plex Mono', monospace;
+      --font-board: 'Saira', sans-serif;
 
       /* 4px spacing scale */
       --space-1: 4px;
@@ -65,6 +66,8 @@
       --positive-rgb: 79,168,118;
       --negative: #E8674B;
       --negative-rgb: 232,103,75;
+      --warn-rgb: 240,165,50;
+      --ontime-rgb: 74,184,170;
       --neutral: #a9a696;
 
       --sheet-handle-color: rgba(250,250,247,0.28);
@@ -101,6 +104,8 @@
       --positive-rgb: 47,123,79;
       --negative: #C23B24;
       --negative-rgb: 194,59,36;
+      --warn-rgb: 176,108,0;
+      --ontime-rgb: 20,133,120;
       --neutral: #6b6b63;
 
       --sheet-handle-color: rgba(26,26,26,0.24);
@@ -881,7 +886,21 @@
       overscroll-behavior: contain;
       scrollbar-width: thin;
       scrollbar-color: var(--border) transparent;
-      padding-right: 3px;
+      /* room for the hover lift + shadow so the top card isn't clipped by overflow */
+      padding: 4px 3px 4px 4px;
+      margin: -4px 0 -4px -4px;
+      /* fade the top/bottom edge only while there's more to scroll in that direction */
+      -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 var(--fade-top), #000 calc(100% - var(--fade-bot)), transparent 100%);
+      mask-image: linear-gradient(to bottom, transparent 0, #000 var(--fade-top), #000 calc(100% - var(--fade-bot)), transparent 100%);
+      animation: departures-scroll-fade linear both;
+      animation-timeline: scroll(self block);
+    }
+    @property --fade-top { syntax: '<length>'; inherits: false; initial-value: 0px; }
+    @property --fade-bot { syntax: '<length>'; inherits: false; initial-value: 0px; }
+    @keyframes departures-scroll-fade {
+      0%       { --fade-top: 0px;  --fade-bot: 28px; }
+      5%, 95%  { --fade-top: 28px; --fade-bot: 28px; }
+      100%     { --fade-top: 28px; --fade-bot: 0px; }
     }
     .departures-grid::-webkit-scrollbar { width: 4px; }
     .departures-grid::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
@@ -1059,9 +1078,10 @@
       letter-spacing: 0.03em;
       white-space: nowrap;
     }
-    .rt-ontime  { background: rgba(var(--accent3-rgb), 0.12); color: var(--accent3); }
+    .rt-ontime  { background: rgba(var(--ontime-rgb), 0.14); color: rgb(var(--ontime-rgb)); }
     .rt-early   { background: rgba(var(--positive-rgb), 0.12); color: var(--positive); }
     .rt-delayed { background: rgba(var(--negative-rgb), 0.12);  color: var(--negative); }
+    .rt-slight  { background: rgba(var(--warn-rgb), 0.16); color: rgb(var(--warn-rgb)); }
     .rt-live-only { background: rgba(var(--accent-rgb), 0.12); color: var(--accent); }
 
     .nearest-stop-item {
@@ -1131,19 +1151,33 @@
     .leaflet-popup-content-wrapper {
       background: var(--surface) !important;
       color: var(--text) !important;
+      border-radius: 12px;
       box-shadow: 0 3px 14px rgba(0,0,0,0.4);
     }
     .leaflet-popup-content { margin: 10px 12px; }
     .leaflet-popup-tip { background: var(--surface) !important; }
-    .leaflet-popup-close-button { color: var(--text-dim) !important; }
-    .leaflet-popup-close-button:hover { color: var(--text) !important; }
+    .leaflet-popup-close-button {
+      top: 8px !important;
+      right: 8px !important;
+      width: 20px !important;
+      height: 20px !important;
+      padding: 0 !important;
+      font: 700 15px/19px system-ui, sans-serif !important;
+      text-align: center;
+      border-radius: 50%;
+      color: #fff !important;
+      background: rgba(0,0,0,0.3);
+      text-shadow: none;
+    }
+    .leaflet-popup-close-button:hover { background: rgba(0,0,0,0.5); color: #fff !important; }
     .leaflet-routeArrows-pane { pointer-events: none; }
     .route-arrow { display: block; }
 
     .stop-popup { min-width: 190px; }
     .stop-popup-header {
       margin: -10px -12px 9px;
-      padding: 9px 12px;
+      padding: 9px 36px 9px 12px;
+      border-radius: 12px 12px 0 0;
       font-weight: 700;
       font-size: 13.5px;
     }
@@ -1381,6 +1415,30 @@
       white-space: nowrap;
     }
     .show-all-deps-btn:hover { border-color: var(--border2); color: var(--text); background: var(--surface3); }
+
+    .dep-header-actions { display: flex; align-items: center; gap: 6px; }
+    .dep-expand-btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 26px; height: 24px; padding: 0;
+      border-radius: 20px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: border-color var(--transition), color var(--transition), background var(--transition);
+    }
+    .dep-expand-btn:hover { border-color: var(--border2); color: var(--text); background: var(--surface3); }
+    .dep-expand-btn .ico-collapse { display: none; }
+    .dep-expanded .dep-expand-btn .ico-expand { display: none; }
+    .dep-expanded .dep-expand-btn .ico-collapse { display: block; }
+    /* Fill the whole sidebar (not the screen): pinned over #sidebar, which is the positioned, clipping ancestor */
+    #departuresSection.dep-expanded, #multiDeparturesSection.dep-expanded {
+      position: absolute; inset: 0; z-index: 20;
+      background: var(--surface);
+      padding: var(--space-4);
+      display: flex !important; flex-direction: column;
+    }
+    .dep-expanded .departures-grid { max-height: none; flex: 1; min-height: 0; }
 
     .dep-window-label {
       font-size: 11.5px;
@@ -1907,6 +1965,8 @@
     .board-leave.later + .board-sched .dep-time-sched:not(.dep-time-sched-strike) { display: none; }
     .board-sched .dep-time-actual { font-size: 12.5px; font-weight: 700; }
     .board-sched .dep-time-actual:empty { display: none; }
+    /* Departure board is Saira-only; the ID selector beats the per-class Oswald/Plex Mono rules above */
+    #boardOverlay, #boardOverlay * { font-family: var(--font-board); }
     .board-row .dep-badge-slot { height: 14px; line-height: 14px; }
     .board-row .dep-badge-slot:empty { visibility: hidden; }
     .board-row .rt-delay-badge {
@@ -2214,7 +2274,7 @@
 <body>
   <div id="intro-overlay">
     <div class="intro-card">
-      <p class="intro-eyebrow">GTFS Parser &middot; Transit explorer</p>
+      <p class="intro-eyebrow">GTFS Parser – Transit explorer</p>
       <h2 class="intro-title">Search, track, and explore transit data live</h2>
       <p class="intro-desc">
         This is a demo of <strong>York Region Transit</strong> GTFS data in the Greater Toronto Area, Ontario, Canada.
@@ -2327,7 +2387,7 @@
         <div id="departuresSection" style="display:none">
           <div class="departures-section-header">
             <div class="section-title">Departures</div>
-            <button class="show-all-deps-btn" id="showAllDepsBtn" onclick="cycleDepView('d')" title="Click to change the time window">Showing next 3h</button>
+            <div class="dep-header-actions"><button class="show-all-deps-btn" id="showAllDepsBtn" onclick="cycleDepView('d')" title="Click to change the time window">Showing next 3h</button><button type="button" class="dep-expand-btn" title="Fill sidebar" aria-label="Fill sidebar" aria-pressed="false" onclick="toggleDepExpand('departuresSection')"><svg class="ico-expand" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg><svg class="ico-collapse" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"/></svg></button></div>
           </div>
           <div class="dep-filter-row settings-popover-wrap">
             <button type="button" class="dep-filter-btn" id="depFilterBtn" aria-haspopup="true" aria-expanded="false">Filter <span class="dep-filter-badge" id="depFilterBadge" hidden>0</span></button>
@@ -2355,7 +2415,7 @@
         <div id="multiDeparturesSection" style="display:none">
           <div class="departures-section-header">
             <div class="section-title">Combined departures</div>
-            <button class="show-all-deps-btn" id="showAllMultiDepsBtn" onclick="cycleMultiDepView('d')" title="Click to change the time window">Showing next 3h</button>
+            <div class="dep-header-actions"><button class="show-all-deps-btn" id="showAllMultiDepsBtn" onclick="cycleMultiDepView('d')" title="Click to change the time window">Showing next 3h</button><button type="button" class="dep-expand-btn" title="Fill sidebar" aria-label="Fill sidebar" aria-pressed="false" onclick="toggleDepExpand('multiDeparturesSection')"><svg class="ico-expand" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg><svg class="ico-collapse" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"/></svg></button></div>
           </div>
           <div class="dep-filter-row settings-popover-wrap">
             <button type="button" class="dep-filter-btn" id="multiDepFilterBtn" aria-haspopup="true" aria-expanded="false">Filter <span class="dep-filter-badge" id="multiDepFilterBadge" hidden>0</span></button>
@@ -3899,7 +3959,7 @@
       rtIntervalId = setInterval(fetchRTLocation, 10000);
       rtRelativeId = setInterval(() => {
         if (rtLastVehTs) {
-          const txt = `GPS ${fmtUnixTime(rtLastVehTs)} · ${timeAgo(rtLastVehTs)}`;
+          const txt = `GPS ${fmtUnixTime(rtLastVehTs)} – ${timeAgo(rtLastVehTs)}`;
           ['rtTimestamp','m-rtTimestamp'].forEach(id => setVal(id, txt));
           updateVehMarkerTooltip();
         }
@@ -3945,7 +4005,7 @@
         ['rv-route',   trip.route_id   || '—'],
         ['rv-trip',    trip.trip_id    || '—'],
         ['rv-dir',     trip.direction_id != null ? (trip.direction_id===0 ? '0 — Outbound' : '1 — Inbound') : '—'],
-        ['rv-start',   trip.start_time ? `${trip.start_time} · ${trip.start_date||''}` : '—'],
+        ['rv-start',   trip.start_time ? `${trip.start_time} – ${trip.start_date||''}` : '—'],
         ['rv-seq',     veh.current_stop_sequence != null ? String(veh.current_stop_sequence) : '—'],
         ['rv-stop',    veh.stop_id  || '—'],
         ['rv-pos',     pos.latitude  != null ? `${pos.latitude}, ${pos.longitude}` : '—'],
@@ -3969,7 +4029,7 @@
       const ts = veh.timestamp || data.header?.timestamp;
       if (ts) {
         rtLastVehTs = ts;
-        const txt = `GPS ${fmtUnixTime(ts)} · ${timeAgo(ts)}`;
+        const txt = `GPS ${fmtUnixTime(ts)} – ${timeAgo(ts)}`;
         ['rtTimestamp','m-rtTimestamp'].forEach(id => setVal(id, txt));
       }
 
@@ -4037,8 +4097,9 @@
             if (mins > 0) { badge.textContent=`▲ ${mins}m early`; badge.className='rt-delay-badge rt-early'; isEarly = true; }
             else { badge.textContent='On time'; badge.className='rt-delay-badge rt-ontime'; }
           } else {
-            if (delay > 60) { badge.textContent=`▼ ${Math.round(delay/60)}m delay`; badge.className='rt-delay-badge rt-delayed'; }
-            else { badge.textContent=`▼ ${delay}s delay`; badge.className='rt-delay-badge rt-delayed'; }
+            const dCls = delay <= 90 ? 'rt-slight' : 'rt-delayed'; // ≤1.5 min: amber, not red
+            if (delay > 60) { badge.textContent=`▼ ${Math.round(delay/60)}m delay`; badge.className='rt-delay-badge '+dCls; }
+            else { badge.textContent=`▼ ${delay}s delay`; badge.className='rt-delay-badge '+dCls; }
             isLate = true;
           }
 
@@ -4129,7 +4190,7 @@
             if (label) label.textContent = 'No departures in the next 3 hours';
           } else {
             if (btn) btn.textContent = 'Showing next 3h';
-            if (label) label.textContent = `Next 3 hours · ${filtered.length} departure${filtered.length!==1?'s':''}`;
+            if (label) label.textContent = `Next 3 hours – ${filtered.length} departure${filtered.length!==1?'s':''}`;
           }
         }
         sec.style.display = 'block';
@@ -5103,7 +5164,7 @@
         if (el) el.style.display = 'block';
       });
 
-      const metaTxt = `${stops.length} stop${stops.length !== 1 ? 's' : ''} found  ·  IDs ${stops.map(s => s.stop_id).join(', ')}`;
+      const metaTxt = `${stops.length} stop${stops.length !== 1 ? 's' : ''} found  –  IDs ${stops.map(s => s.stop_id).join(', ')}`;
       setVal('multiStopNameDisplay', stopName);
       setVal('multiStopMetaDisplay', metaTxt);
       setVal('m-multiStopNameDisplay', stopName);
@@ -5206,7 +5267,7 @@
             <div class="dep-card-footer">
               <div class="dep-trip">Trip ${dep.trip_id}</div>
             </div>
-            <div class="dep-stop-tag" title="Stop #${dep._stopId}${dep._stopCode ? ' · Code ' + escapeHtml(dep._stopCode) : ''}${dep._stopName ? ' · ' + escapeHtml(dep._stopName) : ''}">Stop #${dep._stopId}${dep._stopCode ? ' · Code ' + escapeHtml(dep._stopCode) : ''}${dep._stopName ? ' · ' + escapeHtml(dep._stopName) : ''}</div>
+            <div class="dep-stop-tag" title="Stop #${dep._stopId}${dep._stopCode ? ' – Code ' + escapeHtml(dep._stopCode) : ''}${dep._stopName ? ' – ' + escapeHtml(dep._stopName) : ''}">Stop #${dep._stopId}${dep._stopCode ? ' – Code ' + escapeHtml(dep._stopCode) : ''}${dep._stopName ? ' – ' + escapeHtml(dep._stopName) : ''}</div>
           `;
           card.addEventListener('click', () => loadTrip(dep.trip_id, card));
           grid.appendChild(card);
@@ -5242,7 +5303,7 @@
             if (label) label.textContent = 'No departures in the next 3 hours';
           } else {
             if (btn) btn.textContent = 'Showing next 3h';
-            if (label) label.textContent = `Next 3 hours · ${filtered.length} departure${filtered.length !== 1 ? 's' : ''}, across all matching stops`;
+            if (label) label.textContent = `Next 3 hours – ${filtered.length} departure${filtered.length !== 1 ? 's' : ''}, across all matching stops`;
           }
         }
         sec.style.display = 'block';
@@ -5306,7 +5367,7 @@
         if (el) el.style.display = 'block';
       });
 
-      const metaTxt = `Stop ${data.stop_code}  ·  ID ${data.stop_id}\n${data.lat}, ${data.lon}`;
+      const metaTxt = `Stop ${data.stop_code}  –  ID ${data.stop_id}\n${data.lat}, ${data.lon}`;
       setVal('stopNameDisplay', data.stop_name);
       setVal('stopMetaDisplay', metaTxt);
       setVal('m-stopNameDisplay', data.stop_name);
@@ -5314,7 +5375,7 @@
 
       // Update peek title
       document.getElementById('sheet-peek-title').textContent = data.stop_name;
-      document.getElementById('sheet-peek-sub').textContent = `Stop ${data.stop_code} · ID ${data.stop_id}`;
+      document.getElementById('sheet-peek-sub').textContent = `Stop ${data.stop_code} – ID ${data.stop_id}`;
 
       allDepartures = [...data.departures].sort((a,b) => parseTime(a.arrival_time)-parseTime(b.arrival_time));
       showingAllDeps_d = false; showingNext4_d = false;
@@ -5497,7 +5558,7 @@
           const item = document.createElement('div');
           item.className = 'nearest-stop-item';
           item.setAttribute('role', 'button');
-          item.innerHTML = `<div class="ns-main"><span class="ns-name">${escapeHtml(stop.stop_name || `Stop ${stop.stop_id}`)}</span><span class="ns-meta">${escapeHtml(stop.stop_code || stop.stop_id)} · ${stop.distanceKM.toFixed(2)} km</span></div><button type="button" class="ns-only-btn">Only this stop</button>`;
+          item.innerHTML = `<div class="ns-main"><span class="ns-name">${escapeHtml(stop.stop_name || `Stop ${stop.stop_id}`)}</span><span class="ns-meta">${escapeHtml(stop.stop_code || stop.stop_id)} – ${stop.distanceKM.toFixed(2)} km</span></div><button type="button" class="ns-only-btn">Only this stop</button>`;
           // Row: same as tapping the stop's marker (merges nearby when the setting is on).
           item.addEventListener('click', () => {
             clearNearestStopMarkers();
@@ -5520,7 +5581,7 @@
           const m = L.circleMarker([stop.stop_lat,stop.stop_lon],{
             color:nearestStopColor,fillColor:nearestStopColor,fillOpacity:0.7,radius:7,weight:2
           }).addTo(map);
-          m.bindPopup(`${escapeHtml(stop.stop_name || 'Stop ' + stop.stop_id)}<br>${escapeHtml(stop.stop_code || stop.stop_id)} · ${stop.distanceKM.toFixed(2)} km`);
+          m.bindPopup(`${escapeHtml(stop.stop_name || 'Stop ' + stop.stop_id)}<br>${escapeHtml(stop.stop_code || stop.stop_id)} – ${stop.distanceKM.toFixed(2)} km`);
           m.on('click', () => { clearNearestStopMarkers(); handleStopMarkerClick(stop.stop_id); });
           window.nearestStopsMarkers.push(m);
         });
@@ -5711,7 +5772,7 @@
       const n = stopDatas.length;
       const farthestKM = Math.max(0, ...stopDatas.map(s => s._distanceKM || 0));
       document.getElementById('boardOverlaySub').textContent =
-        `Near you · ${n} stop${n !== 1 ? 's' : ''} within a ${walkMinutes(farthestKM)} min walk`;
+        `Near you – ${n} stop${n !== 1 ? 's' : ''} within a ${walkMinutes(farthestKM)} min walk`;
 
       renderBoardRouteChips();
       renderBoardCards();
@@ -5768,12 +5829,12 @@
       const bg = dep.route_color ? `#${dep.route_color}` : 'var(--accent2)';
       const fg = dep.route_color ? readableTextColor(dep.route_color) : '#fff';
       const stopText = dep._stopName
-        ? `${escapeHtml(dep._stopName)}<span class="board-walk"> · ${fmtWalk(dep._distanceKM)}</span>`
+        ? `${escapeHtml(dep._stopName)}<span class="board-walk"> – ${fmtWalk(dep._distanceKM)}</span>`
         : `<span class="board-walk">${fmtWalk(dep._distanceKM)}</span>`;
       row.innerHTML = `
         <div class="board-route" style="background:${bg};color:${fg}">${escapeHtml(dep.route_id)}</div>
         <div class="board-dest">${escapeHtml(dep.trip_headsign || dep.route_id)}</div>
-        <div class="board-stop">${stopText}<span class="board-miss"> · can’t make it</span></div>
+        <div class="board-stop">${stopText}<span class="board-miss"> – can’t make it</span></div>
         <div class="board-leave-wrap">
           <div class="board-leave"></div>
           <div class="board-sched"><span class="dep-time-sched">${fmtClockShort(parseTime(dep.arrival_time))}</span><span class="dep-time-actual"></span></div>
@@ -5819,7 +5880,7 @@
 
     function openTripStops(tripId) {
       const overlay = document.getElementById('tripStopsOverlay');
-      document.getElementById('tripStopsOverlaySub').textContent = `Trip ${tripId} · ${tripStopsData.length} stops`;
+      document.getElementById('tripStopsOverlaySub').textContent = `Trip ${tripId} – ${tripStopsData.length} stops`;
       document.getElementById('tripStopsTableBody').innerHTML = tripStopsData.map(stop => `
         <tr>
           <td>${escapeHtml(stop.name)}</td>
@@ -5955,6 +6016,20 @@
     initStopSearch('m-stopSearchInput', 'm-stopSearchResults');
     initRouteSearch('routeSearchInput', 'routeSearchResults', 'dateInput');
     initRouteSearch('m-routeSearchInput', 'm-routeSearchResults', 'm-dateInput');
-  </script>
+  
+    // Expand the departures list to fill the whole sidebar (Esc or the icon to restore).
+    function toggleDepExpand(secId) {
+      const sec = document.getElementById(secId);
+      if (!sec) return;
+      const on = sec.classList.toggle('dep-expanded');
+      const b = sec.querySelector('.dep-expand-btn');
+      if (b) { b.setAttribute('aria-pressed', on); b.title = b.ariaLabel = on ? 'Exit full sidebar' : 'Fill sidebar'; }
+    }
+    document.addEventListener('keydown', e => {
+      if (e.key !== 'Escape') return;
+      const open = document.querySelector('.dep-expanded');
+      if (open && !document.querySelector('.settings-popover:not([hidden])')) toggleDepExpand(open.id);
+    });
+</script>
 </body>
 </html>
