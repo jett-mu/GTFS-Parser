@@ -65,6 +65,8 @@
       --positive-rgb: 79,168,118;
       --negative: #E8674B;
       --negative-rgb: 232,103,75;
+      --warn-rgb: 240,165,50;
+      --ontime-rgb: 74,184,170;
       --neutral: #a9a696;
 
       --sheet-handle-color: rgba(250,250,247,0.28);
@@ -101,6 +103,8 @@
       --positive-rgb: 47,123,79;
       --negative: #C23B24;
       --negative-rgb: 194,59,36;
+      --warn-rgb: 176,108,0;
+      --ontime-rgb: 20,133,120;
       --neutral: #6b6b63;
 
       --sheet-handle-color: rgba(26,26,26,0.24);
@@ -1059,9 +1063,10 @@
       letter-spacing: 0.03em;
       white-space: nowrap;
     }
-    .rt-ontime  { background: rgba(var(--accent3-rgb), 0.12); color: var(--accent3); }
+    .rt-ontime  { background: rgba(var(--ontime-rgb), 0.14); color: rgb(var(--ontime-rgb)); }
     .rt-early   { background: rgba(var(--positive-rgb), 0.12); color: var(--positive); }
     .rt-delayed { background: rgba(var(--negative-rgb), 0.12);  color: var(--negative); }
+    .rt-slight  { background: rgba(var(--warn-rgb), 0.16); color: rgb(var(--warn-rgb)); }
     .rt-live-only { background: rgba(var(--accent-rgb), 0.12); color: var(--accent); }
 
     .nearest-stop-item {
@@ -2228,7 +2233,7 @@
 <body>
   <div id="intro-overlay">
     <div class="intro-card">
-      <p class="intro-eyebrow">GTFS Parser &middot; Transit explorer</p>
+      <p class="intro-eyebrow">GTFS Parser – Transit explorer</p>
       <h2 class="intro-title">Search, track, and explore transit data live</h2>
       <p class="intro-desc">
         This is a demo of <strong>York Region Transit</strong> GTFS data in the Greater Toronto Area, Ontario, Canada.
@@ -3923,7 +3928,7 @@
       rtIntervalId = setInterval(fetchRTLocation, 10000);
       rtRelativeId = setInterval(() => {
         if (rtLastVehTs) {
-          const txt = `GPS ${fmtUnixTime(rtLastVehTs)} · ${timeAgo(rtLastVehTs)}`;
+          const txt = `GPS ${fmtUnixTime(rtLastVehTs)} – ${timeAgo(rtLastVehTs)}`;
           ['rtTimestamp','m-rtTimestamp'].forEach(id => setVal(id, txt));
           updateVehMarkerTooltip();
         }
@@ -3969,7 +3974,7 @@
         ['rv-route',   trip.route_id   || '—'],
         ['rv-trip',    trip.trip_id    || '—'],
         ['rv-dir',     trip.direction_id != null ? (trip.direction_id===0 ? '0 — Outbound' : '1 — Inbound') : '—'],
-        ['rv-start',   trip.start_time ? `${trip.start_time} · ${trip.start_date||''}` : '—'],
+        ['rv-start',   trip.start_time ? `${trip.start_time} – ${trip.start_date||''}` : '—'],
         ['rv-seq',     veh.current_stop_sequence != null ? String(veh.current_stop_sequence) : '—'],
         ['rv-stop',    veh.stop_id  || '—'],
         ['rv-pos',     pos.latitude  != null ? `${pos.latitude}, ${pos.longitude}` : '—'],
@@ -3993,7 +3998,7 @@
       const ts = veh.timestamp || data.header?.timestamp;
       if (ts) {
         rtLastVehTs = ts;
-        const txt = `GPS ${fmtUnixTime(ts)} · ${timeAgo(ts)}`;
+        const txt = `GPS ${fmtUnixTime(ts)} – ${timeAgo(ts)}`;
         ['rtTimestamp','m-rtTimestamp'].forEach(id => setVal(id, txt));
       }
 
@@ -4061,8 +4066,9 @@
             if (mins > 0) { badge.textContent=`▲ ${mins}m early`; badge.className='rt-delay-badge rt-early'; isEarly = true; }
             else { badge.textContent='On time'; badge.className='rt-delay-badge rt-ontime'; }
           } else {
-            if (delay > 60) { badge.textContent=`▼ ${Math.round(delay/60)}m delay`; badge.className='rt-delay-badge rt-delayed'; }
-            else { badge.textContent=`▼ ${delay}s delay`; badge.className='rt-delay-badge rt-delayed'; }
+            const dCls = delay <= 90 ? 'rt-slight' : 'rt-delayed'; // ≤1.5 min: amber, not red
+            if (delay > 60) { badge.textContent=`▼ ${Math.round(delay/60)}m delay`; badge.className='rt-delay-badge '+dCls; }
+            else { badge.textContent=`▼ ${delay}s delay`; badge.className='rt-delay-badge '+dCls; }
             isLate = true;
           }
 
@@ -4153,7 +4159,7 @@
             if (label) label.textContent = 'No departures in the next 3 hours';
           } else {
             if (btn) btn.textContent = 'Showing next 3h';
-            if (label) label.textContent = `Next 3 hours · ${filtered.length} departure${filtered.length!==1?'s':''}`;
+            if (label) label.textContent = `Next 3 hours – ${filtered.length} departure${filtered.length!==1?'s':''}`;
           }
         }
         sec.style.display = 'block';
@@ -5127,7 +5133,7 @@
         if (el) el.style.display = 'block';
       });
 
-      const metaTxt = `${stops.length} stop${stops.length !== 1 ? 's' : ''} found  ·  IDs ${stops.map(s => s.stop_id).join(', ')}`;
+      const metaTxt = `${stops.length} stop${stops.length !== 1 ? 's' : ''} found  –  IDs ${stops.map(s => s.stop_id).join(', ')}`;
       setVal('multiStopNameDisplay', stopName);
       setVal('multiStopMetaDisplay', metaTxt);
       setVal('m-multiStopNameDisplay', stopName);
@@ -5230,7 +5236,7 @@
             <div class="dep-card-footer">
               <div class="dep-trip">Trip ${dep.trip_id}</div>
             </div>
-            <div class="dep-stop-tag" title="Stop #${dep._stopId}${dep._stopCode ? ' · Code ' + escapeHtml(dep._stopCode) : ''}${dep._stopName ? ' · ' + escapeHtml(dep._stopName) : ''}">Stop #${dep._stopId}${dep._stopCode ? ' · Code ' + escapeHtml(dep._stopCode) : ''}${dep._stopName ? ' · ' + escapeHtml(dep._stopName) : ''}</div>
+            <div class="dep-stop-tag" title="Stop #${dep._stopId}${dep._stopCode ? ' – Code ' + escapeHtml(dep._stopCode) : ''}${dep._stopName ? ' – ' + escapeHtml(dep._stopName) : ''}">Stop #${dep._stopId}${dep._stopCode ? ' – Code ' + escapeHtml(dep._stopCode) : ''}${dep._stopName ? ' – ' + escapeHtml(dep._stopName) : ''}</div>
           `;
           card.addEventListener('click', () => loadTrip(dep.trip_id, card));
           grid.appendChild(card);
@@ -5266,7 +5272,7 @@
             if (label) label.textContent = 'No departures in the next 3 hours';
           } else {
             if (btn) btn.textContent = 'Showing next 3h';
-            if (label) label.textContent = `Next 3 hours · ${filtered.length} departure${filtered.length !== 1 ? 's' : ''}, across all matching stops`;
+            if (label) label.textContent = `Next 3 hours – ${filtered.length} departure${filtered.length !== 1 ? 's' : ''}, across all matching stops`;
           }
         }
         sec.style.display = 'block';
@@ -5330,7 +5336,7 @@
         if (el) el.style.display = 'block';
       });
 
-      const metaTxt = `Stop ${data.stop_code}  ·  ID ${data.stop_id}\n${data.lat}, ${data.lon}`;
+      const metaTxt = `Stop ${data.stop_code}  –  ID ${data.stop_id}\n${data.lat}, ${data.lon}`;
       setVal('stopNameDisplay', data.stop_name);
       setVal('stopMetaDisplay', metaTxt);
       setVal('m-stopNameDisplay', data.stop_name);
@@ -5338,7 +5344,7 @@
 
       // Update peek title
       document.getElementById('sheet-peek-title').textContent = data.stop_name;
-      document.getElementById('sheet-peek-sub').textContent = `Stop ${data.stop_code} · ID ${data.stop_id}`;
+      document.getElementById('sheet-peek-sub').textContent = `Stop ${data.stop_code} – ID ${data.stop_id}`;
 
       allDepartures = [...data.departures].sort((a,b) => parseTime(a.arrival_time)-parseTime(b.arrival_time));
       showingAllDeps_d = false; showingNext4_d = false;
@@ -5521,7 +5527,7 @@
           const item = document.createElement('div');
           item.className = 'nearest-stop-item';
           item.setAttribute('role', 'button');
-          item.innerHTML = `<div class="ns-main"><span class="ns-name">${escapeHtml(stop.stop_name || `Stop ${stop.stop_id}`)}</span><span class="ns-meta">${escapeHtml(stop.stop_code || stop.stop_id)} · ${stop.distanceKM.toFixed(2)} km</span></div><button type="button" class="ns-only-btn">Only this stop</button>`;
+          item.innerHTML = `<div class="ns-main"><span class="ns-name">${escapeHtml(stop.stop_name || `Stop ${stop.stop_id}`)}</span><span class="ns-meta">${escapeHtml(stop.stop_code || stop.stop_id)} – ${stop.distanceKM.toFixed(2)} km</span></div><button type="button" class="ns-only-btn">Only this stop</button>`;
           // Row: same as tapping the stop's marker (merges nearby when the setting is on).
           item.addEventListener('click', () => {
             clearNearestStopMarkers();
@@ -5544,7 +5550,7 @@
           const m = L.circleMarker([stop.stop_lat,stop.stop_lon],{
             color:nearestStopColor,fillColor:nearestStopColor,fillOpacity:0.7,radius:7,weight:2
           }).addTo(map);
-          m.bindPopup(`${escapeHtml(stop.stop_name || 'Stop ' + stop.stop_id)}<br>${escapeHtml(stop.stop_code || stop.stop_id)} · ${stop.distanceKM.toFixed(2)} km`);
+          m.bindPopup(`${escapeHtml(stop.stop_name || 'Stop ' + stop.stop_id)}<br>${escapeHtml(stop.stop_code || stop.stop_id)} – ${stop.distanceKM.toFixed(2)} km`);
           m.on('click', () => { clearNearestStopMarkers(); handleStopMarkerClick(stop.stop_id); });
           window.nearestStopsMarkers.push(m);
         });
@@ -5735,7 +5741,7 @@
       const n = stopDatas.length;
       const farthestKM = Math.max(0, ...stopDatas.map(s => s._distanceKM || 0));
       document.getElementById('boardOverlaySub').textContent =
-        `Near you · ${n} stop${n !== 1 ? 's' : ''} within a ${walkMinutes(farthestKM)} min walk`;
+        `Near you – ${n} stop${n !== 1 ? 's' : ''} within a ${walkMinutes(farthestKM)} min walk`;
 
       renderBoardRouteChips();
       renderBoardCards();
@@ -5792,12 +5798,12 @@
       const bg = dep.route_color ? `#${dep.route_color}` : 'var(--accent2)';
       const fg = dep.route_color ? readableTextColor(dep.route_color) : '#fff';
       const stopText = dep._stopName
-        ? `${escapeHtml(dep._stopName)}<span class="board-walk"> · ${fmtWalk(dep._distanceKM)}</span>`
+        ? `${escapeHtml(dep._stopName)}<span class="board-walk"> – ${fmtWalk(dep._distanceKM)}</span>`
         : `<span class="board-walk">${fmtWalk(dep._distanceKM)}</span>`;
       row.innerHTML = `
         <div class="board-route" style="background:${bg};color:${fg}">${escapeHtml(dep.route_id)}</div>
         <div class="board-dest">${escapeHtml(dep.trip_headsign || dep.route_id)}</div>
-        <div class="board-stop">${stopText}<span class="board-miss"> · can’t make it</span></div>
+        <div class="board-stop">${stopText}<span class="board-miss"> – can’t make it</span></div>
         <div class="board-leave-wrap">
           <div class="board-leave"></div>
           <div class="board-sched"><span class="dep-time-sched">${fmtClockShort(parseTime(dep.arrival_time))}</span><span class="dep-time-actual"></span></div>
@@ -5843,7 +5849,7 @@
 
     function openTripStops(tripId) {
       const overlay = document.getElementById('tripStopsOverlay');
-      document.getElementById('tripStopsOverlaySub').textContent = `Trip ${tripId} · ${tripStopsData.length} stops`;
+      document.getElementById('tripStopsOverlaySub').textContent = `Trip ${tripId} – ${tripStopsData.length} stops`;
       document.getElementById('tripStopsTableBody').innerHTML = tripStopsData.map(stop => `
         <tr>
           <td>${escapeHtml(stop.name)}</td>
