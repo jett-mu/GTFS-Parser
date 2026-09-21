@@ -1415,6 +1415,30 @@
     }
     .show-all-deps-btn:hover { border-color: var(--border2); color: var(--text); background: var(--surface3); }
 
+    .dep-header-actions { display: flex; align-items: center; gap: 6px; }
+    .dep-expand-btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 26px; height: 24px; padding: 0;
+      border-radius: 20px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: border-color var(--transition), color var(--transition), background var(--transition);
+    }
+    .dep-expand-btn:hover { border-color: var(--border2); color: var(--text); background: var(--surface3); }
+    .dep-expand-btn .ico-collapse { display: none; }
+    .dep-expanded .dep-expand-btn .ico-expand { display: none; }
+    .dep-expanded .dep-expand-btn .ico-collapse { display: block; }
+    /* Fill the whole sidebar (not the screen): pinned over #sidebar, which is the positioned, clipping ancestor */
+    #departuresSection.dep-expanded, #multiDeparturesSection.dep-expanded {
+      position: absolute; inset: 0; z-index: 20;
+      background: var(--surface);
+      padding: var(--space-4);
+      display: flex !important; flex-direction: column;
+    }
+    .dep-expanded .departures-grid { max-height: none; flex: 1; min-height: 0; }
+
     .dep-window-label {
       font-size: 11.5px;
       color: var(--text-dim);
@@ -2360,7 +2384,7 @@
         <div id="departuresSection" style="display:none">
           <div class="departures-section-header">
             <div class="section-title">Departures</div>
-            <button class="show-all-deps-btn" id="showAllDepsBtn" onclick="cycleDepView('d')" title="Click to change the time window">Showing next 3h</button>
+            <div class="dep-header-actions"><button class="show-all-deps-btn" id="showAllDepsBtn" onclick="cycleDepView('d')" title="Click to change the time window">Showing next 3h</button><button type="button" class="dep-expand-btn" title="Fill sidebar" aria-label="Fill sidebar" aria-pressed="false" onclick="toggleDepExpand('departuresSection')"><svg class="ico-expand" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg><svg class="ico-collapse" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"/></svg></button></div>
           </div>
           <div class="dep-filter-row settings-popover-wrap">
             <button type="button" class="dep-filter-btn" id="depFilterBtn" aria-haspopup="true" aria-expanded="false">Filter <span class="dep-filter-badge" id="depFilterBadge" hidden>0</span></button>
@@ -2388,7 +2412,7 @@
         <div id="multiDeparturesSection" style="display:none">
           <div class="departures-section-header">
             <div class="section-title">Combined departures</div>
-            <button class="show-all-deps-btn" id="showAllMultiDepsBtn" onclick="cycleMultiDepView('d')" title="Click to change the time window">Showing next 3h</button>
+            <div class="dep-header-actions"><button class="show-all-deps-btn" id="showAllMultiDepsBtn" onclick="cycleMultiDepView('d')" title="Click to change the time window">Showing next 3h</button><button type="button" class="dep-expand-btn" title="Fill sidebar" aria-label="Fill sidebar" aria-pressed="false" onclick="toggleDepExpand('multiDeparturesSection')"><svg class="ico-expand" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg><svg class="ico-collapse" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"/></svg></button></div>
           </div>
           <div class="dep-filter-row settings-popover-wrap">
             <button type="button" class="dep-filter-btn" id="multiDepFilterBtn" aria-haspopup="true" aria-expanded="false">Filter <span class="dep-filter-badge" id="multiDepFilterBadge" hidden>0</span></button>
@@ -5999,6 +6023,20 @@
     initStopSearch('m-stopSearchInput', 'm-stopSearchResults');
     initRouteSearch('routeSearchInput', 'routeSearchResults', 'dateInput');
     initRouteSearch('m-routeSearchInput', 'm-routeSearchResults', 'm-dateInput');
-  </script>
+  
+    // Expand the departures list to fill the whole sidebar (Esc or the icon to restore).
+    function toggleDepExpand(secId) {
+      const sec = document.getElementById(secId);
+      if (!sec) return;
+      const on = sec.classList.toggle('dep-expanded');
+      const b = sec.querySelector('.dep-expand-btn');
+      if (b) { b.setAttribute('aria-pressed', on); b.title = b.ariaLabel = on ? 'Exit full sidebar' : 'Fill sidebar'; }
+    }
+    document.addEventListener('keydown', e => {
+      if (e.key !== 'Escape') return;
+      const open = document.querySelector('.dep-expanded');
+      if (open && !document.querySelector('.settings-popover:not([hidden])')) toggleDepExpand(open.id);
+    });
+</script>
 </body>
 </html>
