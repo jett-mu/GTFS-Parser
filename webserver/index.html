@@ -17,7 +17,7 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&family=Saira:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
       --radius: 4px;
@@ -31,6 +31,7 @@
       --font-display: 'Oswald', sans-serif;
       --font-body: 'Inter', sans-serif;
       --font-mono: 'IBM Plex Mono', monospace;
+      --font-board: 'Saira', sans-serif;
 
       /* 4px spacing scale */
       --space-1: 4px;
@@ -1964,6 +1965,8 @@
     .board-leave.later + .board-sched .dep-time-sched:not(.dep-time-sched-strike) { display: none; }
     .board-sched .dep-time-actual { font-size: 12.5px; font-weight: 700; }
     .board-sched .dep-time-actual:empty { display: none; }
+    /* Departure board is Saira-only; the ID selector beats the per-class Oswald/Plex Mono rules above */
+    #boardOverlay, #boardOverlay * { font-family: var(--font-board); }
     .board-row .dep-badge-slot { height: 14px; line-height: 14px; }
     .board-row .dep-badge-slot:empty { visibility: hidden; }
     .board-row .rt-delay-badge {
