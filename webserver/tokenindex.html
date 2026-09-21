@@ -888,6 +888,18 @@
       /* room for the hover lift + shadow so the top card isn't clipped by overflow */
       padding: 4px 3px 4px 4px;
       margin: -4px 0 -4px -4px;
+      /* fade the top/bottom edge only while there's more to scroll in that direction */
+      -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 var(--fade-top), #000 calc(100% - var(--fade-bot)), transparent 100%);
+      mask-image: linear-gradient(to bottom, transparent 0, #000 var(--fade-top), #000 calc(100% - var(--fade-bot)), transparent 100%);
+      animation: departures-scroll-fade linear both;
+      animation-timeline: scroll(self block);
+    }
+    @property --fade-top { syntax: '<length>'; inherits: false; initial-value: 0px; }
+    @property --fade-bot { syntax: '<length>'; inherits: false; initial-value: 0px; }
+    @keyframes departures-scroll-fade {
+      0%       { --fade-top: 0px;  --fade-bot: 28px; }
+      5%, 95%  { --fade-top: 28px; --fade-bot: 28px; }
+      100%     { --fade-top: 28px; --fade-bot: 0px; }
     }
     .departures-grid::-webkit-scrollbar { width: 4px; }
     .departures-grid::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
