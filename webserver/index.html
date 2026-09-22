@@ -1967,6 +1967,7 @@
     .board-sched .dep-time-actual:empty { display: none; }
     /* Departure board is Saira-only; the ID selector beats the per-class Oswald/Plex Mono rules above */
     #boardOverlay, #boardOverlay * { font-family: var(--font-board); }
+    #routeBoardOverlay, #routeBoardOverlay * { font-family: var(--font-board); }
     .board-row .dep-badge-slot { height: 14px; line-height: 14px; }
     .board-row .dep-badge-slot:empty { visibility: hidden; }
     .board-row .rt-delay-badge {
@@ -2005,6 +2006,117 @@
       .board-leave.later { font-size: 20px; }
       .board-leave-unit { font-size: 12px; }
     }
+
+    /* ===== ROUTE BOARD ===== */
+    /* Distinct from .board-list: one full-width row per route. The route
+       pill sits on the left; its next 3 departures run left-to-right beside
+       it, soonest widest/biggest, the next two smaller and equal-sized. */
+    .rb-grid {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-3);
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    .rb-empty.board-empty {}
+
+    .rb-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: var(--space-4);
+      display: flex;
+      align-items: stretch;
+      gap: var(--space-4);
+      min-width: 0;
+    }
+    /* Fixed width (not content-sized) so the departure columns start at the
+       same x on every row, regardless of how long each route's code is. */
+    .rb-card-head { display: flex; align-items: center; flex-shrink: 0; width: 96px; }
+    .rb-route-pill {
+      font-family: var(--font-display);
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      line-height: 1;
+      padding: 8px 10px;
+      border-radius: 6px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      width: 100%;
+      box-sizing: border-box;
+      text-align: center;
+    }
+
+    .rb-rows { display: flex; flex: 1; align-items: stretch; gap: var(--space-4); min-width: 0; }
+    .rb-row {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 4px;
+      min-width: 0;
+    }
+    .rb-row + .rb-row { border-left: 1px solid var(--border); padding-left: var(--space-4); }
+    .rb-row-main { min-width: 0; }
+    .rb-leave-wrap { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+
+    /* Primary (next) departure — the visually dominant row, widest column */
+    .rb-row-primary { flex: 1.6; }
+    .rb-row-primary .rb-dest {
+      font-family: var(--font-display);
+      font-size: 24px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+      line-height: 1.15;
+      color: var(--text);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .rb-row-primary .rb-stop { font-size: 13.5px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .rb-row-primary .rb-leave { font-family: var(--font-display); font-size: 38px; font-weight: 700; line-height: 1; color: var(--text); font-variant-numeric: tabular-nums; }
+    .rb-row-primary .rb-leave.due { color: var(--accent3); }
+    .rb-row-primary .rb-leave.later { font-size: 26px; }
+    .rb-row-primary .rb-sched { font-size: 12.5px; color: var(--text-dim); }
+    .rb-row-primary .rb-leave-unit { font-size: 15px; }
+
+    /* Secondary (2nd/3rd) departures — same, smaller size as each other */
+    .rb-row-secondary { flex: 1; }
+    .rb-row-secondary .rb-dest {
+      font-family: var(--font-display);
+      font-size: 15px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.01em;
+      color: var(--text-muted);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .rb-row-secondary .rb-stop { font-size: 11.5px; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .rb-row-secondary .rb-leave { font-family: var(--font-display); font-size: 18px; font-weight: 700; line-height: 1; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+    .rb-row-secondary .rb-leave.due { color: var(--accent3); }
+    .rb-row-secondary .rb-sched { font-size: 10.5px; color: var(--text-dim); }
+    .rb-row-secondary .rb-leave-unit { font-size: 11px; }
+
+    .rb-walk { color: var(--text-dim); }
+    .rb-row-missed { opacity: 0.45; }
+    .rb-row .dep-badge-slot { font-size: 11px; }
+    .rb-row .dep-badge-slot:empty { visibility: hidden; }
+    .rb-row .rt-delay-badge { background: none; padding: 0; border-radius: 0; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+    .rb-row .rt-live-only { display: none; }
+
+    @media (max-width: 640px) {
+      .rb-card { flex-direction: column; align-items: stretch; padding: var(--space-3); gap: var(--space-2); }
+      .rb-card-head { width: auto; padding-bottom: var(--space-2); }
+      .rb-route-pill { width: auto; font-size: 17px; padding: 6px 10px; }
+      .rb-rows { flex-direction: column; gap: var(--space-2); }
+      .rb-row + .rb-row { border-left: none; padding-left: 0; border-top: 1px solid var(--border); padding-top: var(--space-2); }
+      .rb-row-primary .rb-dest { font-size: 20px; }
+      .rb-row-primary .rb-leave { font-size: 32px; }
+      .rb-row-primary .rb-leave.later { font-size: 22px; }
+      .rb-row-secondary .rb-dest { font-size: 14px; }
+      .rb-row-secondary .rb-leave { font-size: 16px; }
+    }
+
     /* ===== TOAST ===== */
     .toast {
       position: fixed;
@@ -2513,6 +2625,7 @@
         <div class="panel">
           <div class="panel-heading">Extra features</div>
           <button class="secondary tab-accent-btn" style="width:100%" onclick="openDepartureBoard()">Departure board</button>
+          <button class="secondary tab-accent-btn" style="width:100%;margin-top:5px" onclick="openRouteBoard()">Route board</button>
         </div>
       </div>
         </div>
@@ -2747,6 +2860,7 @@
       <div class="tab-panel" id="m-tab-more">
         <div class="field-block">
           <button class="secondary tab-accent-btn" style="width:100%" onclick="openDepartureBoard()">Departure board</button>
+          <button class="secondary tab-accent-btn" style="width:100%;margin-top:5px" onclick="openRouteBoard()">Route board</button>
         </div>
       </div>
 
@@ -2789,6 +2903,25 @@
     <div class="nearby-overlay-body">
       <div class="board-chips" id="boardChips" hidden></div>
       <div class="board-list" id="boardGrid"></div>
+    </div>
+  </div>
+
+  <!-- ===== ROUTE BOARD (fullscreen) ===== -->
+  <div id="routeBoardOverlay" class="nearby-overlay board-overlay route-board-overlay" style="display:none" role="dialog" aria-modal="true" aria-label="Route board">
+    <div class="board-header">
+      <div class="board-header-left">
+        <div class="board-title">Routes</div>
+        <div class="board-sub" id="routeBoardOverlaySub"></div>
+      </div>
+      <div class="board-header-right">
+        <div class="board-clock-wrap">
+          <div class="board-clock" id="routeBoardClock"></div>
+        </div>
+        <button type="button" class="board-close" onclick="closeRouteBoard()" aria-label="Close route board">&#x2715;</button>
+      </div>
+    </div>
+    <div class="nearby-overlay-body">
+      <div class="rb-grid" id="routeBoardGrid"></div>
     </div>
   </div>
   <script>
@@ -5709,56 +5842,62 @@
       }, { maximumAge: 30000, timeout: 10000 });
     }
 
-    function fetchDepartureBoard() {
-      if (boardLat == null || boardLon == null) return;
-      const sub = document.getElementById('boardOverlaySub');
-      if (!allBoardDepartures.length) sub.textContent = 'Finding stops near you…';
-
-      fetch(`/api/nearest/${boardLat}/${boardLon}?limit=${BOARD_NEAREST_LIMIT}`)
+    // Shared by both the departure board and the route board: nearest_stops
+    // (sorted nearest-first) -> everything within walking range (capped), or
+    // the closest few when nothing is that near -> per-stop departures.
+    // Rejects with 'no-stops' when nothing usable was found nearby.
+    function fetchNearbyStopDepartures(lat, lon) {
+      return fetch(`/api/nearest/${lat}/${lon}?limit=${BOARD_NEAREST_LIMIT}`)
         .then(r => r.json())
         .then(data => {
-          // nearest_stops is sorted nearest-first: everything within walking
-          // range (capped), or the closest few when nothing is that near.
           const all = data.nearest_stops || [];
           let stops = all.filter(s => s.distanceKM <= BOARD_WALK_RADIUS_KM).slice(0, BOARD_MAX_STOPS);
           if (!stops.length) stops = all.slice(0, BOARD_FALLBACK_STOPS);
-          if (!stops.length) {
-            sub.textContent = 'Near you';
-            setBoardMessage('No stops within walking distance.');
-            return;
-          }
+          if (!stops.length) return Promise.reject('no-stops');
           const date = todayStr();
           return Promise.all(stops.map(s =>
             fetch(`/api/stop/${s.stop_id}/${date}`).then(r => r.json())
               .then(sd => ({ ...sd, _distanceKM: s.distanceKM, _stopName: s.stop_name || sd.stop_name || '' }))
               .catch(() => ({ error: true }))
-          )).then(stopDatas => renderDepartureBoard(stopDatas.filter(s => !s.error)));
-        })
-        .catch(() => {
-          if (!allBoardDepartures.length) {
-            sub.textContent = 'Near you';
-            setBoardMessage('Couldn’t load departures. Trying again shortly.');
-          }
+          )).then(stopDatas => stopDatas.filter(s => !s.error));
         });
     }
 
-    function renderDepartureBoard(stopDatas) {
+    // Pure merge: flattens per-stop departures, dedupes by trip_id (same
+    // trip can serve more than one nearby stop — keep only the occurrence at
+    // the stop closest to the user), and drops anything already in the past.
+    function mergeNearbyDepartures(stopDatas) {
       const combined = [];
       stopDatas.forEach(s => (s.departures || []).forEach(dep => {
         combined.push({ ...dep, _stopId: s.stop_id, _stopName: s._stopName, _distanceKM: s._distanceKM });
       }));
-
-      // Same trip can serve more than one nearby stop (continuing down the
-      // road) — keep only the occurrence at the stop closest to the user.
       const byTrip = new Map();
       combined.forEach(dep => {
         const existing = byTrip.get(dep.trip_id);
         if (!existing || dep._distanceKM < existing._distanceKM) byTrip.set(dep.trip_id, dep);
       });
-
       const now = nowInSeconds();
-      allBoardDepartures = [...byTrip.values()]
+      return [...byTrip.values()]
         .filter(dep => parseTime(dep.arrival_time) + getRTDelaySeconds(dep.trip_id) >= now);
+    }
+
+    function fetchDepartureBoard() {
+      if (boardLat == null || boardLon == null) return;
+      const sub = document.getElementById('boardOverlaySub');
+      if (!allBoardDepartures.length) sub.textContent = 'Finding stops near you…';
+
+      fetchNearbyStopDepartures(boardLat, boardLon)
+        .then(stopDatas => renderDepartureBoard(stopDatas))
+        .catch(err => {
+          if (!allBoardDepartures.length) {
+            sub.textContent = 'Near you';
+            setBoardMessage(err === 'no-stops' ? 'No stops within walking distance.' : 'Couldn’t load departures. Trying again shortly.');
+          }
+        });
+    }
+
+    function renderDepartureBoard(stopDatas) {
+      allBoardDepartures = mergeNearbyDepartures(stopDatas);
       lastBoardStopDatas = stopDatas;
 
       boardRouteColors = new Map();
@@ -5873,6 +6012,201 @@
       }
 
       lastBoardStopDatas.forEach(s => { reapplyCachedRT(s.stop_id); loadRTStopUpdates(s.stop_id); });
+    }
+
+    // ===== ROUTE BOARD (fullscreen "More" feature) =====
+    // Same nearby-stop departure pool as the departure board (fetched via
+    // the shared fetchNearbyStopDepartures/mergeNearbyDepartures helpers
+    // above), grouped by route: one card per route with an upcoming
+    // departure, showing that route's next RB_ROWS_PER_CARD departures
+    // (soonest biggest). Route cards themselves are ordered by their own
+    // soonest upcoming departure across all routes.
+    const RB_ROWS_PER_CARD = 3;
+    let routeBoardOverlayOpen = false;
+    let routeBoardRefreshId = null, routeBoardRtId = null, routeBoardClockId = null;
+    let routeBoardLat = null, routeBoardLon = null;
+    let allRouteBoardDepartures = [];
+    let lastRouteBoardStopDatas = [];
+
+    function openRouteBoard() {
+      document.getElementById('routeBoardOverlay').style.display = 'flex';
+      routeBoardOverlayOpen = true;
+      if (allRouteBoardDepartures.length) renderRouteBoardCards();
+      tickRouteBoardClock();
+      document.addEventListener('keydown', onRouteBoardOverlayKeydown);
+      loadRouteBoardLocation();
+      if (routeBoardRefreshId === null) routeBoardRefreshId = setInterval(() => { if (routeBoardOverlayOpen) loadRouteBoardLocation(); }, BOARD_REFRESH_MS);
+      if (routeBoardRtId === null)      routeBoardRtId      = setInterval(() => { if (routeBoardOverlayOpen) renderRouteBoardCards(); }, BOARD_RT_MS);
+      if (routeBoardClockId === null)   routeBoardClockId   = setInterval(tickRouteBoardClock, 1000);
+    }
+
+    function closeRouteBoard() {
+      document.getElementById('routeBoardOverlay').style.display = 'none';
+      routeBoardOverlayOpen = false;
+      document.removeEventListener('keydown', onRouteBoardOverlayKeydown);
+      [routeBoardRefreshId, routeBoardRtId, routeBoardClockId].forEach(id => { if (id !== null) clearInterval(id); });
+      routeBoardRefreshId = routeBoardRtId = routeBoardClockId = null;
+    }
+
+    function onRouteBoardOverlayKeydown(e) {
+      if (e.key === 'Escape') closeRouteBoard();
+    }
+
+    function tickRouteBoardClock() {
+      const el = document.getElementById('routeBoardClock');
+      if (!el) return;
+      const n = new Date();
+      let h = n.getHours();
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      h = h % 12 || 12;
+      el.innerHTML = `${h}:${String(n.getMinutes()).padStart(2,'0')}<span class="board-clock-sec">:${String(n.getSeconds()).padStart(2,'0')} ${ampm}</span>`;
+    }
+
+    function setRouteBoardMessage(text) {
+      const grid = document.getElementById('routeBoardGrid');
+      grid.innerHTML = `<div class="board-empty rb-empty">${escapeHtml(text)}</div>`;
+      grid.dataset.tripKey = '';
+    }
+
+    function loadRouteBoardLocation() {
+      const sub = document.getElementById('routeBoardOverlaySub');
+      if (!navigator.geolocation) {
+        sub.textContent = 'Location is not available in this browser';
+        setRouteBoardMessage('Turn on location to see nearby routes.');
+        return;
+      }
+      if (routeBoardLat == null) {
+        const grid = document.getElementById('routeBoardGrid');
+        grid.innerHTML = skeletonDepCards(6);
+        grid.dataset.tripKey = '';
+        sub.textContent = 'Finding you…';
+      }
+      navigator.geolocation.getCurrentPosition(pos => {
+        routeBoardLat = pos.coords.latitude;
+        routeBoardLon = pos.coords.longitude;
+        fetchRouteBoard();
+      }, () => {
+        if (routeBoardLat == null) {
+          sub.textContent = 'Location unavailable';
+          setRouteBoardMessage('Turn on location to see nearby routes.');
+        }
+      }, { maximumAge: 30000, timeout: 10000 });
+    }
+
+    function fetchRouteBoard() {
+      if (routeBoardLat == null || routeBoardLon == null) return;
+      const sub = document.getElementById('routeBoardOverlaySub');
+      if (!allRouteBoardDepartures.length) sub.textContent = 'Finding stops near you…';
+
+      fetchNearbyStopDepartures(routeBoardLat, routeBoardLon)
+        .then(stopDatas => {
+          allRouteBoardDepartures = mergeNearbyDepartures(stopDatas);
+          lastRouteBoardStopDatas = stopDatas;
+          const n = stopDatas.length;
+          const farthestKM = Math.max(0, ...stopDatas.map(s => s._distanceKM || 0));
+          sub.textContent = `Near you – ${n} stop${n !== 1 ? 's' : ''} within a ${walkMinutes(farthestKM)} min walk`;
+          renderRouteBoardCards();
+        })
+        .catch(err => {
+          if (!allRouteBoardDepartures.length) {
+            sub.textContent = 'Near you';
+            setRouteBoardMessage(err === 'no-stops' ? 'No stops within walking distance.' : 'Couldn’t load routes. Trying again shortly.');
+          }
+        });
+    }
+
+    // Group by route_id, sort each group by RT-adjusted time ascending, keep
+    // the first RB_ROWS_PER_CARD, then order the route cards by their own
+    // soonest (index-0) departure so the board reads as "what's leaving
+    // soonest" first.
+    function groupRouteBoardDepartures() {
+      const now = nowInSeconds();
+      const realTime = dep => parseTime(dep.arrival_time) + getRTDelaySeconds(dep.trip_id);
+      const byRoute = new Map();
+      allRouteBoardDepartures
+        .filter(dep => realTime(dep) >= now)
+        .forEach(dep => {
+          if (!dep.route_id) return;
+          if (!byRoute.has(dep.route_id)) byRoute.set(dep.route_id, []);
+          byRoute.get(dep.route_id).push(dep);
+        });
+      const groups = [...byRoute.entries()].map(([routeId, deps]) => {
+        deps.sort((a, b) => realTime(a) - realTime(b));
+        return { routeId, deps: deps.slice(0, RB_ROWS_PER_CARD) };
+      });
+      groups.sort((a, b) => realTime(a.deps[0]) - realTime(b.deps[0]));
+      return groups;
+    }
+
+    function buildRouteBoardRowHtml(dep, primary) {
+      const walkSec = Math.round((dep._distanceKM * 1000 / BOARD_WALK_M_PER_MIN) * 60);
+      const stopText = dep._stopName
+        ? `${escapeHtml(dep._stopName)}<span class="rb-walk"> – ${fmtWalk(dep._distanceKM)}</span>`
+        : `<span class="rb-walk">${fmtWalk(dep._distanceKM)}</span>`;
+      return `
+        <div class="dep-card rb-row ${primary ? 'rb-row-primary' : 'rb-row-secondary'}"
+             data-trip-id="${escapeHtml(dep.trip_id)}" data-arrival="${escapeHtml(dep.arrival_time)}" data-walk-sec="${walkSec}">
+          <div class="rb-row-main">
+            <div class="rb-dest">${escapeHtml(dep.trip_headsign || dep.route_id)}</div>
+            <div class="rb-stop">${stopText}</div>
+          </div>
+          <div class="rb-leave-wrap">
+            <div class="rb-leave"></div>
+            <div class="rb-sched"><span class="dep-time-sched">${fmtClockShort(parseTime(dep.arrival_time))}</span><span class="dep-time-actual"></span></div>
+            <div class="dep-badge-slot"></div>
+          </div>
+        </div>
+      `;
+    }
+
+    function buildRouteBoardCard(group) {
+      const first = group.deps[0];
+      const bg = first.route_color ? `#${first.route_color}` : 'var(--accent2)';
+      const fg = first.route_color ? readableTextColor(first.route_color) : '#fff';
+      const card = document.createElement('div');
+      card.className = 'rb-card';
+      card.dataset.routeId = group.routeId;
+      card.innerHTML = `
+        <div class="rb-card-head">
+          <div class="rb-route-pill" style="background:${bg};color:${fg}">${escapeHtml(group.routeId)}</div>
+        </div>
+        <div class="rb-rows">
+          ${group.deps.map((dep, i) => buildRouteBoardRowHtml(dep, i === 0)).join('')}
+        </div>
+      `;
+      return card;
+    }
+
+    function updateRouteBoardETAs(grid) {
+      const now = nowInSeconds();
+      grid.querySelectorAll('.rb-row').forEach(row => {
+        const el = row.querySelector('.rb-leave');
+        if (!el) return;
+        const [text, unit, cls] = fmtBoardLeave(row.dataset.arrival, row.dataset.tripId);
+        el.innerHTML = escapeHtml(text) + (unit ? `<span class="board-leave-unit">${unit}</span>` : '');
+        el.className = `rb-leave${cls ? ' ' + cls : ''}`;
+        const secsLeft = parseTime(row.dataset.arrival) + getRTDelaySeconds(row.dataset.tripId) - now;
+        row.classList.toggle('rb-row-missed', Number(row.dataset.walkSec) > secsLeft);
+      });
+    }
+
+    function renderRouteBoardCards() {
+      const grid = document.getElementById('routeBoardGrid');
+      const groups = groupRouteBoardDepartures();
+
+      if (!groups.length) {
+        setRouteBoardMessage('Nothing leaving nearby right now.');
+      } else {
+        const tripKey = groups.map(g => g.routeId + ':' + g.deps.map(d => d.trip_id).join('|')).join(',');
+        if (grid.dataset.tripKey !== tripKey) {
+          grid.dataset.tripKey = tripKey;
+          grid.innerHTML = '';
+          groups.forEach(g => grid.appendChild(buildRouteBoardCard(g)));
+        }
+        updateRouteBoardETAs(grid);
+      }
+
+      lastRouteBoardStopDatas.forEach(s => { reapplyCachedRT(s.stop_id); loadRTStopUpdates(s.stop_id); });
     }
 
     // ===== TRIP STOPS OVERLAY =====
