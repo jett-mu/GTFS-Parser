@@ -1852,7 +1852,7 @@
 
     .board-row.dep-card {
       display: grid;
-      grid-template-columns: 78px minmax(0, 1fr) auto;
+      grid-template-columns: 133px minmax(0, 1fr) auto;
       grid-template-areas:
         "route dest leave"
         "route stop leave";
@@ -1989,16 +1989,9 @@
       button.board-close { width: 36px; height: 36px; padding: 0; }
       .board-overlay .nearby-overlay-body { padding-left: var(--space-4); padding-right: var(--space-4); }
       button.board-chip { padding: 6px 12px; font-size: 14px; }
-      .board-row.dep-card { grid-template-columns: 58px minmax(0, 1fr) auto; gap: 2px var(--space-3); --board-row-h: 82px; --board-leave-h: 26px; }
+      .board-row.dep-card { grid-template-columns: 98px minmax(0, 1fr) auto; gap: 2px var(--space-3); --board-row-h: 82px; --board-leave-h: 26px; }
       .board-list .skel-dep-card { --board-row-h: 82px; }
       .board-route { font-size: 17px; padding: 8px 4px; }
-      .board-dest {
-        white-space: normal;
-        display: -webkit-box;
-        -webkit-line-clamp: 2;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
-      }
       .board-dest { font-size: 17px; }
       .board-stop { font-size: 12.5px; }
       .board-leave-wrap { min-width: 84px; }
@@ -3175,6 +3168,53 @@
     function escapeHtml(s) {
       return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     }
+
+    // Truncate from the middle instead of the end — "HIGHWAY 7 TO
+    // ENTERPRISE BLVD" -> "HIGHW...PRISE BLVD" — so a long headsign keeps
+    // its start (the "to"/via context) AND its end (usually the specific
+    // destination), rather than losing everything after the cutoff. Fits to
+    // the element's *actual* rendered pixel width (not a guessed character
+    // count) by measuring with canvas against the element's real computed
+    // font, so it uses exactly as much space as is actually available.
+    // Keeps more of the tail than the head since the end tends to carry the
+    // more specific place name.
+    let _measureCtx = null;
+    function measureTextWidth(text, font) {
+      if (!_measureCtx) _measureCtx = document.createElement('canvas').getContext('2d');
+      _measureCtx.font = font;
+      return _measureCtx.measureText(text).width;
+    }
+
+    function middleEllipsisToWidth(text, maxWidth, font) {
+      if (!text) return text;
+      if (measureTextWidth(text, font) <= maxWidth) return text;
+      const ellipsis = '...';
+      if (measureTextWidth(ellipsis, font) >= maxWidth) return ellipsis;
+      for (let total = text.length - 1; total > 0; total--) {
+        const head = Math.round(total / 3);
+        const tail = total - head;
+        const candidate = text.slice(0, head) + ellipsis + text.slice(text.length - tail);
+        if (measureTextWidth(candidate, font) <= maxWidth) return candidate;
+      }
+      return ellipsis;
+    }
+
+    // Re-fits every headsign in the departure board to its own row's actual
+    // rendered width — called after rows are (re)built and laid out, so
+    // clientWidth reflects the real grid-column width on this screen.
+    function fitBoardDestTexts(grid) {
+      grid.querySelectorAll('.board-dest[data-full-dest]').forEach(el => {
+        const full = el.dataset.fullDest;
+        const cs = getComputedStyle(el);
+        const font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+        el.textContent = middleEllipsisToWidth(full, el.clientWidth, font);
+      });
+    }
+    // Re-fit on resize/rotate too, so the truncation always matches however
+    // much space is actually available right now, not just at build time.
+    window.addEventListener('resize', debounce(() => {
+      if (boardOverlayOpen) fitBoardDestTexts(document.getElementById('boardGrid'));
+    }, 150));
 
     function readableTextColor(hex) {
       const h = String(hex ?? '').replace('#', '');
@@ -5316,10 +5356,11 @@
 
       allMultiDepartures.sort((a, b) => parseTime(a.arrival_time) - parseTime(b.arrival_time));
 
-      showingAllMultiDeps_d = false; showingNext4MultiDeps_d = false;
-      showingAllMultiDeps_m = false; showingNext4MultiDeps_m = false;
-
-      if (!isRefresh) { resetDepFilterState('multi-d'); resetDepFilterState('multi-m'); }
+      if (!isRefresh) {
+        showingAllMultiDeps_d = false; showingNext4MultiDeps_d = false;
+        showingAllMultiDeps_m = false; showingNext4MultiDeps_m = false;
+        resetDepFilterState('multi-d'); resetDepFilterState('multi-m');
+      }
       renderDepFilterPanel(allMultiDepartures, 'multiDepFilterTree', 'multiDepFilterBadge', 'multi-d', updateMultiDeparturesView);
       renderDepFilterPanel(allMultiDepartures, 'm-multiDepFilterTree', 'm-multiDepFilterBadge', 'multi-m', updateMultiDeparturesView);
 
@@ -5972,7 +6013,7 @@
         : `<span class="board-walk">${fmtWalk(dep._distanceKM)}</span>`;
       row.innerHTML = `
         <div class="board-route" style="background:${bg};color:${fg}">${escapeHtml(dep.route_id)}</div>
-        <div class="board-dest">${escapeHtml(dep.trip_headsign || dep.route_id)}</div>
+        <div class="board-dest" data-full-dest="${escapeHtml(dep.trip_headsign || dep.route_id)}"></div>
         <div class="board-stop">${stopText}<span class="board-miss"> – can’t make it</span></div>
         <div class="board-leave-wrap">
           <div class="board-leave"></div>
@@ -6007,6 +6048,7 @@
           grid.dataset.tripKey = tripKey;
           grid.innerHTML = '';
           rows.forEach(dep => grid.appendChild(buildBoardRow(dep)));
+          fitBoardDestTexts(grid);
         }
         updateBoardETAs(grid);
       }
