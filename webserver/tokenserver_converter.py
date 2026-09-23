@@ -75,13 +75,11 @@ def main():
 
     src = re.sub(r"@app\.route\([^\)]+\)\n", inject_decorator, src)
 
-    # 5. Swap index.html -> tokenindex.html for the root route only
-    src = re.sub(
-        r"(def index\(\):.*?return send_from_directory\('.', ')index\.html('\))",
-        r"\1tokenindex.html\2",
-        src,
-        flags=re.DOTALL
-    )
+    # 5. Serve every page from tksweb/ (token-aware copies made by
+    #    tokenindex_converter.py) instead of web/
+    src, n = re.subn(r"send_from_directory\('web',", "send_from_directory('tksweb',", src)
+    if n == 0:
+        raise RuntimeError("No send_from_directory('web', ...) page routes found in " + INPUT)
 
     # 6. Force the token server to always run on 0.0.0.0:5015 with debug off,
     #    regardless of what server.py is currently set to.

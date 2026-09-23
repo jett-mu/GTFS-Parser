@@ -139,7 +139,17 @@ def favicon():
 @app.route('/')
 @require_token
 def index():
-    return send_from_directory('.', 'tokenindex.html')
+    return send_from_directory('tksweb', 'index.html')
+
+@app.route('/depbd')
+@require_token
+def departure_board():
+    return send_from_directory('tksweb', 'depboard.html')
+
+@app.route('/rtebd')
+@require_token
+def route_board():
+    return send_from_directory('tksweb', 'rteboard.html')
 
 # OPTIONAL: OFFLINE TILES
 @app.route('/tiles/<int:z>/<int:x>/<int:y>.png')
