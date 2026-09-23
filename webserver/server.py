@@ -117,7 +117,15 @@ def favicon():
 
 @app.route('/')
 def index():
-    return send_from_directory('.', 'index.html')
+    return send_from_directory('web', 'index.html')
+
+@app.route('/depbd')
+def departure_board():
+    return send_from_directory('web', 'depboard.html')
+
+@app.route('/rtebd')
+def route_board():
+    return send_from_directory('web', 'rteboard.html')
 
 # OPTIONAL: OFFLINE TILES
 @app.route('/tiles/<int:z>/<int:x>/<int:y>.png')

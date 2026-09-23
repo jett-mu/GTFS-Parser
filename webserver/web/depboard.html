@@ -1,0 +1,1175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Departure Board</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <script>
+    (function () {
+      try {
+        var saved = localStorage.getItem('gtfs-theme');
+        var theme = saved || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) {}
+    })();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&family=Saira:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --radius: 4px;
+      --card-radius: 3px;
+      --sidebar-w: 380px;
+      --sidebar-transition: 0.32s cubic-bezier(0.16,1,0.3,1);
+      --transition: 0.18s ease;
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --safe-top: env(safe-area-inset-top, 0px);
+
+      --font-display: 'Oswald', sans-serif;
+      --font-body: 'Inter', sans-serif;
+      --font-mono: 'IBM Plex Mono', monospace;
+      --font-board: 'Saira', sans-serif;
+
+      /* 4px spacing scale */
+      --space-1: 4px;
+      --space-2: 8px;
+      --space-3: 12px;
+      --space-4: 16px;
+      --space-5: 20px;
+      --space-6: 24px;
+      --space-8: 32px;
+    }
+
+    /* ===== DARK THEME (default) — inverted transit-map poster: ink paper, red/blue/green/amber system colors ===== */
+    :root, :root[data-theme="dark"] {
+      --bg: #15140f;
+      --surface: #1d1c15;
+      --surface2: #24231a;
+      --surface3: #2d2b1f;
+      --border: rgba(250,250,247,0.14);
+      --border2: rgba(250,250,247,0.28);
+
+      --text: #FAFAF7;
+      --text-muted: rgba(250,250,247,0.72);
+      --text-dim: rgba(250,250,247,0.50);
+
+      --accent: #6FA0E8;
+      --accent-rgb: 111,160,232;
+      --accent2: #4FA876;
+      --accent2-rgb: 79,168,118;
+      --accent3: #E8A93B;
+      --accent3-rgb: 232,169,59;
+      --positive: #4FA876;
+      --positive-rgb: 79,168,118;
+      --negative: #E8674B;
+      --negative-rgb: 232,103,75;
+      --warn-rgb: 240,165,50;
+      --ontime-rgb: 74,184,170;
+      --neutral: #a9a696;
+
+      --sheet-handle-color: rgba(250,250,247,0.28);
+      color-scheme: dark;
+
+      --shadow-1: 2px 2px 0 rgba(0,0,0,0.4);
+      --shadow-2: 4px 4px 0 rgba(0,0,0,0.4);
+      --shadow-3: 6px 6px 0 rgba(0,0,0,0.45);
+      --shadow-sidebar: 2px 0 0 rgba(0,0,0,0.35);
+      --shadow-sheet: 0 -3px 0 rgba(0,0,0,0.4);
+      --map-overlay-bg: rgba(21,20,15,0.8);
+    }
+
+    /* ===== LIGHT THEME — cream paper, ink text, red/blue/green/amber system colors ===== */
+    :root[data-theme="light"] {
+      --bg: #FAFAF7;
+      --surface: #ffffff;
+      --surface2: #f4f1ea;
+      --surface3: #eae5d9;
+      --border: rgba(26,26,26,0.15);
+      --border2: rgba(26,26,26,0.32);
+
+      --text: #1A1A1A;
+      --text-muted: rgba(26,26,26,0.68);
+      --text-dim: rgba(26,26,26,0.50);
+
+      --accent: #2B5FAD;
+      --accent-rgb: 43,95,173;
+      --accent2: #2F7B4F;
+      --accent2-rgb: 47,123,79;
+      --accent3: #A9720F;
+      --accent3-rgb: 169,114,15;
+      --positive: #2F7B4F;
+      --positive-rgb: 47,123,79;
+      --negative: #C23B24;
+      --negative-rgb: 194,59,36;
+      --warn-rgb: 176,108,0;
+      --ontime-rgb: 20,133,120;
+      --neutral: #6b6b63;
+
+      --sheet-handle-color: rgba(26,26,26,0.24);
+      color-scheme: light;
+
+      --shadow-1: 2px 2px 0 rgba(26,26,26,0.10);
+      --shadow-2: 4px 4px 0 rgba(26,26,26,0.10);
+      --shadow-3: 6px 6px 0 rgba(26,26,26,0.12);
+      --shadow-sidebar: 2px 0 0 rgba(26,26,26,0.06);
+      --shadow-sheet: 0 -3px 0 rgba(26,26,26,0.10);
+      --map-overlay-bg: rgba(250,250,247,0.88);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+    html, body {
+      height: 100%;
+      font-family: var(--font-body);
+      background: var(--bg);
+      color: var(--text);
+      overscroll-behavior: none;
+    }
+
+    :focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    button {
+      background: var(--surface3);
+      color: var(--text);
+      border: 1px solid var(--border2);
+      border-radius: var(--card-radius);
+      padding: 8px 13px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      font-family: var(--font-body);
+      transition: background var(--transition), border-color var(--transition), transform 0.1s;
+      white-space: nowrap;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+
+    button:hover { background: var(--surface3); border-color: var(--border2); }
+    button:active { transform: scale(0.97); }
+    button:disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
+
+    .dep-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--card-radius);
+      padding: 9px 11px 8px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      flex-shrink: 0;
+      transition: border-color var(--transition), background var(--transition), transform 0.15s, box-shadow var(--transition);
+      position: relative;
+      touch-action: manipulation;
+    }
+
+    .dep-card:hover {
+      border-color: var(--border2);
+      background: var(--surface3);
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-2);
+    }
+
+    .dep-card:active { transform: scale(0.98); }
+
+    .dep-card.active {
+      border-color: rgba(var(--accent-rgb), 0.45);
+      background: rgba(var(--accent-rgb), 0.07);
+      box-shadow: 0 0 0 1px rgba(var(--accent-rgb), 0.2);
+    }
+
+    .dep-badge-slot {
+      display: flex;
+      align-items: center;
+      flex-shrink: 0;
+    }
+
+    .dep-time-sched.dep-time-sched-strike {
+      color: var(--text-dim);
+      opacity: 0.7;
+    }
+
+    .dep-time-actual {
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: -0.01em;
+      white-space: nowrap;
+    }
+    .dep-time-actual.dep-time-early { color: var(--positive); }
+    .dep-time-actual.dep-time-late  { color: var(--negative); }
+
+    .rt-delay-badge {
+      font-size: 10.5px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 20px;
+      display: inline-block;
+      letter-spacing: 0.03em;
+      white-space: nowrap;
+    }
+    .rt-ontime  { background: rgba(var(--ontime-rgb), 0.14); color: rgb(var(--ontime-rgb)); }
+    .rt-early   { background: rgba(var(--positive-rgb), 0.12); color: var(--positive); }
+    .rt-delayed { background: rgba(var(--negative-rgb), 0.12);  color: var(--negative); }
+    .rt-slight  { background: rgba(var(--warn-rgb), 0.16); color: rgb(var(--warn-rgb)); }
+    .rt-live-only { background: rgba(var(--accent-rgb), 0.12); color: var(--accent); }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
+
+    /* ===== NEARBY DEPARTURES OVERLAY ===== */
+    .nearby-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 1050;
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .nearby-overlay-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: var(--space-3);
+      padding: calc(var(--space-4) + var(--safe-top)) var(--space-5) var(--space-4);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .nearby-overlay-sub {
+      font-size: 12px;
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+      margin-top: 3px;
+    }
+
+    .nearby-overlay-esc {
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      color: var(--text-dim);
+      background: var(--surface3);
+      border: 1px solid var(--border2);
+      border-radius: 4px;
+      padding: 1px 5px;
+      margin-left: 5px;
+    }
+
+    .nearby-overlay-body {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
+      padding: var(--space-4) var(--space-5) calc(var(--space-5) + var(--safe-bottom));
+    }
+
+    /* ===== DEPARTURE BOARD =====
+       Station-style board for someone standing nearby: route block,
+       destination, which stop + walk time, minutes until it leaves, and
+       on-time / late. Row markup keeps the .dep-card / .dep-time-sched /
+       .dep-time-actual / .dep-badge-slot hooks applyRTtoDepartures() uses. */
+    .board-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: var(--space-4);
+      padding: calc(var(--space-4) + var(--safe-top)) var(--space-5) var(--space-3);
+      border-bottom: 2px solid var(--text);
+      flex-shrink: 0;
+    }
+    .board-header-left { min-width: 0; }
+    .board-title {
+      font-family: var(--font-display);
+      font-size: 30px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      line-height: 1;
+      color: var(--text);
+    }
+    .board-sub {
+      font-size: 13.5px;
+      color: var(--text-muted);
+      margin-top: 7px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .board-header-right {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--space-3);
+      flex-shrink: 0;
+    }
+    .board-clock-wrap { text-align: right; }
+    .board-clock {
+      font-family: var(--font-display);
+      font-size: 30px;
+      font-weight: 600;
+      line-height: 1;
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+    .board-clock-sec { font-size: 0.55em; font-weight: 500; color: var(--text-muted); margin-left: 2px; }
+    button.board-close {
+      width: 40px;
+      height: 40px;
+      padding: 0;
+      border-radius: 50%;
+      font-size: 18px;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+    button.board-close:hover { background: var(--surface3); border-color: var(--border2); }
+
+    .board-chips {
+      display: flex;
+      gap: 8px;
+      max-width: 960px;
+      margin: 0 auto var(--space-3);
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      padding-bottom: 2px;
+    }
+    .board-chips::-webkit-scrollbar { display: none; }
+    .board-chips[hidden] { display: none; }
+    button.board-chip {
+      flex-shrink: 0;
+      min-height: 36px;
+      padding: 6px 14px;
+      border-radius: 4px;
+      border: 2px solid var(--border2);
+      background: transparent;
+      color: var(--text-muted);
+      font-family: var(--font-display);
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      box-shadow: inset 5px 0 0 var(--chip, transparent);
+      transition: background var(--transition), color var(--transition), border-color var(--transition);
+    }
+    button.board-chip:hover { color: var(--text); border-color: var(--text); background: transparent; }
+    button.board-chip.active {
+      background: var(--chip, var(--text));
+      border-color: var(--chip, var(--text));
+      color: var(--chip-text, var(--bg));
+      box-shadow: none;
+    }
+
+    .board-list {
+      display: flex;
+      flex-direction: column;
+      max-width: 960px;
+      margin: 0 auto;
+    }
+    .board-list .skel-dep-card { margin-bottom: 6px; height: var(--board-row-h, 88px); box-sizing: border-box; overflow: hidden; }
+    .board-empty {
+      padding: 56px 20px;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 16px;
+    }
+
+    .board-row.dep-card {
+      display: grid;
+      grid-template-columns: 133px minmax(0, 1fr) auto;
+      grid-template-areas:
+        "route dest leave"
+        "route stop leave";
+      gap: 3px var(--space-4);
+      align-items: center;
+      align-content: center;
+      /* Every row is the same height regardless of whether a realtime
+         badge / struck-out time shows up in the right column. */
+      height: var(--board-row-h, 88px);
+      box-sizing: border-box;
+      padding: 0;
+      overflow: hidden;
+      border: none;
+      border-radius: 0;
+      border-bottom: 1px solid var(--border);
+      background: transparent;
+      cursor: default;
+      transition: opacity var(--transition);
+    }
+    .board-row.dep-card:hover { background: transparent; border-color: var(--border); transform: none; box-shadow: none; }
+    .board-row.dep-card:active { transform: none; }
+    .board-row.dep-card:last-child { border-bottom: none; }
+
+    .board-route {
+      grid-area: route;
+      align-self: center;
+      font-family: var(--font-display);
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      line-height: 1;
+      text-align: center;
+      padding: 9px 6px;
+      border-radius: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .board-dest {
+      grid-area: dest;
+      min-width: 0;
+      font-family: var(--font-display);
+      font-size: 22px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+      line-height: 1.1;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .board-stop {
+      grid-area: stop;
+      min-width: 0;
+      font-size: 13.5px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .board-walk { color: var(--text-dim); }
+    .board-miss { display: none; color: var(--negative); font-weight: 600; }
+    .board-row-missed { opacity: 0.45; }
+    .board-row-missed .board-miss { display: inline; }
+
+    .board-leave-wrap {
+      grid-area: leave;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 2px;
+      min-width: 104px;
+      text-align: right;
+    }
+    .board-leave {
+      font-family: var(--font-display);
+      font-size: 32px;
+      font-weight: 700;
+      height: var(--board-leave-h, 32px);
+      line-height: var(--board-leave-h, 32px);
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+    .board-leave-unit {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-muted);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin-left: 4px;
+    }
+    .board-leave.due { color: var(--accent3); }
+    .board-leave.later { font-size: 24px; }
+    .board-sched {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      height: 15px;
+      line-height: 15px;
+      font-size: 12.5px;
+      color: var(--text-dim);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+    .board-sched .dep-time-sched-strike { text-decoration: line-through; }
+    /* When the big label is already a clock time, don't repeat it underneath
+       unless RT struck it out (then the sched + actual pair still matters). */
+    .board-leave.later + .board-sched .dep-time-sched:not(.dep-time-sched-strike) { display: none; }
+    .board-sched .dep-time-actual { font-size: 12.5px; font-weight: 700; }
+    .board-sched .dep-time-actual:empty { display: none; }
+    /* Departure board is Saira-only; the ID selector beats the per-class Oswald/Plex Mono rules above */
+    #boardOverlay, #boardOverlay * { font-family: var(--font-board); }
+    #routeBoardOverlay, #routeBoardOverlay * { font-family: var(--font-board); }
+    .board-row .dep-badge-slot { height: 14px; line-height: 14px; }
+    .board-row .dep-badge-slot:empty { visibility: hidden; }
+    .board-row .rt-delay-badge {
+      background: none;
+      padding: 0;
+      border-radius: 0;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .board-row .rt-live-only { display: none; }
+
+    @media (max-width: 640px) {
+      .board-header { padding-left: var(--space-4); padding-right: var(--space-4); }
+      .board-title, .board-clock { font-size: 22px; }
+      .board-sub { font-size: 12.5px; white-space: normal; }
+      .board-header-right { gap: var(--space-2); }
+      button.board-close { width: 36px; height: 36px; padding: 0; }
+      .board-overlay .nearby-overlay-body { padding-left: var(--space-4); padding-right: var(--space-4); }
+      button.board-chip { padding: 6px 12px; font-size: 14px; }
+      .board-row.dep-card { grid-template-columns: 98px minmax(0, 1fr) auto; gap: 2px var(--space-3); --board-row-h: 82px; --board-leave-h: 26px; }
+      .board-list .skel-dep-card { --board-row-h: 82px; }
+      .board-route { font-size: 17px; padding: 8px 4px; }
+      .board-dest { font-size: 17px; }
+      .board-stop { font-size: 12.5px; }
+      .board-leave-wrap { min-width: 84px; }
+      .board-leave { font-size: 26px; }
+      .board-leave.later { font-size: 20px; }
+      .board-leave-unit { font-size: 12px; }
+    }
+
+    /* ===== ROUTE BOARD ===== */
+    /* Distinct from .board-list: one full-width row per route. The route
+       pill sits on the left; its next 3 departures run left-to-right beside
+       it, soonest widest/biggest, the next two smaller and equal-sized. */
+    .rb-grid {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-3);
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    .rb-empty.board-empty {}
+
+    .rb-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: var(--space-4);
+      display: flex;
+      align-items: stretch;
+      gap: var(--space-4);
+      min-width: 0;
+    }
+    /* Fixed width (not content-sized) so the departure columns start at the
+       same x on every row, regardless of how long each route's code is. */
+    .rb-card-head { display: flex; align-items: center; flex-shrink: 0; width: 96px; }
+    .rb-route-pill {
+      font-family: var(--font-display);
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      line-height: 1;
+      padding: 8px 10px;
+      border-radius: 6px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      width: 100%;
+      box-sizing: border-box;
+      text-align: center;
+    }
+
+    .rb-rows { display: flex; flex: 1; align-items: stretch; gap: var(--space-4); min-width: 0; }
+    .rb-row {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 4px;
+      min-width: 0;
+    }
+    .rb-row + .rb-row { border-left: 1px solid var(--border); padding-left: var(--space-4); }
+    .rb-row-main { min-width: 0; }
+    .rb-leave-wrap { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+
+    /* Primary (next) departure — the visually dominant row, widest column */
+    .rb-row-primary { flex: 1.6; }
+    .rb-row-primary .rb-dest {
+      font-family: var(--font-display);
+      font-size: 24px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+      line-height: 1.15;
+      color: var(--text);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .rb-row-primary .rb-stop { font-size: 13.5px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .rb-row-primary .rb-leave { font-family: var(--font-display); font-size: 38px; font-weight: 700; line-height: 1; color: var(--text); font-variant-numeric: tabular-nums; }
+    .rb-row-primary .rb-leave.due { color: var(--accent3); }
+    .rb-row-primary .rb-leave.later { font-size: 26px; }
+    .rb-row-primary .rb-sched { font-size: 12.5px; color: var(--text-dim); }
+    .rb-row-primary .rb-leave-unit { font-size: 15px; }
+
+    /* Secondary (2nd/3rd) departures — same, smaller size as each other */
+    .rb-row-secondary { flex: 1; }
+    .rb-row-secondary .rb-dest {
+      font-family: var(--font-display);
+      font-size: 15px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.01em;
+      color: var(--text-muted);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .rb-row-secondary .rb-stop { font-size: 11.5px; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .rb-row-secondary .rb-leave { font-family: var(--font-display); font-size: 18px; font-weight: 700; line-height: 1; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+    .rb-row-secondary .rb-leave.due { color: var(--accent3); }
+    .rb-row-secondary .rb-sched { font-size: 10.5px; color: var(--text-dim); }
+    .rb-row-secondary .rb-leave-unit { font-size: 11px; }
+
+    .rb-walk { color: var(--text-dim); }
+    .rb-row-missed { opacity: 0.45; }
+    .rb-row .dep-badge-slot { font-size: 11px; }
+    .rb-row .dep-badge-slot:empty { visibility: hidden; }
+    .rb-row .rt-delay-badge { background: none; padding: 0; border-radius: 0; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+    .rb-row .rt-live-only { display: none; }
+
+    @media (max-width: 640px) {
+      .rb-card { flex-direction: column; align-items: stretch; padding: var(--space-3); gap: var(--space-2); }
+      .rb-card-head { width: auto; padding-bottom: var(--space-2); }
+      .rb-route-pill { width: auto; font-size: 17px; padding: 6px 10px; }
+      .rb-rows { flex-direction: column; gap: var(--space-2); }
+      .rb-row + .rb-row { border-left: none; padding-left: 0; border-top: 1px solid var(--border); padding-top: var(--space-2); }
+      .rb-row-primary .rb-dest { font-size: 20px; }
+      .rb-row-primary .rb-leave { font-size: 32px; }
+      .rb-row-primary .rb-leave.later { font-size: 22px; }
+      .rb-row-secondary .rb-dest { font-size: 14px; }
+      .rb-row-secondary .rb-leave { font-size: 16px; }
+    }
+
+
+    /* ===== SKELETON LOADING ===== */
+    @keyframes skeleton-shimmer {
+      0%   { background-position: -120% 0; }
+      100% { background-position: 220% 0; }
+    }
+    .skel-block {
+      border-radius: 4px;
+      background: linear-gradient(90deg, var(--surface3) 25%, var(--border2) 50%, var(--surface3) 75%);
+      background-size: 250% 100%;
+      animation: skeleton-shimmer 1.3s ease-in-out infinite;
+    }
+
+    /* Mirrors the real .dep-card's exact padding/gap/type-scale so the loading
+       state doesn't jump in size once real departures render — used for the
+       stop view's departures list and the nearby departure board. */
+    .skel-dep-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--card-radius);
+      padding: 9px 11px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .skel-dep-card .skel-row-top { display: flex; align-items: center; justify-content: space-between; }
+    .skel-dep-card .skel-route-pill { width: 46px; height: 19px; border-radius: 20px; }
+    .skel-dep-card .skel-row-time { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+    .skel-dep-card .skel-time-big { width: 76px; height: 19px; }
+    .skel-dep-card .skel-eta-pill { width: 48px; height: 17px; border-radius: 20px; }
+    .skel-dep-card .skel-headsign-line { height: 13px; width: 78%; }
+    .skel-dep-card .skel-row-footer { display: flex; padding-top: 5px; margin-top: 1px; border-top: 1px solid var(--border); }
+    .skel-dep-card .skel-trip-line { height: 11px; width: 38%; }
+  </style>
+</head>
+<body>
+  <main id="boardOverlay" class="nearby-overlay board-overlay" aria-label="Departure board">
+    <div class="board-header">
+      <div class="board-header-left">
+        <div class="board-title">Departures</div>
+        <div class="board-sub" id="boardOverlaySub"></div>
+      </div>
+      <div class="board-header-right">
+        <div class="board-clock-wrap">
+          <div class="board-clock" id="boardClock"></div>
+        </div>
+      </div>
+    </div>
+    <div class="nearby-overlay-body">
+      <div class="board-chips" id="boardChips" hidden></div>
+      <div class="board-list" id="boardGrid"></div>
+    </div>
+  </main>
+  <script>
+    let rtStopCache = new Map(); // stopId -> {data, receivedAt}
+    const RT_STALE_MS = 2 * 60 * 1000;
+
+    function escapeHtml(s) {
+      return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    function readableTextColor(hex) {
+      const h = String(hex ?? '').replace('#', '');
+      if (!/^[0-9a-fA-F]{6}$/.test(h)) return '#fff';
+      const r = parseInt(h.slice(0,2),16), g = parseInt(h.slice(2,4),16), b = parseInt(h.slice(4,6),16);
+      const luminance = (0.299*r + 0.587*g + 0.114*b) / 255;
+      return luminance > 0.6 ? '#000' : '#fff';
+    }
+
+    function skeletonDepCards(n) {
+      return `<div class="skel-dep-card"><div class="skel-row-top"><div class="skel-block skel-route-pill"></div></div><div class="skel-row-time"><div class="skel-block skel-time-big"></div><div class="skel-block skel-eta-pill"></div></div><div class="skel-block skel-headsign-line"></div><div class="skel-row-footer"><div class="skel-block skel-trip-line"></div></div></div>`.repeat(n);
+    }
+
+    function todayStr() {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    }
+
+    function parseTime(t) {
+      const p = t.split(':').map(Number);
+      return p[0]*3600 + p[1]*60 + (p[2]||0);
+    }
+
+    function fmtClockShort(totalSeconds) {
+      let h = Math.floor(totalSeconds / 3600) % 24;
+      if (h < 0) h += 24;
+      const m = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2,'0');
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      h = h % 12 || 12;
+      return `${h}:${m} ${ampm}`;
+    }
+
+    function nowInSeconds() {
+      const n = new Date();
+      return n.getHours()*3600 + n.getMinutes()*60 + n.getSeconds();
+    }
+
+    function getRTDelaySeconds(tripId) {
+      for (const { data } of rtStopCache.values()) {
+        const entity = (data.entity || []).find(e => e.trip_update?.trip?.trip_id === tripId);
+        if (entity) {
+          const stu = entity.trip_update.stop_time_update?.[0];
+          return stu?.departure?.delay ?? stu?.arrival?.delay ?? 0;
+        }
+      }
+      return 0;
+    }
+
+    // ===== RT STOP =====
+    function loadRTStopUpdates(stopId) {
+      fetch(`/api/rt/stop/${stopId}`)
+        .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+        .then(data => { rtStopCache.set(stopId, {data, receivedAt: Date.now()}); applyRTtoDepartures(data); })
+        .catch(() => {
+          // Fetch failed (or the feed is briefly empty) — keep showing the last
+          // good RT badges for this stop instead of clearing them, for up to
+          // RT_STALE_MS after they were received.
+          const cached = rtStopCache.get(stopId);
+          if (cached && (Date.now() - cached.receivedAt) < RT_STALE_MS)
+            applyRTtoDepartures(cached.data);
+        });
+    }
+
+    function reapplyCachedRT(stopId) {
+      const cached = rtStopCache.get(stopId);
+      if (cached && (Date.now() - cached.receivedAt) < RT_STALE_MS)
+        applyRTtoDepartures(cached.data);
+    }
+
+    function applyRTtoDepartures(data) {
+      (data.entity||[]).forEach(e => {
+        const tu = e.trip_update;
+        if (!tu) return;
+        const tripId = tu.trip?.trip_id;
+        if (!tripId) return;
+        const stu = tu.stop_time_update?.[0];
+        const delay = stu?.departure?.delay ?? stu?.arrival?.delay ?? null;
+        document.querySelectorAll(`.dep-card[data-trip-id="${tripId}"]`).forEach(card => {
+          card.classList.add('rt-live');
+          let badge = card.querySelector('.rt-delay-badge');
+          if (!badge) {
+            badge = document.createElement('div');
+            badge.className = 'rt-delay-badge';
+            (card.querySelector('.dep-badge-slot') || card).appendChild(badge);
+          }
+          let isEarly = false, isLate = false;
+          if (delay === null) { badge.textContent='Live'; badge.className='rt-delay-badge rt-live-only'; }
+          else if (delay <= 0) {
+            const mins = Math.abs(Math.round(delay/60));
+            if (mins > 0) { badge.textContent=`▲ ${mins}m early`; badge.className='rt-delay-badge rt-early'; isEarly = true; }
+            else { badge.textContent='On time'; badge.className='rt-delay-badge rt-ontime'; }
+          } else {
+            const dCls = delay <= 90 ? 'rt-slight' : 'rt-delayed'; // ≤1.5 min: amber, not red
+            if (delay > 60) { badge.textContent=`▼ ${Math.round(delay/60)}m delay`; badge.className='rt-delay-badge '+dCls; }
+            else { badge.textContent=`▼ ${delay}s delay`; badge.className='rt-delay-badge '+dCls; }
+            isLate = true;
+          }
+
+          // Cross out the scheduled time and show the real (delayed/early) time
+          // whenever RT data indicates an actual, non-zero offset from schedule.
+          const schedEl = card.querySelector('.dep-time-sched');
+          const actualEl = card.querySelector('.dep-time-actual');
+          if (schedEl && actualEl) {
+            if ((isEarly || isLate) && card.dataset.arrival) {
+              const actualSecs = parseTime(card.dataset.arrival) + delay;
+              schedEl.classList.add('dep-time-sched-strike');
+              actualEl.textContent = fmtClockShort(actualSecs);
+              actualEl.className = `dep-time-actual ${isEarly ? 'dep-time-early' : 'dep-time-late'}`;
+            } else {
+              schedEl.classList.remove('dep-time-sched-strike');
+              actualEl.textContent = '';
+              actualEl.className = 'dep-time-actual';
+            }
+          }
+        });
+      });
+    }
+
+    function debounce(fn, ms) {
+      let timer = null;
+      const wrapped = function (...args) {
+        clearTimeout(timer);
+        timer = setTimeout(() => { timer = null; fn.apply(this, args); }, ms);
+      };
+      wrapped.cancel = () => { clearTimeout(timer); timer = null; };
+      return wrapped;
+    }
+
+    // Truncate from the middle instead of the end — "HIGHWAY 7 TO
+    // ENTERPRISE BLVD" -> "HIGHW...PRISE BLVD" — so a long headsign keeps
+    // its start (the "to"/via context) AND its end (usually the specific
+    // destination), rather than losing everything after the cutoff. Fits to
+    // the element's *actual* rendered pixel width (not a guessed character
+    // count) by measuring with canvas against the element's real computed
+    // font, so it uses exactly as much space as is actually available.
+    // Keeps more of the tail than the head since the end tends to carry the
+    // more specific place name.
+    let _measureCtx = null;
+    function measureTextWidth(text, font) {
+      if (!_measureCtx) _measureCtx = document.createElement('canvas').getContext('2d');
+      _measureCtx.font = font;
+      return _measureCtx.measureText(text).width;
+    }
+
+    function middleEllipsisToWidth(text, maxWidth, font) {
+      if (!text) return text;
+      if (measureTextWidth(text, font) <= maxWidth) return text;
+      const ellipsis = '...';
+      if (measureTextWidth(ellipsis, font) >= maxWidth) return ellipsis;
+      for (let total = text.length - 1; total > 0; total--) {
+        const head = Math.round(total / 3);
+        const tail = total - head;
+        const candidate = text.slice(0, head) + ellipsis + text.slice(text.length - tail);
+        if (measureTextWidth(candidate, font) <= maxWidth) return candidate;
+      }
+      return ellipsis;
+    }
+
+    // Re-fits every headsign in the departure board to its own row's actual
+    // rendered width — called after rows are (re)built and laid out, so
+    // clientWidth reflects the real grid-column width on this screen.
+    function fitBoardDestTexts(grid) {
+      grid.querySelectorAll('.board-dest[data-full-dest]').forEach(el => {
+        const full = el.dataset.fullDest;
+        const cs = getComputedStyle(el);
+        const font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+        el.textContent = middleEllipsisToWidth(full, el.clientWidth, font);
+      });
+    }
+
+    window.addEventListener('resize', debounce(() => fitBoardDestTexts(document.getElementById('boardGrid')), 150));
+
+    const depFilterState = {};
+    function getDepFilterState(key) {
+      return depFilterState[key] || (depFilterState[key] = { selected: new Map() });
+    }
+    function resetDepFilterState(key) {
+      getDepFilterState(key).selected = new Map();
+    }
+
+    function applyDepFilter(departures, key) {
+      const st = getDepFilterState(key);
+      if (st.selected.size === 0) return departures;
+      return departures.filter(d => {
+        const v = st.selected.get(d.route_id);
+        if (!v) return false;
+        return v === 'ALL' || v.has(d.trip_headsign);
+      });
+    }
+
+    // ===== DEPARTURE BOARD =====
+
+    let boardRefreshId = null, boardRtId = null, boardClockId = null;
+    let boardLat = null, boardLon = null;
+    let allBoardDepartures = [];
+    let lastBoardStopDatas = [];
+    let boardRouteColors = new Map(); // route_id -> route_color hex (first seen)
+
+    function startDepartureBoard() {
+      resetDepFilterState('board');
+      renderBoardRouteChips();
+      tickBoardClock();
+      loadDepartureBoardLocation();
+      boardRefreshId = setInterval(loadDepartureBoardLocation, BOARD_REFRESH_MS);
+      boardRtId      = setInterval(renderBoardCards, BOARD_RT_MS);
+      boardClockId   = setInterval(tickBoardClock, 1000);
+    }
+
+    function tickBoardClock() {
+      const el = document.getElementById('boardClock');
+      if (!el) return;
+      const n = new Date();
+      let h = n.getHours();
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      h = h % 12 || 12;
+      el.innerHTML = `${h}:${String(n.getMinutes()).padStart(2,'0')}<span class="board-clock-sec">:${String(n.getSeconds()).padStart(2,'0')} ${ampm}</span>`;
+    }
+
+
+    const BOARD_WALK_RADIUS_KM = 1;
+    const BOARD_MAX_STOPS = 15;
+    const BOARD_FALLBACK_STOPS = 3;
+    const BOARD_NEAREST_LIMIT = 30;
+    const BOARD_WALK_M_PER_MIN = 80;
+    const BOARD_REFRESH_MS = 60000;
+    const BOARD_RT_MS = 15000;
+
+    function walkMinutes(km) {
+      return Math.max(1, Math.ceil((km * 1000) / BOARD_WALK_M_PER_MIN));
+    }
+    function fmtWalk(km) {
+      return km * 1000 < 60 ? 'right here' : `${walkMinutes(km)} min walk`;
+    }
+
+    // ['3', 'min', ''] | ['Due', '', 'due'] | ['3:15 PM', '', 'later']
+    function fmtBoardLeave(arrival, tripId) {
+      const at = parseTime(arrival) + getRTDelaySeconds(tripId);
+      const secs = at - nowInSeconds();
+      if (secs < 0)    return ['Gone', '', 'past'];
+      if (secs <= 30)  return ['Due', '', 'due'];
+      if (secs < 3600) return [String(Math.round(secs / 60)), 'min', ''];
+      return [fmtClockShort(at), '', 'later'];
+    }
+
+    // Shared by both the departure board and the route board: nearest_stops
+    // (sorted nearest-first) -> everything within walking range (capped), or
+    // the closest few when nothing is that near -> per-stop departures.
+    // Rejects with 'no-stops' when nothing usable was found nearby.
+    function fetchNearbyStopDepartures(lat, lon) {
+      return fetch(`/api/nearest/${lat}/${lon}?limit=${BOARD_NEAREST_LIMIT}`)
+        .then(r => r.json())
+        .then(data => {
+          const all = data.nearest_stops || [];
+          let stops = all.filter(s => s.distanceKM <= BOARD_WALK_RADIUS_KM).slice(0, BOARD_MAX_STOPS);
+          if (!stops.length) stops = all.slice(0, BOARD_FALLBACK_STOPS);
+          if (!stops.length) return Promise.reject('no-stops');
+          const date = todayStr();
+          return Promise.all(stops.map(s =>
+            fetch(`/api/stop/${s.stop_id}/${date}`).then(r => r.json())
+              .then(sd => ({ ...sd, _distanceKM: s.distanceKM, _stopName: s.stop_name || sd.stop_name || '' }))
+              .catch(() => ({ error: true }))
+          )).then(stopDatas => stopDatas.filter(s => !s.error));
+        });
+    }
+
+    // Pure merge: flattens per-stop departures, dedupes by trip_id (same
+    // trip can serve more than one nearby stop — keep only the occurrence at
+    // the stop closest to the user), and drops anything already in the past.
+    function mergeNearbyDepartures(stopDatas) {
+      const combined = [];
+      stopDatas.forEach(s => (s.departures || []).forEach(dep => {
+        combined.push({ ...dep, _stopId: s.stop_id, _stopName: s._stopName, _distanceKM: s._distanceKM });
+      }));
+      const byTrip = new Map();
+      combined.forEach(dep => {
+        const existing = byTrip.get(dep.trip_id);
+        if (!existing || dep._distanceKM < existing._distanceKM) byTrip.set(dep.trip_id, dep);
+      });
+      const now = nowInSeconds();
+      return [...byTrip.values()]
+        .filter(dep => parseTime(dep.arrival_time) + getRTDelaySeconds(dep.trip_id) >= now);
+    }
+
+    function setBoardMessage(text) {
+      const grid = document.getElementById('boardGrid');
+      grid.innerHTML = `<div class="board-empty">${escapeHtml(text)}</div>`;
+      grid.dataset.tripKey = '';
+    }
+
+    function updateBoardETAs(grid) {
+      const now = nowInSeconds();
+      grid.querySelectorAll('.board-row').forEach(row => {
+        const el = row.querySelector('.board-leave');
+        if (!el) return;
+        const [text, unit, cls] = fmtBoardLeave(row.dataset.arrival, row.dataset.tripId);
+        el.innerHTML = escapeHtml(text) + (unit ? `<span class="board-leave-unit">${unit}</span>` : '');
+        el.className = `board-leave${cls ? ' ' + cls : ''}`;
+        const secsLeft = parseTime(row.dataset.arrival) + getRTDelaySeconds(row.dataset.tripId) - now;
+        row.classList.toggle('board-row-missed', Number(row.dataset.walkSec) > secsLeft);
+      });
+    }
+
+    function loadDepartureBoardLocation() {
+      const sub = document.getElementById('boardOverlaySub');
+      if (!navigator.geolocation) {
+        sub.textContent = 'Location is not available in this browser';
+        setBoardMessage('Turn on location to see departures near you.');
+        return;
+      }
+      if (boardLat == null) {
+        const grid = document.getElementById('boardGrid');
+        grid.innerHTML = skeletonDepCards(6);
+        grid.dataset.tripKey = '';
+        sub.textContent = 'Finding you…';
+      }
+      navigator.geolocation.getCurrentPosition(pos => {
+        boardLat = pos.coords.latitude;
+        boardLon = pos.coords.longitude;
+        fetchDepartureBoard();
+      }, () => {
+        if (boardLat == null) {
+          sub.textContent = 'Location unavailable';
+          setBoardMessage('Turn on location to see departures near you.');
+        }
+      }, { maximumAge: 30000, timeout: 10000 });
+    }
+
+    function fetchDepartureBoard() {
+      if (boardLat == null || boardLon == null) return;
+      const sub = document.getElementById('boardOverlaySub');
+      if (!allBoardDepartures.length) sub.textContent = 'Finding stops near you…';
+
+      fetchNearbyStopDepartures(boardLat, boardLon)
+        .then(stopDatas => renderDepartureBoard(stopDatas))
+        .catch(err => {
+          if (!allBoardDepartures.length) {
+            sub.textContent = 'Near you';
+            setBoardMessage(err === 'no-stops' ? 'No stops within walking distance.' : 'Couldn’t load departures. Trying again shortly.');
+          }
+        });
+    }
+
+    function renderDepartureBoard(stopDatas) {
+      allBoardDepartures = mergeNearbyDepartures(stopDatas);
+      lastBoardStopDatas = stopDatas;
+
+      boardRouteColors = new Map();
+      allBoardDepartures.forEach(dep => {
+        if (dep.route_id && !boardRouteColors.has(dep.route_id)) boardRouteColors.set(dep.route_id, dep.route_color || '');
+      });
+      // Forget chip selections for routes that are no longer on the board.
+      const st = getDepFilterState('board');
+      [...st.selected.keys()].forEach(r => { if (!boardRouteColors.has(r)) st.selected.delete(r); });
+
+      const n = stopDatas.length;
+      const farthestKM = Math.max(0, ...stopDatas.map(s => s._distanceKM || 0));
+      document.getElementById('boardOverlaySub').textContent =
+        `Near you – ${n} stop${n !== 1 ? 's' : ''} within a ${walkMinutes(farthestKM)} min walk`;
+
+      renderBoardRouteChips();
+      renderBoardCards();
+    }
+
+    // One tap-to-toggle chip per route on the board (plus "All"), stored in
+    // the shared depFilterState under 'board' as route -> 'ALL' so
+    // applyDepFilter() works unchanged.
+    function renderBoardRouteChips() {
+      const wrap = document.getElementById('boardChips');
+      if (!wrap) return;
+      const st = getDepFilterState('board');
+      const routes = [...boardRouteColors.keys()]
+        .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+      wrap.innerHTML = '';
+      const all = document.createElement('button');
+      all.type = 'button';
+      all.className = 'board-chip board-chip-all' + (st.selected.size ? '' : ' active');
+      all.textContent = 'All';
+      all.setAttribute('aria-pressed', String(st.selected.size === 0));
+      all.addEventListener('click', () => onBoardChip(null));
+      wrap.appendChild(all);
+      routes.forEach(r => {
+        const hex = boardRouteColors.get(r);
+        const on = st.selected.has(r);
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'board-chip' + (on ? ' active' : '');
+        chip.textContent = r;
+        chip.style.setProperty('--chip', hex ? `#${hex}` : 'var(--accent2)');
+        chip.style.setProperty('--chip-text', hex ? readableTextColor(hex) : '#fff');
+        chip.setAttribute('aria-pressed', String(on));
+        chip.addEventListener('click', () => onBoardChip(r));
+        wrap.appendChild(chip);
+      });
+      wrap.hidden = routes.length < 2;
+    }
+
+    function onBoardChip(routeId) {
+      const st = getDepFilterState('board');
+      if (routeId === null) st.selected = new Map();
+      else if (st.selected.has(routeId)) st.selected.delete(routeId);
+      else st.selected.set(routeId, 'ALL');
+      renderBoardRouteChips();
+      renderBoardCards();
+    }
+
+    function buildBoardRow(dep) {
+      const row = document.createElement('div');
+      row.className = 'dep-card board-row';
+      row.dataset.tripId = dep.trip_id;
+      row.dataset.arrival = dep.arrival_time;
+      row.dataset.walkSec = Math.round((dep._distanceKM * 1000 / BOARD_WALK_M_PER_MIN) * 60);
+      const bg = dep.route_color ? `#${dep.route_color}` : 'var(--accent2)';
+      const fg = dep.route_color ? readableTextColor(dep.route_color) : '#fff';
+      const stopText = dep._stopName
+        ? `${escapeHtml(dep._stopName)}<span class="board-walk"> – ${fmtWalk(dep._distanceKM)}</span>`
+        : `<span class="board-walk">${fmtWalk(dep._distanceKM)}</span>`;
+      row.innerHTML = `
+        <div class="board-route" style="background:${bg};color:${fg}">${escapeHtml(dep.route_id)}</div>
+        <div class="board-dest" data-full-dest="${escapeHtml(dep.trip_headsign || dep.route_id)}"></div>
+        <div class="board-stop">${stopText}<span class="board-miss"> – can’t make it</span></div>
+        <div class="board-leave-wrap">
+          <div class="board-leave"></div>
+          <div class="board-sched"><span class="dep-time-sched">${fmtClockShort(parseTime(dep.arrival_time))}</span><span class="dep-time-actual"></span></div>
+          <div class="dep-badge-slot"></div>
+        </div>
+      `;
+      return row;
+    }
+
+    function renderBoardCards() {
+      const grid = document.getElementById('boardGrid');
+      const now = nowInSeconds();
+      const realTime = dep => parseTime(dep.arrival_time) + getRTDelaySeconds(dep.trip_id);
+      // Re-filter and re-sort on every pass so buses drop off as they leave
+      // and reorder as realtime delays come in.
+      const rows = applyDepFilter(allBoardDepartures, 'board')
+        .filter(dep => realTime(dep) >= now)
+        .sort((a, b) => realTime(a) - realTime(b));
+
+      if (!rows.length) {
+        const st = getDepFilterState('board');
+        const picked = [...st.selected.keys()];
+        setBoardMessage(picked.length
+          ? `No more route ${picked.join(' / ')} departures today.`
+          : `Nothing else leaving today.`);
+      } else {
+        // Skip the rebuild when the same trips are already on screen in the
+        // same order — only the labels and RT badges need to move.
+        const tripKey = rows.map(d => d.trip_id).join(',');
+        if (grid.dataset.tripKey !== tripKey) {
+          grid.dataset.tripKey = tripKey;
+          grid.innerHTML = '';
+          rows.forEach(dep => grid.appendChild(buildBoardRow(dep)));
+          fitBoardDestTexts(grid);
+        }
+        updateBoardETAs(grid);
+      }
+
+      lastBoardStopDatas.forEach(s => { reapplyCachedRT(s.stop_id); loadRTStopUpdates(s.stop_id); });
+    }
+
+    startDepartureBoard();
+  </script>
+</body>
+</html>
