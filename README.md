@@ -4,8 +4,6 @@ A C++ library and Python webserver for parsing and serving **GTFS Schedule** and
 
 **GTFS** (General Transit Feed Specification) is the worldwide standard for transit agency schedule and location data. See the [official reference](https://gtfs.org/documentation/schedule/reference/) and the [`google/transit`](https://github.com/google/transit) repository.
 
-<img width="1914" height="956" alt="image" src="https://github.com/user-attachments/assets/08733e08-7a5b-4e54-ba88-a782d231d065" />
-
 ## Components
 
 | Directory | Description |
