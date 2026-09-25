@@ -1,4 +1,5 @@
 from flask import Flask, jsonify, send_from_directory, request, abort # type: ignore
+import hmac
 from functools import wraps
 from t_confidental_info import token
 import subprocess
@@ -7,13 +8,13 @@ import os
 
 app = Flask(__name__)
 
-SECRET_TOKENS = token
+SECRET_TOKENS = [token] if isinstance(token, str) else list(token)
 
 def require_token(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        token = request.headers.get("X-Auth-Token") or request.args.get("token")
-        if token not in SECRET_TOKENS:
+        supplied = request.headers.get("X-Auth-Token") or request.args.get("token") or ""
+        if not any(hmac.compare_digest(supplied.encode(), t.encode()) for t in SECRET_TOKENS):
             abort(401)
         return f(*args, **kwargs)
     return decorated

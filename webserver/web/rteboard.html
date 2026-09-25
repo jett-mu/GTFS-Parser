@@ -322,6 +322,22 @@
       white-space: nowrap;
     }
     .board-clock-sec { font-size: 0.55em; font-weight: 500; color: var(--text-muted); margin-left: 2px; }
+    a.board-back {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      font-size: 20px;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      text-decoration: none;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+    a.board-back:hover { background: var(--surface3); border-color: var(--border2); }
     button.board-close {
       width: 40px;
       height: 40px;
@@ -525,6 +541,7 @@
       .board-sub { font-size: 12.5px; white-space: normal; }
       .board-header-right { gap: var(--space-2); }
       button.board-close { width: 36px; height: 36px; padding: 0; }
+      a.board-back { width: 36px; height: 36px; }
       .board-overlay .nearby-overlay-body { padding-left: var(--space-4); padding-right: var(--space-4); }
       button.board-chip { padding: 6px 12px; font-size: 14px; }
       .board-row.dep-card { grid-template-columns: 98px minmax(0, 1fr) auto; gap: 2px var(--space-3); --board-row-h: 82px; --board-leave-h: 26px; }
@@ -694,6 +711,7 @@
         <div class="board-clock-wrap">
           <div class="board-clock" id="routeBoardClock"></div>
         </div>
+        <a class="board-back" href="/" aria-label="Back to home" title="Back to home">&#x2190;</a>
       </div>
     </div>
     <div class="nearby-overlay-body">
