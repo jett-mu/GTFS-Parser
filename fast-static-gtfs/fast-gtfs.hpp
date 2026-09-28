@@ -28,6 +28,51 @@ using std::pair;
 
 namespace fast_gtfs {
 
+class fast_data_feed {
+public:
+    const string fast_root;
+    const string fast_stop_path;
+    const string fast_trip_path;
+    const string fast_trip_trip_id;
+    const string fast_stop_stop_id;
+    const string fast_stop_times_path;
+    const string fast_stop_times_trip_id;
+    const string fast_shape_path;
+    const string fast_shape_shape_id;
+    const string fast_stop_times_stop_id;
+    const string fast_calendar_fpath;
+    const string fast_calendar_service_id;
+    const string fast_calendar_dates_path;
+    const string fast_calendar_dates_service_id;
+    const string fast_route_path;
+    const string fast_route_route_id;
+
+    explicit fast_data_feed(string root = "/Users/jettmu/Developer/VSCode/GTFS Parser/fast-static-gtfs/test-data/")
+        : fast_root(normalize(std::move(root))),
+          fast_stop_path(fast_root + "stops.txt"),
+          fast_trip_path(fast_root + "trips.txt"),
+          fast_trip_trip_id(fast_root + "trips_trip_id.txt"),
+          fast_stop_stop_id(fast_root + "stops_stop_id.txt"),
+          fast_stop_times_path(fast_root + "stop_times.txt"),
+          fast_stop_times_trip_id(fast_root + "stop_times_trip_id.txt"),
+          fast_shape_path(fast_root + "shapes.txt"),
+          fast_shape_shape_id(fast_root + "shapes_shape_id.txt"),
+          fast_stop_times_stop_id(fast_root + "stop_times_stop_id.txt"),
+          fast_calendar_fpath(fast_root + "calendar.txt"),
+          fast_calendar_service_id(fast_root + "calendar_service_id.txt"),
+          fast_calendar_dates_path(fast_root + "calendar_dates.txt"),
+          fast_calendar_dates_service_id(fast_root + "calendar_dates_service_id.txt"),
+          fast_route_path(fast_root + "routes.txt"),
+          fast_route_route_id(fast_root + "routes_route_id.txt")
+    {}
+
+private:
+    static string normalize(string p) {
+        if (!p.empty() && p.back() != '/') p += '/';
+        return p;
+    }
+};
+
 namespace bin_search {
 
 inline void sortFile(const string& path, const string& keyColumn, const string& outputpath) { // e.g. for stops.txt's stop_id or trips.txt's trip_id
