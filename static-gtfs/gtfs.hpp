@@ -37,26 +37,50 @@ float π = 3.14159;
 
 typedef unsigned long long int αβγδεζηθικλμνξοπρστυφχψω; // little easter egg :D
 
-
-string stopPath = config::root + "stops.txt";
-string routePath = config::root + "routes.txt";
-string tripsPath = config::root + "trips.txt";
-string stopTimesPath = config::root + "stop_times.txt";
-string tripPath = config::root + "trips.txt";
-string calendarPath = config::root + "calendar.txt";
-string calendarDatesPath = config::root + "calendar_dates.txt";
-string agencyPath = config::root + "agency.txt";
-string shapePath = config::root + "shapes.txt";
-string feedInfoFile = config::root + "feed_info.txt";
-string frequencyPath = config::root + "frequencies.txt";
-string fareAttributesPath = config::root + "fare_attributes.txt";
-
 constexpr int precision = 8;
 constexpr int defPrecision = 6;
 
 #pragma endregion ENUMS AND VARIABLES
 #pragma region CLASSES AND STRUCTS
 
+class data_feed {
+public:
+    const string path;
+    const string stopPath;
+    const string routePath;
+    const string tripsPath;
+    const string stopTimesPath;
+    const string tripPath;
+    const string calendarPath;
+    const string calendarDatesPath;
+    const string agencyPath;
+    const string shapePath;
+    const string feedInfoFile;
+    const string frequencyPath;
+    const string fareAttributesPath;
+
+    explicit data_feed(string p = "")
+        : path(normalize(std::move(p))),
+          stopPath(path + "stops.txt"),
+          routePath(path + "routes.txt"),
+          tripsPath(path + "trips.txt"),
+          stopTimesPath(path + "stop_times.txt"),
+          tripPath(path + "trips.txt"),
+          calendarPath(path + "calendar.txt"),
+          calendarDatesPath(path + "calendar_dates.txt"),
+          agencyPath(path + "agency.txt"),
+          shapePath(path + "shapes.txt"),
+          feedInfoFile(path + "feed_info.txt"),
+          frequencyPath(path + "frequencies.txt"),
+          fareAttributesPath(path + "fare_attributes.txt")
+    {}
+
+private:
+    static string normalize(string p) {
+        if (!p.empty() && p.back() != '/') p += '/';
+        return p;
+    }
+};
 class time {
 public:
     int h = 0, m = 0;
@@ -221,7 +245,7 @@ struct intstr {
 struct matchsearch {
     intstr text;        // stop_name in .str
     string stop_id;
-    int score;
+    int score = -1;
     string stop_code;   // empty if the feed has no stop_code column
     double lat = 0;
     double lon = 0;
@@ -640,10 +664,10 @@ inline double getScore(string input) {
 #pragma endregion HELPER FUNCTIONS
 #pragma region FUNCTIONS
 
-inline trip getTripInfo(const string& trip_id) { // requirements: trips.txt
+inline trip getTripInfo(const data_feed& d, const string& trip_id) { // requirements: trips.txt
     trip output;
 
-    ifstream tripFile(tripPath);
+    ifstream tripFile(d.tripPath);
     string currentLine;
     std::vector<string> parsedCurrentLine;
     std::unordered_map<string, int> refs;
@@ -700,7 +724,7 @@ inline trip getTripInfo(const string& trip_id) { // requirements: trips.txt
     tripFile.close();
     return output;
 }
-inline bool isTripValid(const string& trip_id, const int& year, const int& month, const int& day, const bool noException = false) { // requirements: trips.txt and calendar.txt, and if noException is false, calendar_dates.txt
+inline bool isTripValid(const data_feed& d, const string& trip_id, const int& year, const int& month, const int& day, const bool noException = false) { // requirements: trips.txt and calendar.txt, and if noException is false, calendar_dates.txt
     bool output = false;
 
     string constructedDate = to_string(year) + 
@@ -708,9 +732,9 @@ inline bool isTripValid(const string& trip_id, const int& year, const int& month
                             (day < 10 ? "0" + to_string(day) : to_string(day));
                         
     week dayOfWeek = convertDateToWeek(year, month, day);
-    string service_id = getTripInfo(trip_id).service_id;
+    string service_id = getTripInfo(d, trip_id).service_id;
 
-    auto calendarFile = ifstream(calendarPath);
+    auto calendarFile = ifstream(d.calendarPath);
 
     string currentLine;
     std::vector<string> parsedCurrentLine;
@@ -776,7 +800,7 @@ inline bool isTripValid(const string& trip_id, const int& year, const int& month
     }
     calendarFile.close();
 
-    auto calendarDatesFile = ifstream(calendarDatesPath);
+    auto calendarDatesFile = ifstream(d.calendarDatesPath);
 
     if (noException) return output;
 
@@ -808,11 +832,11 @@ inline bool isTripValid(const string& trip_id, const int& year, const int& month
     
     return output;
 }
-inline bool isTripValid(const string& trip_id, const calendar_day& date, const bool noException = false) { // requirements: trips.txt and calendar.txt, and if noException is false, calendar_dates.txt
-    return isTripValid(trip_id, date.year, date.month, date.day, noException);
+inline bool isTripValid(const data_feed& d, const string& trip_id, const calendar_day& date, const bool noException = false) { // requirements: trips.txt and calendar.txt, and if noException is false, calendar_dates.txt
+    return isTripValid(d, trip_id, date.year, date.month, date.day, noException);
 }
-inline feedStatus verifyGTFS(const int& year, const int& month, const int& day) { // requirements: feed_info.txt
-    ifstream feedInfo(feedInfoFile);
+inline feedStatus verifyGTFS(const data_feed& d, const int& year, const int& month, const int& day) { // requirements: feed_info.txt
+    ifstream feedInfo(d.feedInfoFile);
     string currentLine;
     std::vector<string> parsedCurrentLine;
 
@@ -853,12 +877,12 @@ inline feedStatus verifyGTFS(const int& year, const int& month, const int& day) 
     }
     return no_result;
 }
-inline feedStatus verifyGTFS(const calendar_day& date) { // requirements: feed_info.txt
-    return verifyGTFS(date.year, date.month, date.day);
+inline feedStatus verifyGTFS(const data_feed& d, const calendar_day& date) { // requirements: feed_info.txt
+    return verifyGTFS(d, date.year, date.month, date.day);
 }
-inline route getRouteInfo(const string& route_id) { // requirements: routes.txt
+inline route getRouteInfo(const data_feed& d, const string& route_id) { // requirements: routes.txt
     route output;
-    ifstream routeFile = ifstream(routePath);
+    ifstream routeFile = ifstream(d.routePath);
 
     string currentLine;
     std::vector<string> parsedCurrentLine;
@@ -925,8 +949,8 @@ inline route getRouteInfo(const string& route_id) { // requirements: routes.txt
     routeFile.close();
     return output;
 }
-inline stop getStopInfo(const string& stop_id) { // requirements: stops.txt
-    auto stopFile = ifstream(stopPath);
+inline stop getStopInfo(const data_feed& d, const string& stop_id) { // requirements: stops.txt
+    auto stopFile = ifstream(d.stopPath);
 
     stop output;
 
@@ -1000,8 +1024,8 @@ inline stop getStopInfo(const string& stop_id) { // requirements: stops.txt
     stopFile.close();
     return output;
 }
-inline std::vector<trip_segment> getDayTimesAtStop(const string& stop_id, const int& year, const int& month, const int& day) { // requirements: stop_times.txt, routes.txt
-    auto stopTimesFile = ifstream(stopTimesPath);
+inline std::vector<trip_segment> getDayTimesAtStop(const data_feed& d, const string& stop_id, const int& year, const int& month, const int& day) { // requirements: stop_times.txt, routes.txt
+    auto stopTimesFile = ifstream(d.stopTimesPath);
     std::vector<trip_segment> output;
 
     string currentLine;
@@ -1081,7 +1105,7 @@ inline std::vector<trip_segment> getDayTimesAtStop(const string& stop_id, const 
 
 
 
-    ifstream tripsFile = ifstream(tripsPath);
+    ifstream tripsFile = ifstream(d.tripsPath);
     currentLine = "";
     parsedCurrentLine = std::vector<string>(0);
     firstLine = true;
@@ -1103,14 +1127,14 @@ inline std::vector<trip_segment> getDayTimesAtStop(const string& stop_id, const 
     }
 
     tripsFile.close();
-    output.erase(std::remove_if(output.begin(), output.end(), [year, month, day](const trip_segment& x){ return (!isTripValid(x.stop.trip_id, year, month, day)); }), output.end());
+    output.erase(std::remove_if(output.begin(), output.end(), [year, month, day, &d](const trip_segment& x){ return (!isTripValid(d, x.stop.trip_id, year, month, day)); }), output.end());
     return output;
 }
-inline std::vector<trip_segment> getDayTimesAtStop(const string& stop_id, const calendar_day& date) { // requirements: stop_times.txt, routes.txt
-    return getDayTimesAtStop(stop_id, date.year, date.month, date.day);
+inline std::vector<trip_segment> getDayTimesAtStop(const data_feed& d, const string& stop_id, const calendar_day& date) { // requirements: stop_times.txt, routes.txt
+    return getDayTimesAtStop(d, stop_id, date.year, date.month, date.day);
 }
-inline std::vector<high_trip_segment> getDayTripsAtStop(const string& stop_id, const int& year, const int& month, const int& day) { // requirements: stop_times.txt, routes.txt
-    std::vector<trip_segment> segments = getDayTimesAtStop(stop_id, year, month, day);
+inline std::vector<high_trip_segment> getDayTripsAtStop(const data_feed& d, const string& stop_id, const int& year, const int& month, const int& day) { // requirements: stop_times.txt, routes.txt
+    std::vector<trip_segment> segments = getDayTimesAtStop(d, stop_id, year, month, day);
     std::vector<high_trip_segment> output;
     output.reserve(segments.size());
 
@@ -1124,12 +1148,12 @@ inline std::vector<high_trip_segment> getDayTripsAtStop(const string& stop_id, c
 
     return output;
 }
-inline std::vector<high_trip_segment> getDayTripsAtStop(const string& stop_id, const calendar_day& date) { // requirements: stop_times.txt, routes.txt
-    return getDayTripsAtStop(stop_id, date.year, date.month, date.day);
+inline std::vector<high_trip_segment> getDayTripsAtStop(const data_feed& d, const string& stop_id, const calendar_day& date) { // requirements: stop_times.txt, routes.txt
+    return getDayTripsAtStop(d, stop_id, date.year, date.month, date.day);
 }
-inline std::vector<agency> getAgencyInfo() { // requirements: agency.txt
+inline std::vector<agency> getAgencyInfo(const data_feed& d) { // requirements: agency.txt
     std::vector<agency> output;
-    ifstream agencyFile = ifstream(agencyPath);
+    ifstream agencyFile = ifstream(d.agencyPath);
     string currentLine;
     std::vector<string> parsedCurrentLine;
     std::unordered_map<string, int> refs;
@@ -1175,9 +1199,9 @@ inline std::vector<agency> getAgencyInfo() { // requirements: agency.txt
     agencyFile.close();
     return output;
 }
-inline std::vector<shape> getShapeInfo(const string& shape_id) { // requirements: shape.txt
+inline std::vector<shape> getShapeInfo(const data_feed& d, const string& shape_id) { // requirements: shape.txt
     std::vector<shape> output;
-    ifstream shapeFile = ifstream(shapePath);
+    ifstream shapeFile = ifstream(d.shapePath);
 
     string currentLine;
     std::vector<string> parsedCurrentLine;
@@ -1213,17 +1237,17 @@ inline std::vector<shape> getShapeInfo(const string& shape_id) { // requirements
     shapeFile.close();
     return output;
 }
-inline std::vector<trip_segment> getRemainingDayStops(const string& stop_id, const time& intime, const int& year, const int& month, const int& day) { // stop_times.txt, routes.txt
-    std::vector<trip_segment> out = getDayTimesAtStop(stop_id, year, month, day);
+inline std::vector<trip_segment> getRemainingDayStops(const data_feed& d, const string& stop_id, const time& intime, const int& year, const int& month, const int& day) { // stop_times.txt, routes.txt
+    std::vector<trip_segment> out = getDayTimesAtStop(d, stop_id, year, month, day);
     
     out.erase(std::remove_if(out.begin(), out.end(), [intime](const trip_segment& x){ return (x.stop.departure_time < intime); }), out.end());
     return out;
 }
-inline std::vector<trip_segment> getRemainingDayStops(const string& stop_id, const time& intime, const calendar_day& date) { // stop_times.txt, routes.txt
-    return getRemainingDayStops(stop_id, intime, date.year, date.month, date.day);
+inline std::vector<trip_segment> getRemainingDayStops(const data_feed& d, const string& stop_id, const time& intime, const calendar_day& date) { // stop_times.txt, routes.txt
+    return getRemainingDayStops(d, stop_id, intime, date.year, date.month, date.day);
 }
-inline std::vector<matchsearch> searchStop(const string& name) { // stops.txt
-    ifstream stopFile(stopPath);
+inline std::vector<matchsearch> searchStop(const data_feed& d, const string& name) { // stops.txt
+    ifstream stopFile(d.stopPath);
 
     string currentLine;
     std::map<string, int> refs;
@@ -1306,8 +1330,8 @@ inline std::vector<matchsearch> searchStop(const string& name) { // stops.txt
 
     return results;
 }
-inline std::vector<routematch> searchRoute(const string& name) { // routes.txt
-    ifstream routeFile(routePath);
+inline std::vector<routematch> searchRoute(const data_feed& d, const string& name) { // routes.txt
+    ifstream routeFile(d.routePath);
 
     string currentLine;
     std::map<string, int> refs;
@@ -1372,9 +1396,9 @@ inline std::vector<routematch> searchRoute(const string& name) { // routes.txt
 
     return results;
 }
-inline std::vector<trip_segment> getAllStops(const string& trip_id) { // stop_times.txt, routes.txt
+inline std::vector<trip_segment> getAllStops(const data_feed& d, const string& trip_id) { // stop_times.txt, routes.txt
     std::vector<trip_segment> output;
-    ifstream stopTimesFile = ifstream(stopTimesPath);
+    ifstream stopTimesFile = ifstream(d.stopTimesPath);
 
     string currentLine;
     bool firstLine = true;
@@ -1453,7 +1477,7 @@ inline std::vector<trip_segment> getAllStops(const string& trip_id) { // stop_ti
     }
     stopTimesFile.close();
 
-    ifstream tripsFile = ifstream(tripsPath);
+    ifstream tripsFile = ifstream(d.tripsPath);
     currentLine = "";
     parsedCurrentLine = std::vector<string>(0);
     firstLine = true;
@@ -1481,9 +1505,9 @@ inline std::vector<trip_segment> getAllStops(const string& trip_id) { // stop_ti
 
     return output;
 }
-inline std::vector<stop> getNearestStops(const double& lat, const double& lon, const int maxResults = -1, double maxDistanceKM = -1) {
+inline std::vector<stop> getNearestStops(const data_feed& d, const double& lat, const double& lon, const int maxResults = -1, double maxDistanceKM = -1) {
     std::vector<std::pair<double, stop>> candidates;
-    ifstream stopFile = ifstream(stopPath);
+    ifstream stopFile = ifstream(d.stopPath);
 
     string currentLine;
     std::vector<string> parsedCurrentLine;
@@ -1573,7 +1597,7 @@ inline std::vector<stop> getNearestStops(const double& lat, const double& lon, c
 
     return output;
 }
-inline std::vector<trip> getAllTrips(const string& route_id) {
+inline std::vector<trip> getAllTrips(const data_feed& d, const string& route_id) {
     std::vector<trip> output;
 
     string currentLine;
@@ -1582,7 +1606,7 @@ inline std::vector<trip> getAllTrips(const string& route_id) {
     std::unordered_map<string, int> refs;
 
 
-    ifstream tripFile = ifstream(tripPath);
+    ifstream tripFile = ifstream(d.tripPath);
 
     while (getline(tripFile, currentLine)) {
         parsedCurrentLine = parseDataCSV(currentLine);
@@ -1604,12 +1628,12 @@ inline std::vector<trip> getAllTrips(const string& route_id) {
     tripFile.close();
     return output;
 }
-inline service getServiceInfo(const string& service_id) {
+inline service getServiceInfo(const data_feed& d, const string& service_id) {
     service output;
     output.schedule.service_id = service_id;
 
-    ifstream calendarFile = ifstream(calendarPath);
-    ifstream calendarDatesFile = ifstream(calendarDatesPath);
+    ifstream calendarFile = ifstream(d.calendarPath);
+    ifstream calendarDatesFile = ifstream(d.calendarDatesPath);
 
     bool firstLine = true;
     string currentLine;
@@ -1668,15 +1692,14 @@ inline service getServiceInfo(const string& service_id) {
             temp.date = y;
             temp.service_id = service_id;
             output.exceptions.push_back(temp);
-            continue;
         }
     }
     calendarDatesFile.close();
     return output;
 }
-inline std::vector<trip> getAllBlockId(const string& block_id) { // requirements: trips.txt with optional field block_id
+inline std::vector<trip> getAllBlockId(const data_feed& d, const string& block_id) { // requirements: trips.txt with optional field block_id
     std::vector<trip> output;
-    ifstream tripFile = ifstream(tripPath);
+    ifstream tripFile = ifstream(d.tripPath);
 
     string currentLine;
     std::vector<string> parsedCurrentLine;
@@ -1702,9 +1725,9 @@ inline std::vector<trip> getAllBlockId(const string& block_id) { // requirements
     tripFile.close();
     return output;
 }
-inline std::vector<trip_segment> getStopTimeInfo(const string& trip_id) { // requirements: stop_time.txt
+inline std::vector<trip_segment> getStopTimeInfo(const data_feed& d, const string& trip_id) { // requirements: stop_time.txt
     std::vector<trip_segment> output; // assume a trip only appears once in
-    ifstream stopTimesFile = ifstream(stopTimesPath);
+    ifstream stopTimesFile = ifstream(d.stopTimesPath);
 
     string currentLine;
     std::vector<string> parsedCurrentLine;
@@ -1788,9 +1811,9 @@ inline std::vector<trip_segment> getStopTimeInfo(const string& trip_id) { // req
     stopTimesFile.close();
     return output;
 }
-inline std::vector<frequency> getFrequencies(const string& trip_id) { // requirements: frequencies.txt
+inline std::vector<frequency> getFrequencies(const data_feed& d, const string& trip_id) { // requirements: frequencies.txt
     std::vector<frequency> output;
-    ifstream frequencyFile = ifstream(frequencyPath);
+    ifstream frequencyFile = ifstream(d.frequencyPath);
 
     string currentLine;
     std::vector<string> parsedCurrentLine;
@@ -1823,9 +1846,9 @@ inline std::vector<frequency> getFrequencies(const string& trip_id) { // require
     frequencyFile.close();
     return output;
 }
-inline fare getFareInfo(const string& fare_id) {
+inline fare getFareInfo(const data_feed& d, const string& fare_id) {
     fare output;
-    ifstream fareAttributesFile = ifstream(fareAttributesPath);
+    ifstream fareAttributesFile = ifstream(d.fareAttributesPath);
 
     string currentLine;
     std::vector<string> parsedCurrentLine;
