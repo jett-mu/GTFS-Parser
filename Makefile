@@ -22,7 +22,7 @@ RT_PROTO_SRC          := gtfs-rt/proto-conversion/transit-files/gtfs-realtime.pb
 PROTOBUF_FLAGS        := $(shell pkg-config --cflags --libs protobuf 2>/dev/null)
 EXP_DIR               := fast-static-gtfs
 
-STATIC_GTFS_BINS := $(STATIC_GTFS_DIR)/gtfs_cli
+STATIC_GTFS_BINS :=
 
 WEBSERVER_TOOLS  := getTrips searchstop tripjson stopjson getneareststopsjson stopinfo searchroute
 WEBSERVER_BINS   := $(addprefix $(WEBSERVER_TOOLS_DIR)/,$(WEBSERVER_TOOLS))

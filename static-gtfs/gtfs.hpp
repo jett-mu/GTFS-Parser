@@ -14,7 +14,6 @@
 #include <cctype>
 #include <iomanip>
 #include <cmath>
-#include "config.hpp"
 
 using std::cout;
 using std::string;
@@ -32,10 +31,6 @@ namespace gtfs { // MARK: BEGINNING OF NAMESPACE GTFS
 
 typedef enum {mon = 0, tue, wed, thu, fri, sat, sun} week;
 typedef enum {in_use = 0, expired = -1, upcoming = 1, no_result = 10, no_result_a = 11, no_result_b = 12} feedStatus;
-
-float π = 3.14159;
-
-typedef unsigned long long int αβγδεζηθικλμνξοπρστυφχψω; // little easter egg :D
 
 constexpr int precision = 8;
 constexpr int defPrecision = 6;
