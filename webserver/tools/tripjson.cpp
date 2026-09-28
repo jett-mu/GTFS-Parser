@@ -3,7 +3,7 @@
 #include <string>
 #include <iomanip>
 #include <cstdlib>
-#include "../../static-gtfs/gtfs.hpp"
+#include "../../config/config.hpp"
 
 
 int main(int argc, char* argv[]) {
@@ -11,6 +11,8 @@ int main(int argc, char* argv[]) {
         std::cout << "Usage: \n" << argv[0] << " <tripID> [--precision | -p <precision>]\n";
         return -1;
     }
+
+    const gtfs::data_feed feed = config::loadOrExit();
 
     int precision = 6;
 
@@ -26,15 +28,15 @@ int main(int argc, char* argv[]) {
 
     string trip_id = argv[1];
 
-    std::vector<gtfs::trip_segment> tripSegments = gtfs::getAllStops(trip_id);
-    gtfs::trip tx = gtfs::getTripInfo(trip_id);
-    gtfs::route bx = gtfs::getRouteInfo(tx.route_id);
-    std::vector<gtfs::shape> tsx = gtfs::getShapeInfo(tx.shape_id);
+    std::vector<gtfs::trip_segment> tripSegments = gtfs::getAllStops(feed, trip_id);
+    gtfs::trip tx = gtfs::getTripInfo(feed, trip_id);
+    gtfs::route bx = gtfs::getRouteInfo(feed, tx.route_id);
+    std::vector<gtfs::shape> tsx = gtfs::getShapeInfo(feed, tx.shape_id);
     
     std::vector<gtfs::stop> stops;
 
     for (gtfs::trip_segment& x : tripSegments) {
-        stops.push_back(gtfs::getStopInfo(x.stop.stop_id));
+        stops.push_back(gtfs::getStopInfo(feed, x.stop.stop_id));
     }
     int length = stops.size();
 

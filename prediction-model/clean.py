@@ -21,7 +21,7 @@ def load_data(path):
         df[col] = df[col].astype(float)
     return df
 
-GTFS_DIR = "/Users/jettmu/Documents/VSCode/GTFS Parser/static-gtfs/data/yrt_archive"
+GTFS_DIR = "/Users/jettmu/Documents/VSCode/GTFS Parser/data/yrt_archive"
 TRIPS_FILE = f"{GTFS_DIR}/trips.txt"
 CALENDAR_DATES_FILE = f"{GTFS_DIR}/calendar_dates.txt"
 AGENCY_TIMEZONE = "America/Toronto"

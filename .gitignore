@@ -65,7 +65,7 @@ data-collection/combined.csv
 gtfs-rt/proto-conversion/decoded_gtfs.json
 gtfs-rt/testing/data/
 webserver/tiles/
-static-gtfs/data/
+/data/
 fast-static-gtfs/test-data/
 
 # Confidential / local-only files

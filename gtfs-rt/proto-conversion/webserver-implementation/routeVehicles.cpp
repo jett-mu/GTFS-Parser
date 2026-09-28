@@ -3,8 +3,7 @@
 #include <string>
 #include <unordered_map>
 #include "../transit-files/gtfs-realtime.pb.h"
-#include "../../../static-gtfs/gtfs.hpp"
-#include "../../../static-gtfs/config.hpp"
+#include "../../../config/config.hpp"
 #include <libgen.h>
 #include <sys/stat.h>
 #include <ctime>
@@ -87,6 +86,8 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+    const gtfs::data_feed staticFeed = config::loadOrExit();
+
     std::string exeDir = dirname(argv[0]);
     std::string vehiclesPath = exeDir + "/downloaded_file.pb";
     std::string tripUpdatesPath = exeDir + "/downloaded_stop.pb";
@@ -96,7 +97,7 @@ int main(int argc, char* argv[]) {
 
     // Resolve whatever the caller passed (e.g. "601") to a real route_id, same
     // fuzzy search the webserver's route search box and routeMedianDelay use.
-    auto matches = gtfs::searchRoute(argv[1]);
+    auto matches = gtfs::searchRoute(staticFeed, argv[1]);
     if (matches.empty()) {
         cerr << "Error: no route matches \"" << argv[1] << "\"" << endl;
         return 1;
@@ -158,7 +159,7 @@ int main(int argc, char* argv[]) {
 
         // Per-trip lookup against trips.txt, same idiom as the rest of the
         // codebase (a linear scan per call -- fine at this feed's scale).
-        gtfs::trip tripInfo = gtfs::getTripInfo(tripId);
+        gtfs::trip tripInfo = gtfs::getTripInfo(staticFeed, tripId);
         if (tripInfo.route_id != route.route_id) continue;
 
         const Position& pos = vp.position();

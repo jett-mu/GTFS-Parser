@@ -16,13 +16,14 @@ CXXSTD := -std=c++17
 OPT    := -O3
 
 STATIC_GTFS_DIR      := static-gtfs
+CONFIG_HPP           := config/config.hpp
 WEBSERVER_TOOLS_DIR  := webserver/tools
 RT_DIR                := gtfs-rt/proto-conversion/webserver-implementation
 RT_PROTO_SRC          := gtfs-rt/proto-conversion/transit-files/gtfs-realtime.pb.cc
 PROTOBUF_FLAGS        := $(shell pkg-config --cflags --libs protobuf 2>/dev/null)
 EXP_DIR               := fast-static-gtfs
 
-STATIC_GTFS_BINS :=
+STATIC_GTFS_BINS := $(STATIC_GTFS_DIR)/gtfs_cli
 
 WEBSERVER_TOOLS  := getTrips searchstop tripjson stopjson getneareststopsjson stopinfo searchroute
 WEBSERVER_BINS   := $(addprefix $(WEBSERVER_TOOLS_DIR)/,$(WEBSERVER_TOOLS))
@@ -52,16 +53,19 @@ exp: $(EXP_BINS)
 
 fast: $(FAST_BINS)
 
-$(STATIC_GTFS_DIR)/gtfs_cli: $(STATIC_GTFS_DIR)/gtfs_cli.cpp $(STATIC_GTFS_DIR)/gtfs.hpp $(STATIC_GTFS_DIR)/config.hpp
+$(STATIC_GTFS_DIR)/gtfs_cli: $(STATIC_GTFS_DIR)/gtfs_cli.cpp $(STATIC_GTFS_DIR)/gtfs.hpp $(CONFIG_HPP)
 	$(CXX) $(CXXSTD) $(OPT) -o $@ $<
 
-$(WEBSERVER_TOOLS_DIR)/%: $(WEBSERVER_TOOLS_DIR)/%.cpp $(STATIC_GTFS_DIR)/gtfs.hpp
+$(WEBSERVER_TOOLS_DIR)/%: $(WEBSERVER_TOOLS_DIR)/%.cpp $(STATIC_GTFS_DIR)/gtfs.hpp $(CONFIG_HPP)
 	$(CXX) $(CXXSTD) $(OPT) -o $@ $<
 
 # gtfs-realtime.pb.cc/.pb.h are generated once via `protoc` (see gtfs-rt/readme.md) and
 # checked in already, so this only re-links if a decoder's own .cpp changes.
 $(RT_DIR)/%: $(RT_DIR)/%.cpp $(RT_PROTO_SRC)
-	$(CXX) $(CXXSTD) -O3 -o $@ $^ $(PROTOBUF_FLAGS)
+	$(CXX) $(CXXSTD) -O3 -o $@ $(filter-out %.hpp,$^) $(PROTOBUF_FLAGS)
+
+# routeVehicles also reads the static feed through config.hpp/gtfs.hpp (extra deps only, no recipe).
+$(RT_DIR)/routeVehicles: $(STATIC_GTFS_DIR)/gtfs.hpp $(CONFIG_HPP)
 
 $(EXP_DIR)/%: $(EXP_DIR)/%.cpp $(EXP_DIR)/fast-gtfs.hpp
 	$(CXX) $(CXXSTD) $(OPT) -o $@ $<

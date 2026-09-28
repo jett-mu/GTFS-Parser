@@ -30,11 +30,15 @@ Transit agencies publish GTFS Schedule data as a `.zip` of `.csv`-formatted `.tx
 
 ### 1. Add your GTFS data
 
-Create a `data/` folder inside `static-gtfs/` and extract your agency's `.zip` there:
+Create a `data/` folder at the repo root and extract your agency's `.zip` there:
 
 ```
-static-gtfs/
-├── gtfs.hpp
+GTFS Parser/
+├── static-gtfs/
+│   └── gtfs.hpp
+├── config/
+│   ├── config.hpp
+│   └── config.json
 └── data/
     └── your_agency/
         ├── agency.txt
@@ -44,45 +48,33 @@ static-gtfs/
         └── ...
 ```
 
-### 2. Configure paths in `config.hpp`
+### 2. Point `config/config.json` at it
 
-`config.hpp` is machine-specific (absolute paths) and gitignored, so it isn't checked into git. Copy the template to create your own:
+`config/config.json` is machine-specific (absolute path):
 
-```zsh
-cp config-demo.hpp config.hpp
+```json
+{
+  "config_version": 3,
+  "absolute_path_to_data": "/path/to/GTFS Parser/data/your_agency/"
+}
 ```
 
-Then edit `config.hpp`:
-
-**`path`** — the subfolder inside `data/` that contains your `.txt` files:
-
-```cpp
-std::string path = "/data/your_agency/";
-```
-
-**`root`** — the absolute path of the `static-gtfs/` directory:
-
-```cpp
-std::string root = "/path/to/static-gtfs" + path;
-```
-
-To find your absolute path, run `pwd` (Mac/Linux) or `cd` with no arguments (Windows).
-
-`gtfs_cli` also supports overriding `root` at runtime via `config set <path>` (persisted to a `config.json` next to the binary) or a `-c <path>` flag, without editing `config.hpp` at all.
+`config/config.hpp` reads it and returns a `gtfs::data_feed`, which every `gtfs::` query takes as its first argument. The config file is found in the current directory or the nearest parent (`config/config.json` or `config.json`), or via the `GTFS_CONFIG` environment variable.
 
 ### 3. Verify the setup
 
-Create a `main.cpp`:
+Create a `main.cpp` at the repo root:
 
 ```cpp
 #include <iostream>
 #include <ctime>
-#include "gtfs.hpp"
+#include "config/config.hpp"
 
 int main() {
+    const gtfs::data_feed feed = config::load();
     std::time_t t = std::time(nullptr);
     std::tm* now = std::localtime(&t);
-    std::cout << gtfs::verifyGTFS(now->tm_year + 1900, now->tm_mon + 1, now->tm_mday) << std::endl;
+    std::cout << gtfs::verifyGTFS(feed, now->tm_year + 1900, now->tm_mon + 1, now->tm_mday) << std::endl;
     return 0;
 }
 ```
@@ -106,7 +98,7 @@ clang++ -std=c++17 -O3 main.cpp -o main && ./main
 
 ### 4. Build the CLI
 
-Once `path`/`root` are configured, the repo-root `Makefile` builds `gtfs_cli` (and the webserver tools that depend on `gtfs.hpp`) for you:
+Once `config/config.json` is set up, the repo-root `Makefile` builds `gtfs_cli` (and the webserver tools that depend on `gtfs.hpp`) for you:
 
 ```zsh
 cd ..

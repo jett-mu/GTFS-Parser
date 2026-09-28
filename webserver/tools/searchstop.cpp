@@ -4,7 +4,7 @@
 #include <iomanip>
 #include <cstdlib>
 #include <cstdio>
-#include "../../static-gtfs/gtfs.hpp"
+#include "../../config/config.hpp"
 
 // Escape a string for use inside a JSON string literal. Stop names can
 // contain quotes ("KING'S COLLEGE" is fine, but some feeds use " for inches
@@ -49,7 +49,9 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    std::vector<gtfs::matchsearch> matches = gtfs::searchStop(argv[1]);
+    const gtfs::data_feed feed = config::loadOrExit();
+
+    std::vector<gtfs::matchsearch> matches = gtfs::searchStop(feed, argv[1]);
 
     std::cout << "{\n\t\"query\": \"" << jsonEscape(argv[1]) << "\",\n\t\"matches\": [\n";
 

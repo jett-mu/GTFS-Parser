@@ -3,7 +3,7 @@
 #include <string>
 #include <iomanip>
 #include <cstdlib>
-#include "../../static-gtfs/gtfs.hpp"
+#include "../../config/config.hpp"
 
 int main(int argc, char* argv[]) {
     if (argc < 2) {
@@ -11,7 +11,9 @@ int main(int argc, char* argv[]) {
         return -1;
     }
 
-    gtfs::stop st = gtfs::getStopInfo(argv[1]);
+    const gtfs::data_feed feed = config::loadOrExit();
+
+    gtfs::stop st = gtfs::getStopInfo(feed, argv[1]);
 
     std::cout << "{\n\t\"stop_id\": \"" << argv[1] << "\",\n"
                 << "\t\"stop_code\": \"" << st.stop_code << "\",\n"

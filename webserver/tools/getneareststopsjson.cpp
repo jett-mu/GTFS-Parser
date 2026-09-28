@@ -4,7 +4,7 @@
 #include <iomanip>
 #include <cstdlib>
 #include <cstdio>
-#include "../../static-gtfs/gtfs.hpp"
+#include "../../config/config.hpp"
 
 // Escape a string for use inside a JSON string literal (stop names can
 // contain quotes; the frontend parses this output with JSON.parse).
@@ -39,6 +39,8 @@ int main(int argc, char* argv[]) {
         std::cout << "Usage: \n" << argv[0] << " <lat> <lon> [--precision | -p <precision> = 6] [--total | -t <totalEntries> = 10]\n";
         return -1;
     }
+
+    const gtfs::data_feed feed = config::loadOrExit();
 
     int precision = 6;
 
@@ -75,7 +77,7 @@ int main(int argc, char* argv[]) {
         return -1;
     }
 
-    std::vector<gtfs::stop> ns = gtfs::getNearestStops(lat, lon);
+    std::vector<gtfs::stop> ns = gtfs::getNearestStops(feed, lat, lon);
 
     cout << "{\n\t\"request_lat\": "<< lat << ",\n\t\"request_lon\": " << lon << ",\n\t\"nearest_stops\": [\n";
 

@@ -26,7 +26,7 @@ Then follow the README in whichever component you need:
 
 ## Build via Makefile
 
-Once `static-gtfs/config.hpp` is set up from its template (see [static-gtfs](static-gtfs/readme.md)) and, if you need GTFS-RT, protobuf is installed (see [gtfs-rt](gtfs-rt/readme.md)), a `Makefile` at the repo root builds the compiled tools for you instead of compiling each one by hand:
+Once `config/config.json` points at your GTFS data folder (see [static-gtfs](static-gtfs/readme.md)) and, if you need GTFS-RT, protobuf is installed (see [gtfs-rt](gtfs-rt/readme.md)), a `Makefile` at the repo root builds the compiled tools for you instead of compiling each one by hand:
 
 ```bash
 make              # same as `make all`

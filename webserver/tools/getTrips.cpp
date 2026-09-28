@@ -1,4 +1,4 @@
-#include "../../static-gtfs/gtfs.hpp"
+#include "../../config/config.hpp"
 
 #include <iostream>
 #include <unordered_set>
@@ -8,11 +8,11 @@ using namespace std;
 // Single pass over stop_times.txt building, for each trip_id in wanted,
 // the departure_time of its lowest stop_sequence (i.e. its first stop).
 // Avoids re-scanning the whole file once per trip (what getAllStops does).
-unordered_map<string, gtfs::time> getFirstDepartures(const unordered_set<string>& wanted) {
+unordered_map<string, gtfs::time> getFirstDepartures(const data_feed& feed, const unordered_set<string>& wanted) {
     unordered_map<string, gtfs::time> firstDeparture;
     unordered_map<string, int> firstSeq;
 
-    ifstream stopTimesFile(stopTimesPath);
+    ifstream stopTimesFile(feed.stopTimesPath);
     string currentLine;
     bool firstLine = true;
     unordered_map<string, int> refs;
@@ -47,18 +47,21 @@ int main(int argc, char* argv[]) {
         std::cerr << "Usage: " << argv[0] << " <route_id> <year> <month> <day>\n";
         return -1;
     }
+
+    const gtfs::data_feed feed = config::loadOrExit();
+
     string trip_id = argv[1];
 
-    vector<trip> x = getAllTrips(trip_id);
+    vector<trip> x = getAllTrips(feed, trip_id);
 
     for (trip& x_trip : x) {
-        x_trip = getTripInfo(x_trip.trip_id);
+        x_trip = getTripInfo(feed, x_trip.trip_id);
     }
 
     vector<service> y;
 
     for (trip& x_trip : x) {
-        y.push_back(getServiceInfo(x_trip.service_id));
+        y.push_back(getServiceInfo(feed, x_trip.service_id));
     }
 
     int i = 0;
@@ -97,7 +100,7 @@ int main(int argc, char* argv[]) {
     }
     unordered_set<string> wantedTripIds;
     for (trip& x_trip : x) wantedTripIds.insert(x_trip.trip_id);
-    unordered_map<string, gtfs::time> firstDepartures = getFirstDepartures(wantedTripIds);
+    unordered_map<string, gtfs::time> firstDepartures = getFirstDepartures(feed, wantedTripIds);
 
     sort(x.begin(), x.end(), [&](const trip& a, const trip& b) {
         return firstDepartures[a.trip_id] < firstDepartures[b.trip_id];

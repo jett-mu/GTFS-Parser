@@ -2,7 +2,7 @@ import csv
 import os
 
 ROUTE_ID = "601"
-GTFS_DIR = "/Users/jettmu/Developer/VSCode/GTFS Parser/static-gtfs/data/yrt_archive"
+GTFS_DIR = "/Users/jettmu/Developer/VSCode/GTFS Parser/data/yrt_archive"
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 
 
