@@ -11,11 +11,23 @@ A C++ library and Python webserver for parsing and serving **GTFS Schedule** and
 | [`static-gtfs/`](static-gtfs/) | C++ header (`gtfs.hpp`) for parsing GTFS Schedule `.txt` files |
 | [`gtfs-rt/`](gtfs-rt/) | C++ tools for decoding GTFS Realtime `.pb` protobuf files |
 | [`webserver/`](webserver/) | Flask server + HTML frontend that exposes both as a REST API |
+| [`fast-static-gtfs/`](fast-static-gtfs/) | Experimental indexed/hashed query layer (`fast-gtfs.hpp`) and a standalone C++ HTTP server on port 5016 |
+| [`config/`](config/) | `config.hpp` + `config.json`: data folder path and GTFS-RT feed URLs shared by every tool |
+| `data-collection/`, `prediction-model/`, `other-testing/` | Scratch/experimental work (RT data logging, ML delay prediction, C++ demos) — not part of the core library |
+
+Deploying the Flask app behind nginx + gunicorn is covered in [NGINX.md](NGINX.md).
 
 ## Quick Start
 
 ```bash
 git clone https://github.com/JettM9104/GTFS-Parser/
+```
+
+Create your local config (gitignored, machine-specific) and put your GTFS feed in `data/`:
+
+```bash
+cp config/config.example.json config/config.json
+# edit absolute_path_to_data (and the rt_*_url fields if you use GTFS-RT)
 ```
 
 Then follow the README in whichever component you need:
@@ -30,18 +42,20 @@ Once `config/config.json` points at your GTFS data folder (see [static-gtfs](sta
 
 ```bash
 make              # same as `make all`
-make all          # everything: static-gtfs, webserver tools, and GTFS-RT decoders
-make static       # static-gtfs + webserver tools only — no protobuf needed
-make rt           # GTFS-RT decoders only — needs protobuf + pkg-config
+make all          # static-gtfs, webserver tools, and GTFS-RT tools, and `fast`
+make static       # gtfs_cli + webserver tools only — no protobuf needed
+make rt           # decodeTrip/Stop/Alerts, routeVehicles, routeMedianDelay — needs protobuf + pkg-config
+make fast         # fast-static-gtfs/webserver (port 5016) — no protobuf needed
 make clean        # remove the binaries make builds
 ```
 
-It only rebuilds a binary when its source is newer than the compiled binary. It excludes pure scratch/demo binaries (e.g. `static-gtfs/testing`) — compile those manually if needed.
+It only rebuilds a binary when its source is newer than the compiled binary. It excludes pure scratch/demo binaries (`static-gtfs/testing`, `static-gtfs/flag_finder`, `gtfs-rt/testing/*`, `other-testing/varadic`) — compile those manually if needed.
 
 ## Requirements
 
 - C++17 compiler (`clang++` or `g++`)
-- Python 3 with `flask`
+- Python 3 with `flask` (webserver)
+- `wget` (GTFS-RT decoders download feeds with it)
 - `protobuf` (latest, currently 35.x) + `pkg-config` (for GTFS-RT only)
 - `git`
 

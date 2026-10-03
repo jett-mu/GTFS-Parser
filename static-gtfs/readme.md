@@ -50,14 +50,19 @@ GTFS Parser/
 
 ### 2. Point `config/config.json` at it
 
-`config/config.json` is machine-specific (absolute path):
+`config/config.json` is machine-specific and gitignored. Copy `config/config.example.json` and edit it:
 
 ```json
 {
   "config_version": 3,
-  "absolute_path_to_data": "/path/to/GTFS Parser/data/your_agency/"
+  "absolute_path_to_data": "/path/to/GTFS Parser/data/your_agency/",
+  "rt_alert_url": "https://example.com/ServiceAlerts",
+  "rt_tripupdates_url": "https://example.com/TripUpdates",
+  "rt_vehiclepositions_url": "https://example.com/VehiclePositions"
 }
 ```
+
+The `rt_*` URLs are only used by the GTFS-RT decoders (see [gtfs-rt](../gtfs-rt/readme.md)); the static tools only need `absolute_path_to_data`.
 
 `config/config.hpp` reads it and returns a `gtfs::data_feed`, which every `gtfs::` query takes as its first argument. The config file is found in the current directory or the nearest parent (`config/config.json` or `config.json`), or via the `GTFS_CONFIG` environment variable.
 
@@ -105,4 +110,4 @@ cd ..
 make static
 ```
 
-`static-gtfs/gtfs_cli` is the compiled CLI checked into git — after editing `gtfs.hpp` or `gtfs_cli.cpp`, rerun `make static` (or compile manually, see repo-root README) and commit the updated binary.
+`static-gtfs/gtfs_cli` is gitignored (like every compiled binary), so build it locally. After editing `gtfs.hpp` or `gtfs_cli.cpp`, rerun `make static`, otherwise downstream tools and the webserver run stale logic. `gtfs_cli` opens the feed from `config.json` on start, or falls back to a feed picker that scans `./data`.

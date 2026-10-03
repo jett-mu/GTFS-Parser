@@ -35,12 +35,12 @@ static-gtfs/gtfs_cli
 static-gtfs/flag_finder
 static-gtfs/maincli
 static-gtfs/testing
-fast-static-gtfs/test
 gtfs-rt/proto-conversion/main
 gtfs-rt/proto-conversion/decodeTrip
 gtfs-rt/proto-conversion/webserver-implementation/decodeTrip
 gtfs-rt/proto-conversion/webserver-implementation/decodeStop
 gtfs-rt/proto-conversion/webserver-implementation/decodeAlerts
+gtfs-rt/proto-conversion/webserver-implementation/retrieve
 gtfs-rt/proto-conversion/webserver-implementation/ttc/
 gtfs-rt/proto-conversion/webserver-implementation/yrt/
 gtfs-rt/testing/main
@@ -72,11 +72,8 @@ fast-static-gtfs/test-data/
 webserver/t_confidental_info.py
 static-gtfs/spam.py
 static-gtfs/confidential_info.hpp
+# (copy config/config.example.json -> config/config.json)
 config/config.json
-
-# Machine-specific config (absolute paths) - see *-demo.hpp for templates
-static-gtfs/config.hpp
-fast-static-gtfs/fast-config.hpp
 
 # Personal notes
 gtfs-rt/noteToSelf.md

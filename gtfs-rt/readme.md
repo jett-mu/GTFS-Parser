@@ -12,7 +12,21 @@ Unlike GTFS Schedule (CSV text files), GTFS-RT data is distributed as binary pro
 | `VehiclePositions.pb` | Live vehicle positions |
 | `ServiceAlerts.pb` | Real-time service alerts |
 
-The compiled tools in `proto-conversion/webserver-implementation/` decode these feeds and output JSON to stdout.
+The compiled tools in `proto-conversion/webserver-implementation/` download the feed, decode it and output JSON to stdout.
+
+## Configuration
+
+Feed URLs come from `config/config.json` (copy `config/config.example.json`), not from the source:
+
+| Key | Used by |
+|---|---|
+| `rt_vehiclepositions_url` | `decodeTrip` |
+| `rt_tripupdates_url` | `decodeStop` |
+| `rt_alert_url` | `decodeAlerts` |
+
+`routeVehicles` and `routeMedianDelay` currently hard-code the York Region feed URLs in their source instead of reading these keys, so edit them (or migrate them to `config::loadRt*Url()`) for other agencies.
+
+Feeds are downloaded with `wget` into `downloaded_*.pb` next to the binary (gitignored) and re-fetched only when older than 15 s, guarded by a `.lock` file. `routeVehicles` and `routeMedianDelay` also read the static feed (`absolute_path_to_data`) to resolve routes.
 
 ## Setup (Mac)
 
@@ -164,13 +178,17 @@ g++ -std=c++17 -O3 decodeTrip.cpp ../transit-files/gtfs-realtime.pb.cc \
 
 ## Usage
 
-Each binary reads a local `.pb` file and writes JSON to stdout.
+Each binary refreshes its cached `.pb` file from the configured URL and writes JSON to stdout.
 
 ```zsh
-./decodeTrip <trip_id>       # trip update for a specific trip
-./decodeStop <stop_id>       # upcoming arrivals at a stop
-./decodeAlerts               # all active service alerts
+./decodeTrip <trip_id>             # trip update for a specific trip
+./decodeStop <stop_id>             # upcoming arrivals at a stop
+./decodeAlerts [route_id]          # all active service alerts, optionally filtered to one route
+./routeVehicles <route>            # live vehicles on a route (short name or id)
+./routeMedianDelay <route>         # median delay across a route's trips
 ```
+
+`make rt` builds all five. `retrieve.cpp` is a standalone helper (no protobuf) that downloads a VehiclePositions feed from a hard-coded URL; build it manually if you need it.
 
 The webserver calls these automatically via its `/api/rt/` endpoints.
 

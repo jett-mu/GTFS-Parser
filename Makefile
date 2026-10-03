@@ -4,11 +4,10 @@
 #
 # Usage:
 #   make            # same as `make all` (default target)
-#   make all        # everything: static + rt (needs protobuf + pkg-config, see gtfs-rt/readme.md)
+#   make all        # static + rt + fast (needs protobuf + pkg-config, see gtfs-rt/readme.md)
 #   make static     # static-gtfs + webserver tools only (no protobuf needed)
 #   make rt         # GTFS-RT decoders only (needs protobuf + pkg-config, see gtfs-rt/readme.md)
-#   make exp        # experimental fast-static-gtfs tools (no protobuf needed)
-#   make fast       # fast-static-gtfs webserver (no protobuf needed)
+#   make fast       # fast-static-gtfs webserver on :5016 (no protobuf needed)
 #   make clean      # remove all binaries built by this Makefile
 
 CXX    ?= g++
@@ -21,24 +20,22 @@ WEBSERVER_TOOLS_DIR  := webserver/tools
 RT_DIR                := gtfs-rt/proto-conversion/webserver-implementation
 RT_PROTO_SRC          := gtfs-rt/proto-conversion/transit-files/gtfs-realtime.pb.cc
 PROTOBUF_FLAGS        := $(shell pkg-config --cflags --libs protobuf 2>/dev/null)
-EXP_DIR               := fast-static-gtfs
+FAST_DIR              := fast-static-gtfs
 
 STATIC_GTFS_BINS := $(STATIC_GTFS_DIR)/gtfs_cli
 
 WEBSERVER_TOOLS  := getTrips searchstop tripjson stopjson getneareststopsjson stopinfo searchroute
 WEBSERVER_BINS   := $(addprefix $(WEBSERVER_TOOLS_DIR)/,$(WEBSERVER_TOOLS))
 
-RT_TOOLS := decodeTrip decodeStop decodeAlerts routeVehicles
+RT_TOOLS := decodeTrip decodeStop decodeAlerts routeVehicles routeMedianDelay
 RT_BINS  := $(addprefix $(RT_DIR)/,$(RT_TOOLS))
 
-EXP_BINS := $(EXP_DIR)/test
+FAST_BINS := $(FAST_DIR)/webserver
 
-FAST_BINS := $(EXP_DIR)/webserver
-
-.PHONY: all static rt exp fast static-gtfs webserver-tools clean
+.PHONY: all static rt fast static-gtfs webserver-tools clean
 
 # Default: everything.
-all: static-gtfs webserver-tools rt
+all: static-gtfs webserver-tools rt fast
 
 # Just the tools that build with a C++17 compiler alone, no protobuf setup required.
 static: static-gtfs webserver-tools
@@ -48,8 +45,6 @@ static-gtfs: $(STATIC_GTFS_BINS)
 webserver-tools: $(WEBSERVER_BINS)
 
 rt: $(RT_BINS)
-
-exp: $(EXP_BINS)
 
 fast: $(FAST_BINS)
 
@@ -64,14 +59,11 @@ $(WEBSERVER_TOOLS_DIR)/%: $(WEBSERVER_TOOLS_DIR)/%.cpp $(STATIC_GTFS_DIR)/gtfs.h
 $(RT_DIR)/%: $(RT_DIR)/%.cpp $(RT_PROTO_SRC)
 	$(CXX) $(CXXSTD) -O3 -o $@ $(filter-out %.hpp,$^) $(PROTOBUF_FLAGS)
 
-# routeVehicles also reads the static feed through config.hpp/gtfs.hpp (extra deps only, no recipe).
-$(RT_DIR)/routeVehicles: $(STATIC_GTFS_DIR)/gtfs.hpp $(CONFIG_HPP)
+# routeVehicles/routeMedianDelay also read the static feed through config.hpp/gtfs.hpp (extra deps only, no recipe).
+$(RT_DIR)/routeVehicles $(RT_DIR)/routeMedianDelay: $(STATIC_GTFS_DIR)/gtfs.hpp $(CONFIG_HPP)
 
-$(EXP_DIR)/%: $(EXP_DIR)/%.cpp $(EXP_DIR)/fast-gtfs.hpp
-	$(CXX) $(CXXSTD) $(OPT) -o $@ $<
-
-$(EXP_DIR)/webserver: $(EXP_DIR)/webserver.cpp $(EXP_DIR)/fast-gtfs.hpp $(EXP_DIR)/webservermethods.hpp $(EXP_DIR)/httplib.h $(STATIC_GTFS_DIR)/gtfs.hpp
+$(FAST_DIR)/webserver: $(FAST_DIR)/webserver.cpp $(FAST_DIR)/fast-gtfs.hpp $(FAST_DIR)/webservermethods.hpp $(FAST_DIR)/httplib.h $(STATIC_GTFS_DIR)/gtfs.hpp $(CONFIG_HPP)
 	$(CXX) $(CXXSTD) $(OPT) -o $@ $<
 
 clean:
-	rm -f $(STATIC_GTFS_BINS) $(WEBSERVER_BINS) $(RT_BINS) $(EXP_BINS) $(FAST_BINS)
+	rm -f $(STATIC_GTFS_BINS) $(WEBSERVER_BINS) $(RT_BINS) $(FAST_BINS)

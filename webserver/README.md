@@ -24,7 +24,7 @@ The easiest way is the `Makefile` at the repo root, which builds the webserver t
 ```zsh
 cd ..
 make static   # webserver/tools/* (no protobuf needed)
-make rt       # decodeTrip, decodeStop, decodeAlerts (needs protobuf + pkg-config)
+make rt       # decodeTrip, decodeStop, decodeAlerts, ... (needs protobuf + pkg-config)
 # or just `make` / `make all` to build both
 ```
 
@@ -38,13 +38,25 @@ find . -name "*.cpp" | xargs -I{} bash -c 'clang++ -std=c++17 -O3 -o "${0%.cpp}"
 
 If you didn't use `make rt` above, follow the [gtfs-rt README](../gtfs-rt/readme.md) to build `decodeTrip`, `decodeStop`, and `decodeAlerts` manually.
 
-### Step 5 — Start the server
+### Step 5 — Configure and start the server
+
+Make sure `config/config.json` exists (copy `config/config.example.json`) with your data path and GTFS-RT URLs. Then, from inside `webserver/` (tool paths are relative):
 
 ```zsh
 python3 server.py
 ```
 
-Open `http://localhost:5015` in your browser.
+Open `http://localhost:5015` in your browser. A rebuilt C++ tool is picked up on the next request; no restart needed.
+
+### Pages
+
+| Path | Page |
+|---|---|
+| `/` | Main map + sidebar app |
+| `/depbd` | Nearby departure board |
+| `/rtebd` | Nearby route board |
+
+For production (gunicorn + nginx) see [../NGINX.md](../NGINX.md).
 
 ## API Endpoints
 
@@ -52,23 +64,34 @@ Open `http://localhost:5015` in your browser.
 |---|---|---|
 | GET | `/api/trip/<trip_id>` | Schedule data for a trip |
 | GET | `/api/stop/<stop_id>/<YYYY-MM-DD>` | Arrivals at a stop on a given date |
+| GET | `/api/stopinfo/<stop_id>` | Static info for a stop |
+| GET | `/api/searchstop/<query>` | Fuzzy stop search (name, ID or code) |
+| GET | `/api/searchroute/<query>` | Fuzzy route search |
 | GET | `/api/nearest/<lat>/<lon>` | Nearest stops to a coordinate |
 | GET | `/api/route/<route_id>/<year>/<month>/<day>` | All trips for a route on a date |
 | GET | `/api/rt/location/<trip_id>` | Live vehicle location for a trip |
 | GET | `/api/rt/stop/<stop_id>` | Live arrivals at a stop |
+| GET | `/api/rt/alerts` | All active service alerts |
 
 ## Token Authentication (optional)
 
-To require a token for all requests, run the token server instead:
+`tokenserver.py` and `tksweb/` are generated from `server.py` and `web/`; never edit them by hand. After changing either source, from `webserver/` run:
 
 ```zsh
-python3 tokenindex_converter.py | python3 tokenserver_converter.py
+python3 tokenserver_converter.py
+python3 tokenindex_converter.py
 ```
 
-Create `t_confidental_info.py` with your token:
+Create `t_confidental_info.py` (gitignored, never commit it) with your token:
 
 ```py
 token = "your_secret_token"
+```
+
+Then start it (binds `0.0.0.0:5015`, `debug=False`):
+
+```zsh
+python3 tokenserver.py
 ```
 
 Generate a secure token:
