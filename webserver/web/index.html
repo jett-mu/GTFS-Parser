@@ -412,6 +412,7 @@
     .sb-tab.active[data-sb-tab="sb-tab-stop"]      { color: var(--negative); border-bottom-color: var(--negative); }
     .sb-tab.active[data-sb-tab="sb-tab-triproute"] { color: var(--accent);   border-bottom-color: var(--accent); }
     .sb-tab.active[data-sb-tab="sb-tab-discover"]  { color: var(--accent2); border-bottom-color: var(--accent2); }
+    .sb-tab.active[data-sb-tab="sb-tab-alerts"]    { color: rgb(var(--warn-rgb)); border-bottom-color: rgb(var(--warn-rgb)); }
     .sb-tab.active[data-sb-tab="sb-tab-more"]      { color: var(--accent3); border-bottom-color: var(--accent3); }
 
     #sidebar-body::-webkit-scrollbar { width: 3px; }
@@ -527,6 +528,7 @@
     .m-tab.active[data-tab="m-tab-trip"]   { color: var(--accent);   border-bottom-color: var(--accent); }
     .m-tab.active[data-tab="m-tab-route"]  { color: var(--accent);   border-bottom-color: var(--accent); }
     .m-tab.active[data-tab="m-tab-nearby"] { color: var(--accent2);  border-bottom-color: var(--accent2); }
+    .m-tab.active[data-tab="m-tab-alerts"] { color: rgb(var(--warn-rgb)); border-bottom-color: rgb(var(--warn-rgb)); }
     .m-tab.active[data-tab="m-tab-more"]   { color: var(--accent3);  border-bottom-color: var(--accent3); }
 
     .tab-panel { display: none; }
@@ -963,6 +965,7 @@
     .dep-badge-slot {
       display: flex;
       align-items: center;
+      gap: 4px;
       flex-shrink: 0;
     }
 
@@ -1360,6 +1363,37 @@
     .rt-badge.in-transit  { background: rgba(var(--positive-rgb), 0.12); color: var(--positive); }
     .rt-badge.stopped     { background: rgba(var(--accent-rgb), 0.12); color: var(--accent); }
     .rt-badge.incoming    { background: rgba(var(--negative-rgb), 0.12);  color: var(--negative); }
+
+    /* ===== SERVICE ALERTS ===== */
+    .alerts-list-empty { font-size: 13px; color: var(--text-muted); padding: 10px 2px; }
+
+    .alert-item {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-left: 3px solid rgb(var(--warn-rgb));
+      border-radius: var(--card-radius);
+      padding: 9px 10px;
+      margin-bottom: 8px;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+    .alert-item:last-child { margin-bottom: 0; }
+    .alert-item-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+    .alert-item-title { font-size: 13px; font-weight: 600; color: var(--text); line-height: 1.35; }
+    .alert-item-meta {
+      font-size: 10.5px; color: rgb(var(--warn-rgb)); font-weight: 600;
+      letter-spacing: 0.03em; text-transform: uppercase; white-space: nowrap; flex-shrink: 0;
+    }
+    .alert-item-body { display: none; font-size: 12.5px; color: var(--text-muted); margin-top: 7px; line-height: 1.45; white-space: pre-wrap; }
+    .alert-item.expanded .alert-item-body { display: block; }
+    .alert-item-routes { font-size: 10.5px; color: var(--text-dim); font-family: var(--font-mono); margin-top: 6px; }
+
+    .rt-alert-badge {
+      display: inline-flex; align-items: center; gap: 3px;
+      font-size: 10.5px; font-weight: 600; padding: 2px 7px; border-radius: 20px;
+      background: rgba(var(--warn-rgb), 0.16); color: rgb(var(--warn-rgb));
+      white-space: nowrap; cursor: help;
+    }
 
     .rt-timestamp {
       font-size: 11px;
@@ -2070,6 +2104,7 @@
           <button class="sb-tab active" data-sb-tab="sb-tab-stop">Stops</button>
           <button class="sb-tab" data-sb-tab="sb-tab-triproute">Trips &amp; routes</button>
           <button class="sb-tab" data-sb-tab="sb-tab-discover">Discover</button>
+          <button class="sb-tab" data-sb-tab="sb-tab-alerts">Alerts</button>
           <button class="sb-tab" data-sb-tab="sb-tab-more">More</button>
         </div>
         <div id="sidebar-body">
@@ -2261,6 +2296,16 @@
         <div id="nearestStopsInfo"></div>
       </div>
 
+      <div class="sidebar-section" id="sb-tab-alerts">
+        <div class="panel">
+          <div class="panel-heading-row">
+            <div class="panel-heading">Service alerts</div>
+            <span id="alertsCount" class="route-trips-count"></span>
+          </div>
+        </div>
+        <div id="alertsList" class="alerts-list"></div>
+      </div>
+
       <div class="sidebar-section" id="sb-tab-more">
         <div class="panel">
           <div class="panel-heading">Extra features</div>
@@ -2308,6 +2353,7 @@
       <button class="m-tab" data-tab="m-tab-trip">Trip</button>
       <button class="m-tab" data-tab="m-tab-route">Route</button>
       <button class="m-tab" data-tab="m-tab-nearby">Nearby</button>
+      <button class="m-tab" data-tab="m-tab-alerts">Alerts</button>
       <button class="m-tab" data-tab="m-tab-more">More</button>
     </div>
 
@@ -2494,6 +2540,15 @@
           <button class="secondary tab-accent-btn" style="width:100%;margin-top:5px" onclick="showUserLocation()">Show my location on map</button>
         </div>
         <div id="m-nearestStopsInfo"></div>
+      </div>
+
+      <!-- ALERTS TAB -->
+      <div class="tab-panel" id="m-tab-alerts">
+        <div class="panel-heading-row">
+          <div class="panel-heading">Service alerts</div>
+          <span id="m-alertsCount" class="route-trips-count"></span>
+        </div>
+        <div id="m-alertsList" class="alerts-list"></div>
       </div>
 
       <!-- MORE TAB -->
@@ -2728,6 +2783,10 @@
     let depsRefreshId = null;
     let rtStopCache = new Map(); // stopId -> {data, receivedAt}
     const RT_STALE_MS = 2 * 60 * 1000;
+    let activeAlerts = [];          // cached array from /api/rt/alerts
+    let alertsRefreshId = null;
+    const ALERTS_REFRESH_MS = 60 * 1000;
+    let currentRouteId = null;      // needed so route-trip-card badges can match route_id
     let activeRouteTripCard = null;
     let currentStopId = null;
     let pickModeActive = false;

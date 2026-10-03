@@ -111,6 +111,19 @@ def get_rt_stop(stopID):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/rt/alerts')
+def get_rt_alerts():
+    try:
+        result = subprocess.run(['../gtfs-rt/proto-conversion/webserver-implementation/./decodeAlerts'], capture_output=True, text=True)
+        if result.returncode != 0:
+            return jsonify({'error': result.stderr}), 500
+        data = json.loads(result.stdout)
+        if not data:
+            return jsonify(data), 422
+        return jsonify(data)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/favicon.ico')
 def favicon():
     return send_from_directory('.', 'favicon.ico')

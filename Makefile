@@ -70,7 +70,7 @@ $(RT_DIR)/routeVehicles: $(STATIC_GTFS_DIR)/gtfs.hpp $(CONFIG_HPP)
 $(EXP_DIR)/%: $(EXP_DIR)/%.cpp $(EXP_DIR)/fast-gtfs.hpp
 	$(CXX) $(CXXSTD) $(OPT) -o $@ $<
 
-$(EXP_DIR)/webserver: $(EXP_DIR)/webserver.cpp $(EXP_DIR)/fast-gtfs.hpp $(EXP_DIR)/fast-config.hpp $(EXP_DIR)/webservermethods.hpp $(EXP_DIR)/httplib.h $(STATIC_GTFS_DIR)/gtfs.hpp
+$(EXP_DIR)/webserver: $(EXP_DIR)/webserver.cpp $(EXP_DIR)/fast-gtfs.hpp $(EXP_DIR)/webservermethods.hpp $(EXP_DIR)/httplib.h $(STATIC_GTFS_DIR)/gtfs.hpp
 	$(CXX) $(CXXSTD) $(OPT) -o $@ $<
 
 clean:

@@ -4,9 +4,9 @@
 
 #include <chrono>
 #include "../static-gtfs/gtfs.hpp"
-#include "fast-gtfs.hpp"
 #include "webservermethods.hpp"
 #include "httplib.h"
+#include "../config/config.hpp"
 
 using namespace httplib;
 
@@ -36,38 +36,40 @@ std::unordered_map<string, int> routerefs;
 
 int main() {
     auto inits = std::chrono::steady_clock::now();
-    fast_gtfs::bin_search::sortFile(fast_config::fast_stop_path, "stop_id", fast_config::fast_stop_stop_id);
-    fast_gtfs::bin_search::sortFile(fast_config::fast_stop_times_path, "trip_id", fast_config::fast_stop_times_trip_id);
-    fast_gtfs::bin_search::sortFile(fast_config::fast_stop_times_path, "stop_id", fast_config::fast_stop_times_stop_id);
-    fast_gtfs::bin_search::sortFile(fast_config::fast_shape_path, "shape_id", fast_config::fast_shape_shape_id);
-    fast_gtfs::bin_search::sortFile(fast_config::fast_trip_path, "trip_id", fast_config::fast_trip_trip_id);
-    fast_gtfs::bin_search::sortFile(fast_config::fast_calendar_path, "service_id", fast_config::fast_calendar_service_id);
-    fast_gtfs::bin_search::sortFile(fast_config::fast_calendar_dates_path, "service_id", fast_config::fast_calendar_dates_service_id);
-    fast_gtfs::bin_search::sortFile(fast_config::fast_route_path, "route_id", fast_config::fast_route_route_id);
 
-    triplines = fast_gtfs::bin_search::createMap(fast_config::fast_trip_trip_id, "trip_id");
-    triprefs =  fast_gtfs::bin_search::generateHeaderMap(fast_config::fast_trip_trip_id);
+    fast_gtfs::fast_data_feed df(config::loadDataPath());
+    fast_gtfs::bin_search::sortFile(df.fast_stop_path, "stop_id", df.fast_stop_stop_id);
+    fast_gtfs::bin_search::sortFile(df.fast_stop_times_path, "trip_id", df.fast_stop_times_trip_id);
+    fast_gtfs::bin_search::sortFile(df.fast_stop_times_path, "stop_id", df.fast_stop_times_stop_id);
+    fast_gtfs::bin_search::sortFile(df.fast_shape_path, "shape_id", df.fast_shape_shape_id);
+    fast_gtfs::bin_search::sortFile(df.fast_trip_path, "trip_id", df.fast_trip_trip_id);
+    fast_gtfs::bin_search::sortFile(df.fast_calendar_path, "service_id", df.fast_calendar_service_id);
+    fast_gtfs::bin_search::sortFile(df.fast_calendar_dates_path, "service_id", df.fast_calendar_dates_service_id);
+    fast_gtfs::bin_search::sortFile(df.fast_route_path, "route_id", df.fast_route_route_id);
 
-    stoplines = fast_gtfs::bin_search::createMap(fast_config::fast_stop_stop_id, "stop_id");
-    stoprefs = fast_gtfs::bin_search::generateHeaderMap(fast_config::fast_stop_stop_id);
+    triplines = fast_gtfs::bin_search::createMap(df.fast_trip_trip_id, "trip_id");
+    triprefs =  fast_gtfs::bin_search::generateHeaderMap(df.fast_trip_trip_id);
 
-    stoptimesstoplines = fast_gtfs::bin_search::createMap(fast_config::fast_stop_times_trip_id, "trip_id");
-    stoptimesstoprefs = fast_gtfs::bin_search::generateHeaderMap(fast_config::fast_stop_times_trip_id);
+    stoplines = fast_gtfs::bin_search::createMap(df.fast_stop_stop_id, "stop_id");
+    stoprefs = fast_gtfs::bin_search::generateHeaderMap(df.fast_stop_stop_id);
 
-    stoptimesstopidlines = fast_gtfs::bin_search::createMap(fast_config::fast_stop_times_stop_id, "stop_id");
-    stoptimesstopidrefs = fast_gtfs::bin_search::generateHeaderMap(fast_config::fast_stop_times_stop_id);
+    stoptimesstoplines = fast_gtfs::bin_search::createMap(df.fast_stop_times_trip_id, "trip_id");
+    stoptimesstoprefs = fast_gtfs::bin_search::generateHeaderMap(df.fast_stop_times_trip_id);
 
-    shapelines = fast_gtfs::bin_search::createMap(fast_config::fast_shape_shape_id, "shape_id");
-    shaperefs = fast_gtfs::bin_search::generateHeaderMap(fast_config::fast_shape_shape_id);
+    stoptimesstopidlines = fast_gtfs::bin_search::createMap(df.fast_stop_times_stop_id, "stop_id");
+    stoptimesstopidrefs = fast_gtfs::bin_search::generateHeaderMap(df.fast_stop_times_stop_id);
 
-    calendarlines = fast_gtfs::bin_search::createMap(fast_config::fast_calendar_service_id, "service_id");
-    calendarrefs = fast_gtfs::bin_search::generateHeaderMap(fast_config::fast_calendar_service_id);
+    shapelines = fast_gtfs::bin_search::createMap(df.fast_shape_shape_id, "shape_id");
+    shaperefs = fast_gtfs::bin_search::generateHeaderMap(df.fast_shape_shape_id);
 
-    calendardatelines = fast_gtfs::bin_search::createMap(fast_config::fast_calendar_dates_service_id, "service_id");
-    calendardaterefs = fast_gtfs::bin_search::generateHeaderMap(fast_config::fast_calendar_dates_service_id);
+    calendarlines = fast_gtfs::bin_search::createMap(df.fast_calendar_service_id, "service_id");
+    calendarrefs = fast_gtfs::bin_search::generateHeaderMap(df.fast_calendar_service_id);
 
-    routelines = fast_gtfs::bin_search::createMap(fast_config::fast_route_route_id, "route_id");
-    routerefs = fast_gtfs::bin_search::generateHeaderMap(fast_config::fast_route_route_id);
+    calendardatelines = fast_gtfs::bin_search::createMap(df.fast_calendar_dates_service_id, "service_id");
+    calendardaterefs = fast_gtfs::bin_search::generateHeaderMap(df.fast_calendar_dates_service_id);
+
+    routelines = fast_gtfs::bin_search::createMap(df.fast_route_route_id, "route_id");
+    routerefs = fast_gtfs::bin_search::generateHeaderMap(df.fast_route_route_id);
 
     cout << "done init\n";
     auto ends = std::chrono::steady_clock::now();
