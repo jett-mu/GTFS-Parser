@@ -6,6 +6,7 @@
 #include <google/protobuf/util/json_util.h>
 #include <libgen.h>
 #include <sys/stat.h>
+#include "../../../config/config.hpp"
 #include <ctime>
 #include <fcntl.h>
 #include <unistd.h>
@@ -70,7 +71,7 @@ int main(int argc, char* argv[]) {
     std::string outputPath = exeDir + "/downloaded_file.pb";
     const int MAX_AGE_SECONDS = 15;
 
-    refreshIfStale(outputPath, "https://rtu.york.ca/gtfsrealtime/VehiclePositions", MAX_AGE_SECONDS);
+    refreshIfStale(outputPath, config::loadRtVehiclePositionsUrl(), MAX_AGE_SECONDS);
 
     if (argc != 2) {
         cerr << "Usage: " << argv[0] << " <tripID>" << endl;

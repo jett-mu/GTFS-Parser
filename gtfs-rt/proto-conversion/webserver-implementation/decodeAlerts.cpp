@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include "../transit-files/gtfs-realtime.pb.h"
+#include "../../../config/config.hpp"
 #include <google/protobuf/util/json_util.h>
 #include <libgen.h>
 #include <sys/stat.h>
@@ -76,7 +77,7 @@ int main(int argc, char* argv[]) {
     string outputPath = exeDir + "/downloaded_alerts.pb";
     const int MAX_AGE_SECONDS = 15;
 
-    refreshIfStale(outputPath, "https://storage.googleapis.com/transit-terminal-alerts-bucket-production/yrt.pb", MAX_AGE_SECONDS);
+    refreshIfStale(outputPath, config::loadRtAlertUrl(), MAX_AGE_SECONDS);
 
     GOOGLE_PROTOBUF_VERIFY_VERSION;
 

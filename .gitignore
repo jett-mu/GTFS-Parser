@@ -72,6 +72,7 @@ fast-static-gtfs/test-data/
 webserver/t_confidental_info.py
 static-gtfs/spam.py
 static-gtfs/confidential_info.hpp
+config/config.json
 
 # Machine-specific config (absolute paths) - see *-demo.hpp for templates
 static-gtfs/config.hpp

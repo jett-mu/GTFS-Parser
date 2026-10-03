@@ -1,4 +1,7 @@
 {
   "config_version": 3,
-  "absolute_path_to_data": "/Users/jettmu/Developer/VSCode/GTFS Parser/data/ttc_archive/"
+  "absolute_path_to_data": "/Users/jettmu/Developer/VSCode/GTFS Parser/data/yrt_archive/",
+  "rt_alert_url": "https://storage.googleapis.com/transit-terminal-alerts-bucket-production/yrt.pb",
+  "rt_tripupdates_url": "https://rtu.york.ca/gtfsrealtime/TripUpdates",
+  "rt_vehiclepositions_url": "https://rtu.york.ca/gtfsrealtime/VehiclePositions"
 }

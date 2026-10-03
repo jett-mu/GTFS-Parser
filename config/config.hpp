@@ -157,6 +157,19 @@ namespace config {
         return dataPath;
     }
 
+    // GTFS-Realtime feed URLs; each throws std::runtime_error if its key is missing or not a string.
+    inline string loadRtAlertUrl(const string& configFile = "") {
+        return json_read::requireString(json_read::readFile(configFile.empty() ? findConfigFile() : configFile), "rt_alert_url");
+    }
+
+    inline string loadRtTripUpdatesUrl(const string& configFile = "") {
+        return json_read::requireString(json_read::readFile(configFile.empty() ? findConfigFile() : configFile), "rt_tripupdates_url");
+    }
+
+    inline string loadRtVehiclePositionsUrl(const string& configFile = "") {
+        return json_read::requireString(json_read::readFile(configFile.empty() ? findConfigFile() : configFile), "rt_vehiclepositions_url");
+    }
+
     // Loads the config and builds the data_feed every gtfs:: query takes.
     inline gtfs::data_feed load(const string& configFile = "") {
         return gtfs::data_feed(loadDataPath(configFile));

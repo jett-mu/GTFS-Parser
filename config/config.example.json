@@ -1,0 +1,7 @@
+{
+  "config_version": 3,
+  "absolute_path_to_data": "/Users/abc/absolute/path/to/data/",
+  "rt_alert_url": "https://transitagency.com/file.pb",
+  "rt_tripupdates_url": "https://transitagency.com/file.pb",
+  "rt_vehiclepositions_url": "https://transitagency.com/file.pb"
+}
