@@ -1,4 +1,6 @@
-# GTFS Parser — index.html Features
+# GTFS Parser — Web UI Features
+
+Covers `web/index.html` (main app) plus the standalone boards `web/depboard.html` (`/depbd`) and `web/rteboard.html` (`/rtebd`).
 
 ## Map
 - Interactive Leaflet map (OpenStreetMap tiles) as the main view, centered on the transit region by default.
@@ -12,7 +14,7 @@
 - Zoom controls (desktop) / hidden on mobile in favor of touch gestures.
 
 ## Stop lookup
-- Search stops by name (autocomplete/typeahead dropdown via `/api/searchstop`).
+- Single stop box: search by name, ID or code (fuzzy typeahead via `/api/searchstop`, keyboard navigable, match highlighting, recent stops when empty); exact ID + Enter loads directly.
 - Load a stop directly by Stop ID.
 - Date picker (with "Today" shortcut) to control which service day's departures are shown.
 - Stop detail header: name, stop code, stop ID, lat/lon.
@@ -43,10 +45,16 @@
 - Status pulse indicator (green = live, red = error/stale).
 - Per-departure real-time delay badges (on time / early / delayed / live-only) computed from GTFS-RT trip updates, cached per stop with a staleness window so badges don't flicker when a poll briefly fails.
 
+## Service alerts
+- Alerts tab (desktop sidebar and mobile) listing all active GTFS-RT service alerts from `/api/rt/alerts`, with a count badge.
+
+## Boards
+- `/depbd`: nearby departure board (time-sorted, realtime delay overlays). `/rtebd`: nearby route board. Both are self-contained pages linked from the More tab.
+
 ## Nearby stops ("Discover")
 - Find nearest stops by manually entered latitude/longitude.
 - "Use my location" (browser geolocation) to auto-fill coordinates and search.
-- List of nearest stops with distance in km; clicking one loads that stop.
+- List of nearest stops with distance in km. Nearest-stop searches (pin drop, my location) only list stops; tapping a row/marker loads its departures, and "Only this stop" loads a single stop.
 - Map markers for all nearby results with distance popups, auto-fit to bounds.
 
 ## Theming
@@ -55,8 +63,8 @@
 - Respects `prefers-reduced-motion` (disables animations/transitions).
 
 ## Responsive layout
-- **Desktop (>640px):** collapsible full-height sidebar with tabs (Stops / Trips & routes / Discover); collapse state and last-active tab persisted to localStorage; sidebar collapse/expand button with animated icon.
-- **Mobile (≤640px):** draggable bottom sheet (swipe or tap handle to expand/collapse) with its own tab bar (Stop / Trip / Route / Nearby), synced with the desktop sidebar tabs; floating map control buttons (pick-location, my-location) positioned above the sheet.
+- **Desktop (>640px):** collapsible full-height sidebar with tabs (Stops / Trips & routes / Discover / Alerts / More); collapse state and last-active tab persisted to localStorage; sidebar collapse/expand button with animated icon.
+- **Mobile (≤640px):** draggable bottom sheet (swipe or tap handle to expand/collapse) with its own tab bar (Stop / Trip / Route / Nearby / Alerts / More), synced with the desktop sidebar tabs; floating map control buttons (pick-location, my-location) positioned above the sheet.
 
 ## Misc UX
 - Toast notifications for errors/empty states (e.g. "Enter both latitude and longitude first").

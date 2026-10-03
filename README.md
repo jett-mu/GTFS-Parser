@@ -42,7 +42,7 @@ Once `config/config.json` points at your GTFS data folder (see [static-gtfs](sta
 
 ```bash
 make              # same as `make all`
-make all          # static-gtfs, webserver tools, and GTFS-RT tools, and `fast`
+make all          # static-gtfs, webserver tools, and GTFS-RT tools and `fast`
 make static       # gtfs_cli + webserver tools only — no protobuf needed
 make rt           # decodeTrip/Stop/Alerts, routeVehicles, routeMedianDelay — needs protobuf + pkg-config
 make fast         # fast-static-gtfs/webserver (port 5016) — no protobuf needed
