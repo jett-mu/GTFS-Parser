@@ -51,6 +51,13 @@ struct sorted_table {
 
 std::shared_mutex dataMutex; // handlers hold it shared, load() holds it exclusive
 std::atomic<bool> loaded{false};
+std::atomic<const char*> busyWith{nullptr}; // console command in progress ("sorting", ...); requests get a 503 meanwhile
+
+// marks the server busy for the lifetime of a console command
+struct BusyScope {
+    explicit BusyScope(const char* what) { busyWith = what; }
+    ~BusyScope() { busyWith = nullptr; }
+};
 
 const char* RED = "\033[31m";
 const char* GREEN = "\033[32m";
@@ -159,15 +166,20 @@ void sortAll(const fast_gtfs::fast_data_feed& df) {
 void consoleLoop(const fast_gtfs::fast_data_feed& df) {
     string line;
     while (std::getline(std::cin, line)) {
-        if (line == "sort") sortAll(df);
-        else if (line == "verify") verify(df);
-        else if (line == "load") load(df);
+        if (line == "sort") { BusyScope busy("sorting"); sortAll(df); }
+        else if (line == "verify") { BusyScope busy("verifying"); verify(df); }
+        else if (line == "load") { BusyScope busy("loading"); load(df); }
         else if (!line.empty()) std::cout << "commands: sort, verify, load\n";
     }
 }
 
 // handlers call this first; false means the 503 has already been written
 bool requireLoaded(Response& res) {
+    if (const char* what = busyWith.load()) {
+        res.status = 503;
+        res.set_content(string("{\"error\":\"server busy: ") + what + "\"}", "application/json");
+        return false;
+    }
     if (loaded) return true;
     res.status = 503;
     res.set_content("{\"error\":\"data not loaded\"}", "application/json");
