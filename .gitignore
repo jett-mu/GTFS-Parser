@@ -59,8 +59,7 @@ fast-static-gtfs/webserver
 # Generated / downloaded data
 data-collection/decoded_gtfs.json
 data-collection/downloaded_tripUpdates.pb
-data-collection/table.csv
-data-collection/table1.csv
+data-collection/*.csv
 data-collection/combined.csv
 gtfs-rt/proto-conversion/decoded_gtfs.json
 gtfs-rt/testing/data/
@@ -73,7 +72,8 @@ webserver/t_confidental_info.py
 static-gtfs/spam.py
 static-gtfs/confidential_info.hpp
 # (copy config/config.example.json -> config/config.json)
-config/config.json
+config/*.json
+!config/config.example.json
 
 # Personal notes
 gtfs-rt/noteToSelf.md

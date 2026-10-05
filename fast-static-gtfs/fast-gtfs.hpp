@@ -101,6 +101,32 @@ inline void sortFile(const string& path, const string& keyColumn, const string& 
     for (const auto& kl : keyedLines) out << kl.second << '\n';
     out.close();
 }
+inline bool fileExists(const string& path) {
+    ifstream in(path);
+    return in.good();
+}
+// true if the rows of `path` are in non-decreasing order of `keyColumn` (the same ordering sortFile produces)
+inline bool isSorted(const string& path, const string& keyColumn) {
+    ifstream in(path);
+    if (!in.good()) return false;
+
+    string header;
+    std::getline(in, header);
+    auto refs = gtfs::createMapFromVector(gtfs::parseDataCSV(header));
+    auto find = refs.find(keyColumn);
+    if (find == refs.end()) return false;
+
+    string line, previous;
+    bool first = true;
+    while (std::getline(in, line)) {
+        if (line.empty()) continue;
+        string key = gtfs::parseDataCSV(line)[find->second];
+        if (!first && key < previous) return false;
+        previous = std::move(key);
+        first = false;
+    }
+    return true;
+}
 inline vector<pair<string, vector<string>>> createMap(const string& path, const string& key) {
     ifstream stopFile(path);
     string header;

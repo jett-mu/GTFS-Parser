@@ -763,47 +763,66 @@
       return n.getHours()*3600 + n.getMinutes()*60 + n.getSeconds();
     }
 
-    function getRTDelaySeconds(tripId) {
-      for (const { data } of rtStopCache.values()) {
-        const entity = (data.entity || []).find(e => e.trip_update?.trip?.trip_id === tripId);
-        if (entity) {
-          const stu = entity.trip_update.stop_time_update?.[0];
-          return stu?.departure?.delay ?? stu?.arrival?.delay ?? 0;
-        }
+    // Seconds late (+) / early (-) for one trip_update at stopId, vs the scheduled
+    // time schedTime ("HH:MM:SS", may run past 24h). Uses the feed's own delay when
+    // it has one; feeds like TTC publish only absolute times, so otherwise derive it
+    // from the predicted time of day. null if the stop isn't in the update.
+    function rtStopDelay(tu, stopId, schedTime) {
+      const stu = (tu.stop_time_update || []).find(s => s.stop_id === String(stopId));
+      if (!stu) return null;
+      const explicit = stu.departure?.delay ?? stu.arrival?.delay;
+      if (explicit != null) return explicit;
+      const t = Number(stu.arrival?.time ?? stu.departure?.time);
+      if (!t || !schedTime) return null;
+      const d = new Date(t * 1000);
+      const diff = d.getHours()*3600 + d.getMinutes()*60 + d.getSeconds() - parseTime(schedTime);
+      return ((diff + 43200) % 86400 + 86400) % 86400 - 43200; // fold into [-12h, 12h)
+    }
+
+    // A trip can be cached under several stops; the right stop's delay is the
+    // smallest, since the others are measured against the wrong scheduled time.
+    function getRTDelaySeconds(tripId, schedTime, stopId) {
+      let best = null;
+      for (const [cachedStopId, { data }] of rtStopCache) {
+        if (stopId && String(cachedStopId) !== String(stopId)) continue;
+        const e = (data.entity || []).find(e => e.trip_update?.trip?.trip_id === tripId);
+        if (!e) continue;
+        const d = rtStopDelay(e.trip_update, cachedStopId, schedTime);
+        if (d !== null && (best === null || Math.abs(d) < Math.abs(best))) best = d;
       }
-      return 0;
+      return best ?? 0;
     }
 
     // ===== RT STOP =====
     function loadRTStopUpdates(stopId) {
       fetch(`/api/rt/stop/${stopId}`)
         .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
-        .then(data => { rtStopCache.set(stopId, {data, receivedAt: Date.now()}); applyRTtoDepartures(data); })
+        .then(data => { rtStopCache.set(stopId, {data, receivedAt: Date.now()}); applyRTtoDepartures(data, stopId); })
         .catch(() => {
           // Fetch failed (or the feed is briefly empty) — keep showing the last
           // good RT badges for this stop instead of clearing them, for up to
           // RT_STALE_MS after they were received.
           const cached = rtStopCache.get(stopId);
           if (cached && (Date.now() - cached.receivedAt) < RT_STALE_MS)
-            applyRTtoDepartures(cached.data);
+            applyRTtoDepartures(cached.data, stopId);
         });
     }
 
     function reapplyCachedRT(stopId) {
       const cached = rtStopCache.get(stopId);
       if (cached && (Date.now() - cached.receivedAt) < RT_STALE_MS)
-        applyRTtoDepartures(cached.data);
+        applyRTtoDepartures(cached.data, stopId);
     }
 
-    function applyRTtoDepartures(data) {
+    function applyRTtoDepartures(data, stopId) {
       (data.entity||[]).forEach(e => {
         const tu = e.trip_update;
         if (!tu) return;
         const tripId = tu.trip?.trip_id;
         if (!tripId) return;
-        const stu = tu.stop_time_update?.[0];
-        const delay = stu?.departure?.delay ?? stu?.arrival?.delay ?? null;
         document.querySelectorAll(`.dep-card[data-trip-id="${tripId}"]`).forEach(card => {
+          if (card.dataset.stopId && card.dataset.stopId !== String(stopId)) return;
+          const delay = rtStopDelay(tu, stopId, card.dataset.arrival);
           card.classList.add('rt-live');
           let badge = card.querySelector('.rt-delay-badge');
           if (!badge) {
@@ -962,7 +981,7 @@
 
     // ['3', 'min', ''] | ['Due', '', 'due'] | ['3:15 PM', '', 'later']
     function fmtBoardLeave(arrival, tripId) {
-      const at = parseTime(arrival) + getRTDelaySeconds(tripId);
+      const at = parseTime(arrival) + getRTDelaySeconds(tripId, arrival);
       const secs = at - nowInSeconds();
       if (secs < 0)    return ['Gone', '', 'past'];
       if (secs <= 30)  return ['Due', '', 'due'];
@@ -1006,7 +1025,7 @@
       });
       const now = nowInSeconds();
       return [...byTrip.values()]
-        .filter(dep => parseTime(dep.arrival_time) + getRTDelaySeconds(dep.trip_id) >= now);
+        .filter(dep => parseTime(dep.arrival_time) + getRTDelaySeconds(dep.trip_id, dep.arrival_time, dep._stopId) >= now);
     }
 
     function setBoardMessage(text) {
@@ -1023,7 +1042,7 @@
         const [text, unit, cls] = fmtBoardLeave(row.dataset.arrival, row.dataset.tripId);
         el.innerHTML = escapeHtml(text) + (unit ? `<span class="board-leave-unit">${unit}</span>` : '');
         el.className = `board-leave${cls ? ' ' + cls : ''}`;
-        const secsLeft = parseTime(row.dataset.arrival) + getRTDelaySeconds(row.dataset.tripId) - now;
+        const secsLeft = parseTime(row.dataset.arrival) + getRTDelaySeconds(row.dataset.tripId, row.dataset.arrival, row.dataset.stopId) - now;
         row.classList.toggle('board-row-missed', Number(row.dataset.walkSec) > secsLeft);
       });
     }
@@ -1136,6 +1155,7 @@
       row.className = 'dep-card board-row';
       row.dataset.tripId = dep.trip_id;
       row.dataset.arrival = dep.arrival_time;
+      if (dep._stopId) row.dataset.stopId = dep._stopId;
       row.dataset.walkSec = Math.round((dep._distanceKM * 1000 / BOARD_WALK_M_PER_MIN) * 60);
       const bg = dep.route_color ? `#${dep.route_color}` : 'var(--accent2)';
       const fg = dep.route_color ? readableTextColor(dep.route_color) : '#fff';
@@ -1158,7 +1178,7 @@
     function renderBoardCards() {
       const grid = document.getElementById('boardGrid');
       const now = nowInSeconds();
-      const realTime = dep => parseTime(dep.arrival_time) + getRTDelaySeconds(dep.trip_id);
+      const realTime = dep => parseTime(dep.arrival_time) + getRTDelaySeconds(dep.trip_id, dep.arrival_time, dep._stopId);
       // Re-filter and re-sort on every pass so buses drop off as they leave
       // and reorder as realtime delays come in.
       const rows = applyDepFilter(allBoardDepartures, 'board')
