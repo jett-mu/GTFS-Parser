@@ -47,7 +47,11 @@ struct sorted_table {
     const char* key;           // column the copy is sorted by
     vector<pair<string, vector<string>>>& lines;
     std::unordered_map<string, int>& refs;
+    bool optional = false;     // feed may legitimately lack the file (calendar.txt / calendar_dates.txt)
 };
+
+// an optional table whose source file isn't in the feed: nothing to sort or load
+bool absent(const sorted_table& t) { return t.optional && !fast_gtfs::bin_search::fileExists(t.source); }
 
 std::shared_mutex dataMutex; // handlers hold it shared, load() holds it exclusive
 std::atomic<bool> loaded{false};
@@ -76,8 +80,8 @@ vector<sorted_table> tables(const fast_gtfs::fast_data_feed& df) {
         {df.fast_stop_times_path, df.fast_stop_times_stop_id, "stop_id", stoptimesstopidlines, stoptimesstopidrefs},
         {df.fast_shape_path, df.fast_shape_shape_id, "shape_id", shapelines, shaperefs},
         {df.fast_trip_path, df.fast_trip_trip_id, "trip_id", triplines, triprefs},
-        {df.fast_calendar_path, df.fast_calendar_service_id, "service_id", calendarlines, calendarrefs},
-        {df.fast_calendar_dates_path, df.fast_calendar_dates_service_id, "service_id", calendardatelines, calendardaterefs},
+        {df.fast_calendar_path, df.fast_calendar_service_id, "service_id", calendarlines, calendarrefs, true},
+        {df.fast_calendar_dates_path, df.fast_calendar_dates_service_id, "service_id", calendardatelines, calendardaterefs, true},
         {df.fast_route_path, df.fast_route_route_id, "route_id", routelines, routerefs},
     };
 }
@@ -86,6 +90,10 @@ vector<sorted_table> tables(const fast_gtfs::fast_data_feed& df) {
 bool verify(const fast_gtfs::fast_data_feed& df) {
     bool ok = true;
     for (const auto& t : tables(df)) {
+        if (absent(t)) {
+            std::cout << fileName(t.sorted) << " (" << t.key << "): not in feed (optional), skipped\n";
+            continue;
+        }
         const bool exists = fast_gtfs::bin_search::fileExists(t.sorted);
         const bool sorted = exists && fast_gtfs::bin_search::isSorted(t.sorted, t.key);
         const string name = t.sorted.substr(t.sorted.find_last_of('/') + 1);
@@ -102,6 +110,7 @@ bool load(const fast_gtfs::fast_data_feed& df) {
     const auto all = tables(df);
     auto start = clock_type::now();
     for (const auto& t : all) {
+        if (absent(t)) continue;
         if (!fast_gtfs::bin_search::fileExists(t.sorted)) {
             warn(t.sorted + " not found, not loading (run \"sort\")");
             return false;
@@ -123,6 +132,12 @@ bool load(const fast_gtfs::fast_data_feed& df) {
         for (const auto& t : all) {
             const string label = fileName(t.sorted) + " (" + t.key + ")";
             std::cout << "  " << std::left << std::setw(width) << label << " " << std::flush;
+            if (absent(t)) {
+                t.lines.clear();
+                t.refs.clear();
+                std::cout << "not in feed, treated as empty\n";
+                continue;
+            }
             auto fileStart = clock_type::now();
             t.lines = fast_gtfs::bin_search::createMap(t.sorted, t.key);
             t.refs = fast_gtfs::bin_search::generateHeaderMap(t.sorted);
@@ -140,6 +155,7 @@ bool load(const fast_gtfs::fast_data_feed& df) {
 void sortAll(const fast_gtfs::fast_data_feed& df) {
     const auto all = tables(df);
     for (const auto& t : all) {
+        if (absent(t)) continue;
         if (!fast_gtfs::bin_search::fileExists(t.source)) {
             warn(t.source + " not found, not sorting");
             return;
@@ -153,6 +169,7 @@ void sortAll(const fast_gtfs::fast_data_feed& df) {
     for (const auto& t : all) {
         const string label = fileName(t.sorted) + " (" + t.key + ")";
         std::cout << "  " << std::left << std::setw(width) << label << " " << std::flush;
+        if (absent(t)) { std::cout << "not in feed, skipped\n"; continue; }
         auto fileStart = clock_type::now();
         fast_gtfs::bin_search::sortFile(t.source, t.key, t.sorted);
         std::cout << GREEN << "done" << RESET << "  " << std::right << std::setw(8)

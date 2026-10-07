@@ -59,6 +59,7 @@ int main(int argc, char* argv[]) {
     }
 
     vector<service> y;
+    const calendar_day queryDate(stoi(argv[2]), stoi(argv[3]), stoi(argv[4]));
 
     for (trip& x_trip : x) {
         y.push_back(getServiceInfo(feed, x_trip.service_id));
@@ -69,11 +70,13 @@ int main(int argc, char* argv[]) {
         service& service_y = y[i];
         bool remove = false;
 
-        if (service_y.schedule.start_date > getToday() || service_y.schedule.end_date < getToday()) {
+        // no calendar.txt row (file missing or service_id absent): runs on no regular day, only via calendar_dates
+        if (service_y.schedule.start_date.year < 0
+            || service_y.schedule.start_date > queryDate || service_y.schedule.end_date < queryDate) {
             remove = true;
         }
 
-        switch (convertDateToWeek(stoi(argv[2]), stoi(argv[3]), stoi(argv[4]))) {
+        switch (convertDateToWeek(queryDate.year, queryDate.month, queryDate.day)) {
             case mon: if (!service_y.schedule.monday) remove = true; break;
             case tue: if (!service_y.schedule.tuesday) remove = true; break;
             case wed: if (!service_y.schedule.wednesday) remove = true; break;
@@ -84,7 +87,7 @@ int main(int argc, char* argv[]) {
         }
 
         for (gtfs::calendar_date special_day : service_y.exceptions) {
-            if (special_day.date == getToday()) {
+            if (special_day.date == queryDate) {
                 if (special_day.exception_type == gtfs::calendar_date::removed)  remove = true;
                 if (special_day.exception_type == gtfs::calendar_date::added) remove = false;
             }

@@ -608,7 +608,10 @@ inline std::vector<string> parseDataCSV(const string& input) {
     string additions;
     bool inQuotes = false;
 
-    for (size_t i = 0; i < input.size(); i++) {
+    // a UTF-8 BOM only ever sits at the start of a file (its header line); skip it so the first column name matches
+    size_t start = (input.size() >= 3 && input.compare(0, 3, "\xEF\xBB\xBF") == 0) ? 3 : 0;
+
+    for (size_t i = start; i < input.size(); i++) {
         char c = input[i];
         if (c == '"') {
             if (inQuotes && i + 1 < input.size() && input[i + 1] == '"') {
