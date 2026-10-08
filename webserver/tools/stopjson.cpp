@@ -37,6 +37,10 @@ int main(int argc, char* argv[]) {
 
     std::vector<gtfs::trip_segment> ts = gtfs::getDayTimesAtStop(feed, st.stop_id, year, month, day);
 
+    std::sort(ts.begin(), ts.end(), [](const gtfs::trip_segment& a, const gtfs::trip_segment& b) {
+        return a.stop.arrival_time < b.stop.arrival_time;
+    });
+
     std::cout << "{\n\t\"stop_id\": \"" << argv[1] << "\",\n"
                 << "\t\"stop_code\": \"" << st.stop_code << "\",\n"
                 << "\t\"stop_name\": \"" << st.stop_name << "\",\n"
@@ -50,11 +54,13 @@ int main(int argc, char* argv[]) {
         gtfs::trip_segment x = ts[i];
 
         gtfs::route routeInfo = gtfs::getRouteInfo(feed, x.route_id);
+        gtfs::trip tripInfo = gtfs::getTripInfo(feed, x.stop.trip_id);
         cout << "\t\t{ \"route_id\": \"" << routeInfo.route_short_name << 
                 "\", \"arrival_time\": \"" << x.stop.arrival_time.leadingRoundedTime() << 
                 "\", \"trip_id\": \"" << x.stop.trip_id << 
-                "\", \"trip_headsign\": \"" << gtfs::getTripInfo(feed, x.stop.trip_id).trip_headsign << 
-                "\", \"route_color\": \"" << routeInfo.route_color << 
+                "\", \"trip_headsign\": \"" << tripInfo.trip_headsign << 
+                "\", \"direction_id\": " << tripInfo.direction_id << 
+                ", \"route_color\": \"" << routeInfo.route_color << 
                 (i == (tsLen-1) ? "\" } \n" : "\" }, \n");
     }
 

@@ -42,8 +42,8 @@ int main(int argc, char* argv[]) {
 
     std::cout << "{\n";
     std::cout << "\t\"total\": " << length << ",\n";
-    std::cout << "\t\"trip_id\": " << tx.trip_id << ",\n";
-    std::cout << "\t\"route_id\": " << tx.route_id << ",\n";
+    std::cout << "\t\"trip_id\": \"" << tx.trip_id << "\",\n";
+    std::cout << "\t\"route_id\": \"" << tx.route_id << "\",\n";
     std::cout << "\t\"route_short_name\": \"" << bx.route_short_name << "\",\n";
     std::cout << "\t\"route_long_name\": \"" << bx.route_long_name << "\",\n";
     std::cout << "\t\"route_color\": \"#" << bx.route_color << "\",\n";

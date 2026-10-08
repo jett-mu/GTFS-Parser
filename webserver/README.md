@@ -73,6 +73,17 @@ For production (gunicorn + nginx) see [../NGINX.md](../NGINX.md).
 | GET | `/api/rt/stop/<stop_id>` | Live arrivals at a stop |
 | GET | `/api/rt/alerts` | All active service alerts |
 
+Notes on responses:
+
+- `/api/stop/...` returns departures sorted by arrival time. Each has `route_id` (the route's short name), `arrival_time`, `trip_id`, `trip_headsign`, `direction_id` and `route_color`.
+- `/api/trip/...` returns `trip_id` and `route_id` as strings, and `route_color` as `#RRGGBB` (just `#` for routes without a colour; the frontend falls back to its accent colour).
+- `/api/rt/alerts` is polled by the main page to fill the Alerts list in the sidebar and mobile tab.
+- `/api/rt/*` routes need the GTFS-RT decoders built and the `rt_*_url` keys set in `config/config.json`.
+
+The experimental server in [`../fast-static-gtfs`](../fast-static-gtfs/README.md) exposes a faster `/api/trip` and `/api/stop` on port 5016; the frontend does not use it.
+
+For a list of what the web UI does, see [features.md](features.md).
+
 ## Token Authentication (optional)
 
 `tokenserver.py` and `tksweb/` are generated from `server.py` and `web/`; never edit them by hand. After changing either source, from `webserver/` run:

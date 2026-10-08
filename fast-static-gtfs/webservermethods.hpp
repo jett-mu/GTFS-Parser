@@ -124,7 +124,8 @@ inline string getStopDayTimes(const string& stop_id, const int& year, const int&
                 "\", \"arrival_time\": \"" << x.stop.arrival_time.leadingRoundedTime() <<
                 "\", \"trip_id\": \"" << x.stop.trip_id <<
                 "\", \"trip_headsign\": \"" << tripInfo.trip_headsign <<
-                "\", \"route_color\": \"" << routeInfo.route_color <<
+                "\", \"direction_id\": " << tripInfo.direction_id <<
+                ", \"route_color\": \"" << routeInfo.route_color <<
                 (i == (length - 1) ? "\" } \n" : "\" }, \n");
     }
     out << "\t]\n}\n";

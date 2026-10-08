@@ -111,3 +111,16 @@ make static
 ```
 
 `static-gtfs/gtfs_cli` is gitignored (like every compiled binary), so build it locally. After editing `gtfs.hpp` or `gtfs_cli.cpp`, rerun `make static`, otherwise downstream tools and the webserver run stale logic. `gtfs_cli` opens the feed from `config.json` on start, or falls back to a feed picker that scans `./data`.
+
+## Query API
+
+Every function lives in `namespace gtfs`, takes the `data_feed` as its first argument and scans the relevant file on each call (no caching; see [fast-static-gtfs](../fast-static-gtfs/README.md) for an indexed alternative).
+
+| Area | Functions |
+|---|---|
+| Lookup | `getTripInfo`, `getStopInfo`, `getRouteInfo`, `getShapeInfo`, `getServiceInfo` |
+| Schedules | `getDayTimesAtStop`, `isTripValid` |
+| Search | `searchStop` (fuzzy: exact > prefix > word prefixes > substring > edit distance, minimum score 25; matches name, ID and code), `searchRoute` (edit-distance scoring), `getNearestStops` |
+| Validation | `verifyGTFS` |
+
+`calendar.txt` and `calendar_dates.txt` are optional; a feed with only one of them still works.

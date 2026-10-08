@@ -287,7 +287,10 @@
       border-bottom: 2px solid var(--text);
       flex-shrink: 0;
     }
+    .board-header { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: start; }
     .board-header-left { min-width: 0; }
+    .board-header-center { display: flex; align-items: flex-start; justify-content: center; gap: var(--space-3); }
+    .board-header-right { justify-self: end; }
     .board-title {
       font-family: var(--font-display);
       font-size: 30px;
@@ -355,40 +358,48 @@
     }
     button.board-close:hover { background: var(--surface3); border-color: var(--border2); }
 
-    .board-chips {
-      display: flex;
-      gap: 8px;
-      max-width: 960px;
-      margin: 0 auto var(--space-3);
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
-      scrollbar-width: none;
-      padding-bottom: 2px;
+    .board-filter-wrap { position: relative; }
+    button.board-filter-btn {
+      width: 40px; height: 40px; padding: 0; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center; position: relative;
+      background: var(--surface2); border: 1px solid var(--border); color: var(--text); cursor: pointer;
     }
-    .board-chips::-webkit-scrollbar { display: none; }
-    .board-chips[hidden] { display: none; }
-    button.board-chip {
-      flex-shrink: 0;
-      min-height: 36px;
-      padding: 6px 14px;
-      border-radius: 4px;
-      border: 2px solid var(--border2);
-      background: transparent;
-      color: var(--text-muted);
-      font-family: var(--font-display);
-      font-size: 15px;
-      font-weight: 600;
-      letter-spacing: 0.03em;
-      box-shadow: inset 5px 0 0 var(--chip, transparent);
-      transition: background var(--transition), color var(--transition), border-color var(--transition);
+    button.board-filter-btn:hover, button.board-filter-btn.active { background: var(--surface3); border-color: var(--border2); }
+    button.board-filter-btn svg { width: 20px; height: 20px; }
+    .dep-filter-badge {
+      position: absolute; top: -4px; right: -4px;
+      min-width: 17px; height: 17px; padding: 0 4px; border-radius: 9px;
+      background: var(--accent); color: #fff; font-size: 10.5px; font-weight: 700; line-height: 17px; text-align: center;
     }
-    button.board-chip:hover { color: var(--text); border-color: var(--text); background: transparent; }
-    button.board-chip.active {
-      background: var(--chip, var(--text));
-      border-color: var(--chip, var(--text));
-      color: var(--chip-text, var(--bg));
-      box-shadow: none;
+    .dep-filter-badge[hidden] { display: none; }
+    .board-filter-popover {
+      position: absolute; top: calc(100% + 6px); left: 0; z-index: 40;
+      width: 300px; max-width: 86vw; max-height: 70vh; overflow-y: auto;
+      background: var(--surface); border: 1px solid var(--border2); border-radius: var(--card-radius);
+      box-shadow: var(--shadow-2); padding: var(--space-3);
     }
+    .board-filter-popover[hidden] { display: none; }
+    .board-filter-title {
+      font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;
+      color: var(--text-muted); padding-bottom: 6px; margin-bottom: 4px; border-bottom: 1px solid var(--border);
+    }
+    .dep-filter-tree { display: flex; flex-direction: column; gap: 2px; }
+    .dep-filter-route { padding: 2px 0; }
+    .dep-filter-route-row, .dep-filter-headsign-row {
+      display: flex; align-items: center; gap: 8px; padding: 5px 0; cursor: pointer; font-size: 14px;
+    }
+    .dep-filter-route-row { font-weight: 600; color: var(--text); }
+    .dep-filter-headsign-row { color: var(--text-muted); font-size: 13px; }
+    .dep-filter-route-row input, .dep-filter-headsign-row input {
+      accent-color: var(--accent); width: 16px; height: 16px; cursor: pointer; flex-shrink: 0;
+    }
+    .dep-filter-headsigns { display: flex; flex-direction: column; padding-left: 20px; border-left: 1px solid var(--border); margin-left: 7px; }
+    .dep-filter-empty { font-size: 13px; color: var(--text-muted); padding: 6px 0; }
+    .dep-filter-clear {
+      width: 100%; margin-top: 6px; padding: 8px 0 0; border: none; border-top: 1px solid var(--border);
+      background: none; color: var(--accent); font-size: 13px; font-weight: 600; cursor: pointer; text-align: center;
+    }
+    .dep-filter-clear:hover { text-decoration: underline; background: none; }
 
     .board-list {
       display: flex;
@@ -540,10 +551,12 @@
       .board-title, .board-clock { font-size: 22px; }
       .board-sub { font-size: 12.5px; white-space: normal; }
       .board-header-right { gap: var(--space-2); }
+      .board-header { grid-template-columns: minmax(0, 1fr) auto; row-gap: var(--space-3); }
+      .board-header-center { grid-column: 1 / -1; grid-row: 2; }
       button.board-close { width: 36px; height: 36px; padding: 0; }
       a.board-back { width: 36px; height: 36px; }
       .board-overlay .nearby-overlay-body { padding-left: var(--space-4); padding-right: var(--space-4); }
-      button.board-chip { padding: 6px 12px; font-size: 14px; }
+      button.board-filter-btn { width: 36px; height: 36px; }
       .board-row.dep-card { grid-template-columns: 98px minmax(0, 1fr) auto; gap: 2px var(--space-3); --board-row-h: 82px; --board-leave-h: 26px; }
       .board-list .skel-dep-card { --board-row-h: 82px; }
       .board-route { font-size: 17px; padding: 8px 4px; }
@@ -698,6 +711,44 @@
     .skel-dep-card .skel-headsign-line { height: 13px; width: 78%; }
     .skel-dep-card .skel-row-footer { display: flex; padding-top: 5px; margin-top: 1px; border-top: 1px solid var(--border); }
     .skel-dep-card .skel-trip-line { height: 11px; width: 38%; }
+
+    /* ===== Location chooser ===== */
+    button.board-loc-btn {
+      height: 40px; padding: 0 14px; border-radius: 20px; font-size: 13.5px; font-weight: 600;
+      display: flex; align-items: center; gap: 6px; flex-shrink: 0; white-space: nowrap;
+      background: var(--surface2); border: 1px solid var(--border); color: var(--text); cursor: pointer;
+    }
+    button.board-loc-btn:hover { background: var(--surface3); border-color: var(--border2); }
+    .loc-dialog {
+      position: fixed; inset: 0; z-index: 1100; display: flex; align-items: flex-start; justify-content: center;
+      padding: calc(var(--space-5) + var(--safe-top)) var(--space-4) var(--space-4);
+      background: rgba(0,0,0,0.55);
+    }
+    .loc-dialog[hidden] { display: none; }
+    .loc-panel {
+      width: 100%; max-width: 440px; max-height: 100%; overflow-y: auto;
+      background: var(--surface); color: var(--text); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: var(--space-4);
+      display: flex; flex-direction: column; gap: var(--space-3);
+    }
+    .loc-head { display: flex; align-items: center; justify-content: space-between; }
+    .loc-head h2 { margin: 0; font-family: var(--font-display); font-size: 20px; text-transform: uppercase; letter-spacing: 0.04em; }
+    .loc-panel button, .loc-panel input {
+      font: inherit; font-size: 14px; color: var(--text); background: var(--surface2);
+      border: 1px solid var(--border); border-radius: var(--radius); padding: 9px 11px;
+    }
+    .loc-panel button { cursor: pointer; text-align: left; }
+    .loc-panel button:hover { background: var(--surface3); border-color: var(--border2); }
+    .loc-panel button.loc-primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+    .loc-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 4px; }
+    .loc-row { display: flex; gap: 6px; }
+    .loc-row input { flex: 1; min-width: 0; }
+    .loc-list { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+    .loc-item { display: flex; gap: 6px; }
+    .loc-item .loc-pick { flex: 1; min-width: 0; }
+    .loc-item.active .loc-pick { border-color: var(--accent); }
+    .loc-pick small, .loc-result small { display: block; color: var(--text-muted); font-size: 11.5px; }
+    .loc-empty { font-size: 13px; color: var(--text-muted); }
   </style>
 </head>
 <body>
@@ -707,6 +758,20 @@
         <div class="board-title">Departures</div>
         <div class="board-sub" id="boardOverlaySub"></div>
       </div>
+      <div class="board-header-center">
+        <div class="board-filter-wrap">
+          <button type="button" class="board-filter-btn" id="boardFilterBtn" aria-haspopup="true" aria-expanded="false" aria-label="Filter by route or destination" title="Filter">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18l-7 8.5V20l-4-2v-4.5z"/></svg>
+            <span class="dep-filter-badge" id="boardFilterBadge" hidden>0</span>
+          </button>
+          <div class="board-filter-popover" id="boardFilterPopover" hidden>
+            <div class="board-filter-title">Filter by route / destination</div>
+            <div class="dep-filter-tree" id="boardFilterTree"></div>
+            <button type="button" class="dep-filter-clear" id="boardFilterClear">Clear filters</button>
+          </div>
+        </div>
+        <button type="button" class="board-loc-btn" id="boardLocBtn" aria-haspopup="dialog"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>Choose location</button>
+      </div>
       <div class="board-header-right">
         <div class="board-clock-wrap">
           <div class="board-clock" id="boardClock"></div>
@@ -715,10 +780,39 @@
       </div>
     </div>
     <div class="nearby-overlay-body">
-      <div class="board-chips" id="boardChips" hidden></div>
       <div class="board-list" id="boardGrid"></div>
     </div>
   </main>
+  <div class="loc-dialog" id="locDialog" hidden role="dialog" aria-modal="true" aria-label="Choose location">
+    <div class="loc-panel">
+      <div class="loc-head"><h2>Choose location</h2><button type="button" id="locClose" aria-label="Close">&#x2715;</button></div>
+      <button type="button" class="loc-primary" id="locGps">Use my current location</button>
+      <div>
+        <div class="loc-label">Search for a stop</div>
+        <div class="loc-row"><input id="locSearch" type="search" placeholder="Stop name, ID or code" autocomplete="off"></div>
+        <div class="loc-list" id="locResults"></div>
+      </div>
+      <div>
+        <div class="loc-label">Enter coordinates</div>
+        <div class="loc-row">
+          <input id="locCoords" type="text" inputmode="decimal" placeholder="Latitude, longitude (e.g. 43.8561, -79.3370)" autocomplete="off">
+          <button type="button" id="locCoordsGo">Go</button>
+        </div>
+        <div class="loc-empty" id="locCoordsErr" hidden>Enter a valid latitude (-90 to 90) and longitude (-180 to 180).</div>
+      </div>
+      <div id="locSaveWrap">
+        <div class="loc-label">Save current location</div>
+        <div class="loc-row">
+          <input id="locNick" type="text" maxlength="40" placeholder="Nickname (e.g. Home)">
+          <button type="button" id="locSave">Save</button>
+        </div>
+      </div>
+      <div>
+        <div class="loc-label">Saved locations</div>
+        <div class="loc-list" id="locSaved"></div>
+      </div>
+    </div>
+  </div>
   <script>
     let rtStopCache = new Map(); // stopId -> {data, receivedAt}
     const RT_STALE_MS = 2 * 60 * 1000;
@@ -780,47 +874,66 @@
       return n.getHours()*3600 + n.getMinutes()*60 + n.getSeconds();
     }
 
-    function getRTDelaySeconds(tripId) {
-      for (const { data } of rtStopCache.values()) {
-        const entity = (data.entity || []).find(e => e.trip_update?.trip?.trip_id === tripId);
-        if (entity) {
-          const stu = entity.trip_update.stop_time_update?.[0];
-          return stu?.departure?.delay ?? stu?.arrival?.delay ?? 0;
-        }
+    // Seconds late (+) / early (-) for one trip_update at stopId, vs the scheduled
+    // time schedTime ("HH:MM:SS", may run past 24h). Uses the feed's own delay when
+    // it has one; feeds like TTC publish only absolute times, so otherwise derive it
+    // from the predicted time of day. null if the stop isn't in the update.
+    function rtStopDelay(tu, stopId, schedTime) {
+      const stu = (tu.stop_time_update || []).find(s => s.stop_id === String(stopId));
+      if (!stu) return null;
+      const explicit = stu.departure?.delay ?? stu.arrival?.delay;
+      if (explicit != null) return explicit;
+      const t = Number(stu.arrival?.time ?? stu.departure?.time);
+      if (!t || !schedTime) return null;
+      const d = new Date(t * 1000);
+      const diff = d.getHours()*3600 + d.getMinutes()*60 + d.getSeconds() - parseTime(schedTime);
+      return ((diff + 43200) % 86400 + 86400) % 86400 - 43200; // fold into [-12h, 12h)
+    }
+
+    // A trip can be cached under several stops; the right stop's delay is the
+    // smallest, since the others are measured against the wrong scheduled time.
+    function getRTDelaySeconds(tripId, schedTime, stopId) {
+      let best = null;
+      for (const [cachedStopId, { data }] of rtStopCache) {
+        if (stopId && String(cachedStopId) !== String(stopId)) continue;
+        const e = (data.entity || []).find(e => e.trip_update?.trip?.trip_id === tripId);
+        if (!e) continue;
+        const d = rtStopDelay(e.trip_update, cachedStopId, schedTime);
+        if (d !== null && (best === null || Math.abs(d) < Math.abs(best))) best = d;
       }
-      return 0;
+      return best ?? 0;
     }
 
     // ===== RT STOP =====
     function loadRTStopUpdates(stopId) {
       apiFetch(`/api/rt/stop/${stopId}`)
         .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
-        .then(data => { rtStopCache.set(stopId, {data, receivedAt: Date.now()}); applyRTtoDepartures(data); })
+        .then(data => { rtStopCache.set(stopId, {data, receivedAt: Date.now()}); applyRTtoDepartures(data, stopId); })
         .catch(() => {
           // Fetch failed (or the feed is briefly empty) — keep showing the last
           // good RT badges for this stop instead of clearing them, for up to
           // RT_STALE_MS after they were received.
           const cached = rtStopCache.get(stopId);
           if (cached && (Date.now() - cached.receivedAt) < RT_STALE_MS)
-            applyRTtoDepartures(cached.data);
+            applyRTtoDepartures(cached.data, stopId);
         });
     }
 
     function reapplyCachedRT(stopId) {
       const cached = rtStopCache.get(stopId);
       if (cached && (Date.now() - cached.receivedAt) < RT_STALE_MS)
-        applyRTtoDepartures(cached.data);
+        applyRTtoDepartures(cached.data, stopId);
     }
 
-    function applyRTtoDepartures(data) {
+    function applyRTtoDepartures(data, stopId) {
       (data.entity||[]).forEach(e => {
         const tu = e.trip_update;
         if (!tu) return;
         const tripId = tu.trip?.trip_id;
         if (!tripId) return;
-        const stu = tu.stop_time_update?.[0];
-        const delay = stu?.departure?.delay ?? stu?.arrival?.delay ?? null;
         document.querySelectorAll(`.dep-card[data-trip-id="${tripId}"]`).forEach(card => {
+          if (card.dataset.stopId && card.dataset.stopId !== String(stopId)) return;
+          const delay = rtStopDelay(tu, stopId, card.dataset.arrival);
           card.classList.add('rt-live');
           let badge = card.querySelector('.rt-delay-badge');
           if (!badge) {
@@ -937,13 +1050,16 @@
 
     let boardRefreshId = null, boardRtId = null, boardClockId = null;
     let boardLat = null, boardLon = null;
+    let boardCustom = null; // {lat, lon, name} when a chosen/saved location replaces GPS
+    const LOC_SAVED_KEY = 'gtfs-board-saved-locations';
+    const LOC_ACTIVE_KEY = 'gtfs-board-active-location';
     let allBoardDepartures = [];
     let lastBoardStopDatas = [];
     let boardRouteColors = new Map(); // route_id -> route_color hex (first seen)
 
     function startDepartureBoard() {
       resetDepFilterState('board');
-      renderBoardRouteChips();
+      renderBoardFilter();
       tickBoardClock();
       loadDepartureBoardLocation();
       boardRefreshId = setInterval(loadDepartureBoardLocation, BOARD_REFRESH_MS);
@@ -979,7 +1095,7 @@
 
     // ['3', 'min', ''] | ['Due', '', 'due'] | ['3:15 PM', '', 'later']
     function fmtBoardLeave(arrival, tripId) {
-      const at = parseTime(arrival) + getRTDelaySeconds(tripId);
+      const at = parseTime(arrival) + getRTDelaySeconds(tripId, arrival);
       const secs = at - nowInSeconds();
       if (secs < 0)    return ['Gone', '', 'past'];
       if (secs <= 30)  return ['Due', '', 'due'];
@@ -1023,7 +1139,7 @@
       });
       const now = nowInSeconds();
       return [...byTrip.values()]
-        .filter(dep => parseTime(dep.arrival_time) + getRTDelaySeconds(dep.trip_id) >= now);
+        .filter(dep => parseTime(dep.arrival_time) + getRTDelaySeconds(dep.trip_id, dep.arrival_time, dep._stopId) >= now);
     }
 
     function setBoardMessage(text) {
@@ -1040,13 +1156,19 @@
         const [text, unit, cls] = fmtBoardLeave(row.dataset.arrival, row.dataset.tripId);
         el.innerHTML = escapeHtml(text) + (unit ? `<span class="board-leave-unit">${unit}</span>` : '');
         el.className = `board-leave${cls ? ' ' + cls : ''}`;
-        const secsLeft = parseTime(row.dataset.arrival) + getRTDelaySeconds(row.dataset.tripId) - now;
+        const secsLeft = parseTime(row.dataset.arrival) + getRTDelaySeconds(row.dataset.tripId, row.dataset.arrival, row.dataset.stopId) - now;
         row.classList.toggle('board-row-missed', Number(row.dataset.walkSec) > secsLeft);
       });
     }
 
     function loadDepartureBoardLocation() {
       const sub = document.getElementById('boardOverlaySub');
+      if (boardCustom) {
+        boardLat = boardCustom.lat;
+        boardLon = boardCustom.lon;
+        fetchDepartureBoard();
+        return;
+      }
       if (!navigator.geolocation) {
         sub.textContent = 'Location is not available in this browser';
         setBoardMessage('Turn on location to see departures near you.');
@@ -1073,13 +1195,13 @@
     function fetchDepartureBoard() {
       if (boardLat == null || boardLon == null) return;
       const sub = document.getElementById('boardOverlaySub');
-      if (!allBoardDepartures.length) sub.textContent = 'Finding stops near you…';
+      if (!allBoardDepartures.length) sub.textContent = boardCustom ? `Finding stops near ${boardCustom.name}…` : 'Finding stops near you…';
 
       fetchNearbyStopDepartures(boardLat, boardLon)
         .then(stopDatas => renderDepartureBoard(stopDatas))
         .catch(err => {
           if (!allBoardDepartures.length) {
-            sub.textContent = 'Near you';
+            sub.textContent = boardLabel();
             setBoardMessage(err === 'no-stops' ? 'No stops within walking distance.' : 'Couldn’t load departures. Trying again shortly.');
           }
         });
@@ -1100,59 +1222,116 @@
       const n = stopDatas.length;
       const farthestKM = Math.max(0, ...stopDatas.map(s => s._distanceKM || 0));
       document.getElementById('boardOverlaySub').textContent =
-        `Near you – ${n} stop${n !== 1 ? 's' : ''} within a ${walkMinutes(farthestKM)} min walk`;
+        `${boardLabel()} – ${n} stop${n !== 1 ? 's' : ''} within a ${walkMinutes(farthestKM)} min walk`;
 
-      renderBoardRouteChips();
+      renderBoardFilter();
       renderBoardCards();
     }
 
-    // One tap-to-toggle chip per route on the board (plus "All"), stored in
-    // the shared depFilterState under 'board' as route -> 'ALL' so
-    // applyDepFilter() works unchanged.
-    function renderBoardRouteChips() {
-      const wrap = document.getElementById('boardChips');
-      if (!wrap) return;
-      const st = getDepFilterState('board');
-      const routes = [...boardRouteColors.keys()]
-        .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
-      wrap.innerHTML = '';
-      const all = document.createElement('button');
-      all.type = 'button';
-      all.className = 'board-chip board-chip-all' + (st.selected.size ? '' : ' active');
-      all.textContent = 'All';
-      all.setAttribute('aria-pressed', String(st.selected.size === 0));
-      all.addEventListener('click', () => onBoardChip(null));
-      wrap.appendChild(all);
-      routes.forEach(r => {
-        const hex = boardRouteColors.get(r);
-        const on = st.selected.has(r);
-        const chip = document.createElement('button');
-        chip.type = 'button';
-        chip.className = 'board-chip' + (on ? ' active' : '');
-        chip.textContent = r;
-        chip.style.setProperty('--chip', hex ? `#${hex}` : 'var(--accent2)');
-        chip.style.setProperty('--chip-text', hex ? readableTextColor(hex) : '#fff');
-        chip.setAttribute('aria-pressed', String(on));
-        chip.addEventListener('click', () => onBoardChip(r));
-        wrap.appendChild(chip);
+    // Route / headsign checkbox tree (same shape as the main app's departure filter),
+    // stored in the shared depFilterState under 'board'.
+    function depFilterActiveCount(key) {
+      let n = 0;
+      getDepFilterState(key).selected.forEach(v => { n += v === 'ALL' ? 1 : v.size; });
+      return n;
+    }
+    function buildRouteHeadsignTree(departures) {
+      const map = new Map();
+      departures.forEach(d => {
+        if (!d.route_id) return;
+        if (!map.has(d.route_id)) map.set(d.route_id, new Set());
+        if (d.trip_headsign) map.get(d.route_id).add(d.trip_headsign);
       });
-      wrap.hidden = routes.length < 2;
+      return [...map.entries()]
+        .sort((a, b) => a[0].localeCompare(b[0], undefined, { numeric: true, sensitivity: 'base' }))
+        .map(([routeId, hs]) => ({ routeId, headsigns: [...hs].sort((a, b) => a.localeCompare(b)) }));
     }
 
-    function onBoardChip(routeId) {
-      const st = getDepFilterState('board');
-      if (routeId === null) st.selected = new Map();
-      else if (st.selected.has(routeId)) st.selected.delete(routeId);
-      else st.selected.set(routeId, 'ALL');
-      renderBoardRouteChips();
-      renderBoardCards();
+    function renderBoardFilter() {
+      const tree = document.getElementById('boardFilterTree');
+      if (!tree) return;
+      const key = 'board';
+      const st = getDepFilterState(key);
+      const routes = buildRouteHeadsignTree(allBoardDepartures);
+      const onChange = () => { renderBoardFilter(); renderBoardCards(); };
+
+      tree.innerHTML = routes.length ? routes.map(r => {
+        const sel = st.selected.get(r.routeId);
+        const routeChecked = sel === 'ALL' || (sel && r.headsigns.length > 0 && sel.size === r.headsigns.length);
+        const rid = escapeHtml(r.routeId);
+        return `
+          <div class="dep-filter-route">
+            <label class="dep-filter-route-row">
+              <input type="checkbox" class="dep-filter-route-cb" data-route="${rid}" ${routeChecked ? 'checked' : ''}>
+              <span>${rid}</span>
+            </label>
+            ${r.headsigns.length ? `<div class="dep-filter-headsigns">
+              ${r.headsigns.map(h => `
+                <label class="dep-filter-headsign-row">
+                  <input type="checkbox" class="dep-filter-headsign-cb" data-route="${rid}" data-headsign="${escapeHtml(h)}" ${(sel === 'ALL' || (sel && sel.has(h))) ? 'checked' : ''}>
+                  <span>${escapeHtml(h)}</span>
+                </label>
+              `).join('')}
+            </div>` : ''}
+          </div>`;
+      }).join('') : '<div class="dep-filter-empty">No departures to filter.</div>';
+
+      tree.querySelectorAll('.dep-filter-route-cb').forEach(cb => {
+        const r = routes.find(x => x.routeId === cb.dataset.route);
+        const sel = st.selected.get(cb.dataset.route);
+        cb.indeterminate = !!(sel && sel !== 'ALL' && sel.size > 0 && r && sel.size < r.headsigns.length);
+        cb.addEventListener('change', () => {
+          if (cb.checked) st.selected.set(cb.dataset.route, 'ALL');
+          else st.selected.delete(cb.dataset.route);
+          onChange();
+        });
+      });
+      tree.querySelectorAll('.dep-filter-headsign-cb').forEach(cb => {
+        cb.addEventListener('change', () => {
+          const rid = cb.dataset.route, hs = cb.dataset.headsign;
+          const r = routes.find(x => x.routeId === rid);
+          let sel = st.selected.get(rid);
+          sel = sel === 'ALL' ? new Set(r.headsigns) : (sel ? new Set(sel) : new Set());
+          if (cb.checked) sel.add(hs); else sel.delete(hs);
+          if (sel.size === 0) st.selected.delete(rid);
+          else if (sel.size === r.headsigns.length) st.selected.set(rid, 'ALL');
+          else st.selected.set(rid, sel);
+          onChange();
+        });
+      });
+
+      const badge = document.getElementById('boardFilterBadge');
+      const n = depFilterActiveCount(key);
+      badge.textContent = n;
+      badge.hidden = n === 0;
     }
+
+    (function initBoardFilterPopover() {
+      const btn = document.getElementById('boardFilterBtn');
+      const pop = document.getElementById('boardFilterPopover');
+      const close = () => { pop.hidden = true; btn.classList.remove('active'); btn.setAttribute('aria-expanded', 'false'); };
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        pop.hidden = !pop.hidden;
+        btn.classList.toggle('active', !pop.hidden);
+        btn.setAttribute('aria-expanded', String(!pop.hidden));
+      });
+      pop.addEventListener('click', e => e.stopPropagation());
+      document.addEventListener('click', close);
+      document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+      document.getElementById('boardFilterClear').addEventListener('click', () => {
+        resetDepFilterState('board');
+        renderBoardFilter();
+        renderBoardCards();
+      });
+    })();
 
     function buildBoardRow(dep) {
       const row = document.createElement('div');
       row.className = 'dep-card board-row';
       row.dataset.tripId = dep.trip_id;
       row.dataset.arrival = dep.arrival_time;
+      if (dep._stopId) row.dataset.stopId = dep._stopId;
       row.dataset.walkSec = Math.round((dep._distanceKM * 1000 / BOARD_WALK_M_PER_MIN) * 60);
       const bg = dep.route_color ? `#${dep.route_color}` : 'var(--accent2)';
       const fg = dep.route_color ? readableTextColor(dep.route_color) : '#fff';
@@ -1175,7 +1354,7 @@
     function renderBoardCards() {
       const grid = document.getElementById('boardGrid');
       const now = nowInSeconds();
-      const realTime = dep => parseTime(dep.arrival_time) + getRTDelaySeconds(dep.trip_id);
+      const realTime = dep => parseTime(dep.arrival_time) + getRTDelaySeconds(dep.trip_id, dep.arrival_time, dep._stopId);
       // Re-filter and re-sort on every pass so buses drop off as they leave
       // and reorder as realtime delays come in.
       const rows = applyDepFilter(allBoardDepartures, 'board')
@@ -1203,6 +1382,123 @@
 
       lastBoardStopDatas.forEach(s => { reapplyCachedRT(s.stop_id); loadRTStopUpdates(s.stop_id); });
     }
+
+    // ===== Location chooser (saved locations live in localStorage) =====
+    function boardLabel() { return boardCustom ? `Near ${boardCustom.name}` : 'Near you'; }
+
+    function lsGet(key, fallback) {
+      try { const v = JSON.parse(localStorage.getItem(key)); return v ?? fallback; } catch (e) { return fallback; }
+    }
+    function lsSet(key, val) {
+      try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) {}
+    }
+    function getSavedLocations() {
+      const v = lsGet(LOC_SAVED_KEY, []);
+      return Array.isArray(v) ? v.filter(l => l && isFinite(l.lat) && isFinite(l.lon) && l.name) : [];
+    }
+
+    // Switch the board to a location (null = live GPS) and reload it.
+    function setBoardLocation(loc) {
+      boardCustom = loc ? { lat: +loc.lat, lon: +loc.lon, name: loc.name } : null;
+      if (boardCustom) lsSet(LOC_ACTIVE_KEY, boardCustom); else { try { localStorage.removeItem(LOC_ACTIVE_KEY); } catch (e) {} }
+      boardLat = boardLon = null;
+      allBoardDepartures = [];
+      lastBoardStopDatas = [];
+      resetDepFilterState('board');
+      renderBoardFilter();
+      const grid = document.getElementById('boardGrid');
+      grid.innerHTML = skeletonDepCards(6);
+      grid.dataset.tripKey = '';
+      closeLocDialog();
+      loadDepartureBoardLocation();
+    }
+
+    function renderSavedLocations() {
+      const box = document.getElementById('locSaved');
+      const saved = getSavedLocations();
+      box.innerHTML = saved.length ? '' : '<div class="loc-empty">Nothing saved yet.</div>';
+      saved.forEach((l, i) => {
+        const row = document.createElement('div');
+        row.className = 'loc-item' + (boardCustom && boardCustom.lat === l.lat && boardCustom.lon === l.lon ? ' active' : '');
+        const pick = document.createElement('button');
+        pick.type = 'button'; pick.className = 'loc-pick';
+        pick.innerHTML = `${escapeHtml(l.name)}<small>${(+l.lat).toFixed(4)}, ${(+l.lon).toFixed(4)}</small>`;
+        pick.addEventListener('click', () => setBoardLocation(l));
+        const del = document.createElement('button');
+        del.type = 'button'; del.textContent = '✕'; del.title = 'Delete'; del.setAttribute('aria-label', 'Delete ' + l.name);
+        del.addEventListener('click', () => {
+          const cur = getSavedLocations(); cur.splice(i, 1); lsSet(LOC_SAVED_KEY, cur); renderSavedLocations();
+        });
+        row.append(pick, del);
+        box.appendChild(row);
+      });
+    }
+
+    function saveCurrentLocation() {
+      const nickEl = document.getElementById('locNick');
+      const name = nickEl.value.trim();
+      if (!name || boardLat == null) { nickEl.focus(); return; }
+      const cur = getSavedLocations().filter(l => l.name.toLowerCase() !== name.toLowerCase());
+      cur.push({ name, lat: boardLat, lon: boardLon });
+      lsSet(LOC_SAVED_KEY, cur);
+      boardCustom = { lat: boardLat, lon: boardLon, name };
+      lsSet(LOC_ACTIVE_KEY, boardCustom);
+      nickEl.value = '';
+      document.getElementById('boardOverlaySub').textContent = boardLabel();
+      renderSavedLocations();
+    }
+
+    function openLocDialog() {
+      document.getElementById('locDialog').hidden = false;
+      document.getElementById('locSaveWrap').hidden = boardLat == null;
+      renderSavedLocations();
+    }
+    function closeLocDialog() { document.getElementById('locDialog').hidden = true; }
+
+    const runLocSearch = debounce(q => {
+      const box = document.getElementById('locResults');
+      if (!q) { box.innerHTML = ''; return; }
+      apiFetch('/api/searchstop/' + encodeURIComponent(q))
+        .then(r => r.ok ? r.json() : { matches: [] })
+        .then(d => {
+          if (document.getElementById('locSearch').value.trim() !== q) return;
+          const ms = (d.matches || []).filter(m => isFinite(m.lat) && isFinite(m.lon)).slice(0, 8);
+          box.innerHTML = ms.length ? '' : '<div class="loc-empty">No stops found.</div>';
+          ms.forEach(m => {
+            const b = document.createElement('button');
+            b.type = 'button'; b.className = 'loc-result';
+            b.innerHTML = `${escapeHtml(m.stop_name)}<small>${escapeHtml(m.stop_code || m.stop_id)}</small>`;
+            b.addEventListener('click', () => setBoardLocation({ lat: m.lat, lon: m.lon, name: m.stop_name }));
+            box.appendChild(b);
+          });
+        })
+        .catch(() => { box.innerHTML = '<div class="loc-empty">Search failed.</div>'; });
+    }, 250);
+
+    document.getElementById('boardLocBtn').addEventListener('click', openLocDialog);
+    document.getElementById('locClose').addEventListener('click', closeLocDialog);
+    document.getElementById('locDialog').addEventListener('click', e => { if (e.target.id === 'locDialog') closeLocDialog(); });
+    function submitCoords() {
+      const inp = document.getElementById('locCoords'), err = document.getElementById('locCoordsErr');
+      const m = inp.value.trim().match(/^(-?\d+(?:\.\d+)?)\s*[,\s]\s*(-?\d+(?:\.\d+)?)$/);
+      const lat = m ? parseFloat(m[1]) : NaN, lon = m ? parseFloat(m[2]) : NaN;
+      if (!m || Math.abs(lat) > 90 || Math.abs(lon) > 180) { err.hidden = false; return; }
+      err.hidden = true;
+      inp.value = '';
+      setBoardLocation({ lat, lon, name: `${lat.toFixed(4)}, ${lon.toFixed(4)}` });
+    }
+    document.getElementById('locCoordsGo').addEventListener('click', submitCoords);
+    document.getElementById('locCoords').addEventListener('keydown', e => { if (e.key === 'Enter') submitCoords(); });
+    document.getElementById('locGps').addEventListener('click', () => setBoardLocation(null));
+    document.getElementById('locSave').addEventListener('click', saveCurrentLocation);
+    document.getElementById('locNick').addEventListener('keydown', e => { if (e.key === 'Enter') saveCurrentLocation(); });
+    document.getElementById('locSearch').addEventListener('input', e => runLocSearch(e.target.value.trim()));
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLocDialog(); });
+
+    (function restoreActiveLocation() {
+      const a = lsGet(LOC_ACTIVE_KEY, null);
+      if (a && isFinite(a.lat) && isFinite(a.lon) && a.name) boardCustom = { lat: +a.lat, lon: +a.lon, name: a.name };
+    })();
 
     startDepartureBoard();
   </script>

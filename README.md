@@ -11,11 +11,11 @@ A C++ library and Python webserver for parsing and serving **GTFS Schedule** and
 | [`static-gtfs/`](static-gtfs/) | C++ header (`gtfs.hpp`) for parsing GTFS Schedule `.txt` files |
 | [`gtfs-rt/`](gtfs-rt/) | C++ tools for decoding GTFS Realtime `.pb` protobuf files |
 | [`webserver/`](webserver/) | Flask server + HTML frontend that exposes both as a REST API |
-| [`fast-static-gtfs/`](fast-static-gtfs/) | Experimental indexed/hashed query layer (`fast-gtfs.hpp`) and a standalone C++ HTTP server on port 5016 |
+| [`fast-static-gtfs/`](fast-static-gtfs/README.md) | Experimental indexed/hashed query layer (`fast-gtfs.hpp`) and a standalone C++ HTTP server on port 5016 |
 | [`config/`](config/) | `config.hpp` + `config.json`: data folder path and GTFS-RT feed URLs shared by every tool |
 | `data-collection/`, `prediction-model/`, `other-testing/` | Scratch/experimental work (RT data logging, ML delay prediction, C++ demos) — not part of the core library |
 
-Deploying the Flask app behind nginx + gunicorn is covered in [NGINX.md](NGINX.md).
+Deploying the Flask app behind nginx + gunicorn is covered in [NGINX.md](NGINX.md). The web UI's feature list is in [webserver/features.md](webserver/features.md), and [webserver/to_tokenserver.md](webserver/to_tokenserver.md) explains the token-gated variant.
 
 ## Quick Start
 
@@ -35,6 +35,7 @@ Then follow the README in whichever component you need:
 1. [static-gtfs](static-gtfs/readme.md) — parse schedule data
 2. [gtfs-rt](gtfs-rt/readme.md) — decode realtime feeds
 3. [webserver](webserver/README.md) — run the full web UI
+4. [fast-static-gtfs](fast-static-gtfs/README.md) — optional indexed server on port 5016
 
 ## Build via Makefile
 
@@ -42,7 +43,7 @@ Once `config/config.json` points at your GTFS data folder (see [static-gtfs](sta
 
 ```bash
 make              # same as `make all`
-make all          # static-gtfs, webserver tools, and GTFS-RT tools and `fast`
+make all          # everything: static + rt + fast (needs protobuf + pkg-config)
 make static       # gtfs_cli + webserver tools only — no protobuf needed
 make rt           # decodeTrip/Stop/Alerts, routeVehicles, routeMedianDelay — needs protobuf + pkg-config
 make fast         # fast-static-gtfs/webserver (port 5016) — no protobuf needed

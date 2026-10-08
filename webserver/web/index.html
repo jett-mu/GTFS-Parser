@@ -1021,6 +1021,20 @@
     }
     .dep-eta.dep-eta-past { color: var(--text-dim); opacity: 0.6; }
 
+    .dep-headsign-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .dep-dir {
+      font-size: 24px;
+      line-height: 1;
+      font-weight: 700;
+      color: var(--text);
+      flex-shrink: 0;
+    }
+
     .dep-headsign {
       font-size: 12px;
       color: var(--text-muted);
@@ -3707,6 +3721,8 @@
       document.getElementById('tripInfo').innerHTML = html;
       document.getElementById('m-tripInfo').innerHTML = html;
 
+      // Routes without a route_color come back as "#"; fall back to the app accent so the line stays visible.
+      if (!/^#[0-9a-fA-F]{6}$/.test(data.route_color || '')) data.route_color = '#2F7B4F';
       const latlngs = data.pos_markers.map(p => [p.lat,p.lng]);
       const stopLatLngs = data.stops.map(s => [s.lat,s.lng]);
       // stops aren't guaranteed to be in sequence order, so find terminals by sequence.
@@ -3953,17 +3969,17 @@
           card.dataset.tripId = dep.trip_id;
           card.dataset.arrival = dep.arrival_time;
           card.dataset.stopId = stopId;
-          const color = dep.route_color ? `#${dep.route_color}` : 'var(--accent2)';
+          const dot = dep.route_color ? `<span class="dep-dot" style="background:#${dep.route_color}"></span>` : '';
           card.innerHTML = `
             <div class="dep-card-top">
-              <div class="dep-route"><span class="dep-dot" style="background:${color}"></span>${dep.route_id}</div>
+              <div class="dep-route">${dot}${dep.route_id}</div>
               <div class="dep-badge-slot"></div>
             </div>
             <div class="dep-time-row">
               <div class="dep-time"><span class="dep-time-sched">${fmtTime(dep.arrival_time)}</span><span class="dep-time-actual"></span></div>
               <div class="dep-eta" data-arrival="${dep.arrival_time}" data-trip-id="${dep.trip_id}"></div>
             </div>
-            ${dep.trip_headsign ? `<div class="dep-headsign">${dep.trip_headsign}</div>` : ''}
+            ${(dep.trip_headsign || dep.direction_id != null) ? `<div class="dep-headsign-row">${dep.direction_id != null ? `<span class="dep-dir" title="Direction ${dep.direction_id}">${dep.direction_id ? '↙' : '↗'}</span>` : ''}${dep.trip_headsign ? `<div class="dep-headsign">${dep.trip_headsign}</div>` : ''}</div>` : ''}
             <div class="dep-card-footer">
               <div class="dep-trip">Trip ${dep.trip_id}</div>
             </div>
@@ -5069,17 +5085,17 @@
           card.dataset.tripId = dep.trip_id;
           card.dataset.arrival = dep.arrival_time;
           if (dep._stopId) card.dataset.stopId = dep._stopId;
-          const color = dep.route_color ? `#${dep.route_color}` : 'var(--accent2)';
+          const dot = dep.route_color ? `<span class="dep-dot" style="background:#${dep.route_color}"></span>` : '';
           card.innerHTML = `
             <div class="dep-card-top">
-              <div class="dep-route"><span class="dep-dot" style="background:${color}"></span>${dep.route_id}</div>
+              <div class="dep-route">${dot}${dep.route_id}</div>
               <div class="dep-badge-slot"></div>
             </div>
             <div class="dep-time-row">
               <div class="dep-time"><span class="dep-time-sched">${fmtTime(dep.arrival_time)}</span><span class="dep-time-actual"></span></div>
               <div class="dep-eta" data-arrival="${dep.arrival_time}" data-trip-id="${dep.trip_id}"></div>
             </div>
-            ${dep.trip_headsign ? `<div class="dep-headsign">${dep.trip_headsign}</div>` : ''}
+            ${(dep.trip_headsign || dep.direction_id != null) ? `<div class="dep-headsign-row">${dep.direction_id != null ? `<span class="dep-dir" title="Direction ${dep.direction_id}">${dep.direction_id ? '↙' : '↗'}</span>` : ''}${dep.trip_headsign ? `<div class="dep-headsign">${dep.trip_headsign}</div>` : ''}</div>` : ''}
             <div class="dep-card-footer">
               <div class="dep-trip">Trip ${dep.trip_id}</div>
             </div>
@@ -5547,6 +5563,57 @@
     initStopSearch('m-stopSearchInput', 'm-stopSearchResults');
     initRouteSearch('routeSearchInput', 'routeSearchResults', 'dateInput');
     initRouteSearch('m-routeSearchInput', 'm-routeSearchResults', 'm-dateInput');
+
+    // ===== SERVICE ALERTS =====
+    function alertText(t) {
+      const tr = (t && t.translation) || [];
+      const pick = tr.find(x => x.language === 'en') || tr[0];
+      return pick ? pick.text : '';
+    }
+    function isAlertActive(a, nowSec) {
+      const periods = (a.alert && a.alert.active_period) || [];
+      if (!periods.length) return true;
+      return periods.some(p => (!p.start || +p.start <= nowSec) && (!p.end || +p.end >= nowSec));
+    }
+    function alertRouteIds(a) {
+      const ids = ((a.alert && a.alert.informed_entity) || []).map(e => e.route_id).filter(Boolean);
+      return [...new Set(ids)];
+    }
+    function prettyEnum(s) { return String(s || '').toLowerCase().replace(/_/g, ' '); }
+    function renderAlerts() {
+      [['alertsList', 'alertsCount'], ['m-alertsList', 'm-alertsCount']].forEach(([listId, countId]) => {
+        const list = document.getElementById(listId), count = document.getElementById(countId);
+        if (!list) return;
+        if (count) count.textContent = activeAlerts.length ? String(activeAlerts.length) : '';
+        if (!activeAlerts.length) { list.innerHTML = '<div class="alerts-list-empty">No active service alerts.</div>'; return; }
+        list.innerHTML = activeAlerts.map(a => {
+          const al = a.alert || {};
+          const title = alertText(al.header_text) || prettyEnum(al.effect) || 'Service alert';
+          const body = alertText(al.description_text);
+          const routes = alertRouteIds(a);
+          return '<div class="alert-item"><div class="alert-item-header">' +
+            '<div class="alert-item-title">' + escapeHtml(title) + '</div>' +
+            '<div class="alert-item-meta">' + escapeHtml(prettyEnum(al.effect)) + '</div></div>' +
+            (body ? '<div class="alert-item-body">' + escapeHtml(body) + '</div>' : '') +
+            (routes.length ? '<div class="alert-item-routes">Routes: ' + routes.map(escapeHtml).join(', ') + '</div>' : '') +
+            '</div>';
+        }).join('');
+        list.querySelectorAll('.alert-item').forEach(el => el.addEventListener('click', () => el.classList.toggle('expanded')));
+      });
+    }
+    async function loadAlerts() {
+      try {
+        const res = await fetch('/api/rt/alerts');
+        const data = res.ok ? await res.json() : [];
+        const now = Math.floor(Date.now() / 1000);
+        activeAlerts = Array.isArray(data) ? data.filter(a => isAlertActive(a, now)) : [];
+      } catch (e) {
+        activeAlerts = [];
+      }
+      renderAlerts();
+    }
+    loadAlerts();
+    alertsRefreshId = setInterval(loadAlerts, ALERTS_REFRESH_MS);
   
     // Expand the departures list to fill the whole sidebar (Esc or the icon to restore).
     function toggleDepExpand(secId) {
