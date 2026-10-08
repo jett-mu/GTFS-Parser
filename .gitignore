@@ -59,7 +59,7 @@ fast-static-gtfs/webserver
 # Generated / downloaded data
 data-collection/decoded_gtfs.json
 data-collection/downloaded_tripUpdates.pb
-data-collection/*.csv
+data-collection/data/*.csv
 data-collection/combined.csv
 gtfs-rt/proto-conversion/decoded_gtfs.json
 gtfs-rt/testing/data/
