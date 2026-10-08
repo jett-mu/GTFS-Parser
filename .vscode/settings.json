@@ -50,5 +50,6 @@
         "execution": "cpp",
         "ratio": "cpp"
     },
-    "cmake.sourceDirectory": "/Users/jettmu/Documents/VSCode/GTFS Parser/static-gtfs"
+    "cmake.sourceDirectory": "/Users/jettmu/Documents/VSCode/GTFS Parser/static-gtfs",
+    "makefile.configureOnOpen": false
 }
