@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <title>Bus Map</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <script>
     (function () {
       try {
@@ -430,13 +430,13 @@
       box-shadow: var(--shadow-sheet);
       flex-direction: column;
       max-height: 85vh;
+      max-height: 85dvh;
       transition: transform 0.3s cubic-bezier(0.32,0.72,0,1);
-      touch-action: none;
       padding-bottom: var(--safe-bottom);
     }
 
     #mobile-sheet.collapsed {
-      transform: translateY(calc(100% - 108px - var(--safe-bottom)));
+      transform: translateY(calc(100% - var(--peek-h, 108px) - var(--safe-bottom)));
     }
 
     #sheet-handle-area {
@@ -1696,9 +1696,17 @@
 
       #mobile-sheet { display: flex; }
       #mobile-tabs { display: flex; }
-      #map-controls { display: flex; bottom: calc(116px + var(--safe-bottom)); }
+      #map-controls { display: flex; bottom: calc(var(--peek-h, 108px) + 8px + var(--safe-bottom)); }
+      body.sheet-open #map-controls { display: none; }
 
-      .leaflet-control-zoom { display: none; }
+      .leaflet-control-zoom a { width: 40px !important; height: 40px !important; line-height: 40px !important; }
+      .m-tab { min-height: 44px; }
+      .gear-btn, .dep-expand-btn, .stop-search-clear { min-width: 36px; min-height: 36px; }
+      .dep-filter-btn { padding: 8px 12px; }
+      .leaflet-popup-close-button { width: 32px !important; height: 32px !important; font-size: 22px !important; }
+      #mobile-sheet-body { touch-action: pan-y; }
+      input, select, textarea, .input-group input, .input-group select, .toggle-row input.radius-input { font-size: 16px !important; }
+      #mobile-sheet, .nearby-overlay { padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px); }
 
       button { padding: 11px 14px; }
       input[type="text"], input[type="date"], select { padding: 11px 12px; }
@@ -3647,7 +3655,7 @@
     }
 
     function onMapClick(e) {
-      if (!pickModeActive) return;
+      if (!pickModeActive) { if (isMobile() && sheetExpanded) collapseSheet(); return; }
       const {lat,lng} = e.latlng;
       ['latInput','m-latInput'].forEach(id => { const el=document.getElementById(id); if(el) el.value=lat.toFixed(6); });
       ['lonInput','m-lonInput'].forEach(id => { const el=document.getElementById(id); if(el) el.value=lng.toFixed(6); });
@@ -3662,6 +3670,7 @@
     // ===== PICK MODE =====
     function setPickMode(on) {
       pickModeActive = on;
+      if (on && typeof isMobile === 'function' && isMobile() && sheetExpanded) collapseSheet();
       const desktopBtn = document.getElementById('pickModeBtn');
       const mobileBtn  = document.getElementById('mPickBtn');
       const mobileIcon = document.getElementById('mPickBtnIcon');
@@ -5471,12 +5480,14 @@
     function expandSheet() {
       const sheet = document.getElementById('mobile-sheet');
       sheet.classList.remove('collapsed');
+      document.body.classList.add('sheet-open');
       sheetExpanded = true;
     }
 
     function collapseSheet() {
       const sheet = document.getElementById('mobile-sheet');
       sheet.classList.add('collapsed');
+      document.body.classList.remove('sheet-open');
       sheetExpanded = false;
     }
 
@@ -5485,12 +5496,25 @@
     }
 
     // Touch drag for sheet
-    let dragStartY = 0, dragStartTransform = 0, isDragging = false;
+    let dragStartY = 0, dragStartTransform = 0, isDragging = false, dragStartT = 0, dragMoved = false;
     const handleArea = document.getElementById('sheet-handle-area');
     const peekArea   = document.getElementById('sheet-peek');
 
+    // Peek height = handle + peek row + tab bar; drives --peek-h so the collapsed sheet and map controls track real sizes.
+    function updatePeekHeight() {
+      const tabs = document.getElementById('mobile-tabs');
+      const h = handleArea.offsetHeight + peekArea.offsetHeight + (tabs ? tabs.offsetHeight : 0);
+      if (h > 0) document.documentElement.style.setProperty('--peek-h', h + 'px');
+    }
+    window.addEventListener('resize', updatePeekHeight);
+    window.addEventListener('orientationchange', updatePeekHeight);
+    window.addEventListener('load', updatePeekHeight);
+    updatePeekHeight();
+
     function onDragStart(e) {
       isDragging = true;
+      dragMoved = false;
+      dragStartT = Date.now();
       dragStartY = e.touches ? e.touches[0].clientY : e.clientY;
       const sheet = document.getElementById('mobile-sheet');
       sheet.style.transition = 'none';
@@ -5501,7 +5525,9 @@
       const clientY = e.touches ? e.touches[0].clientY : e.clientY;
       const dy = clientY - dragStartY;
       const sheet = document.getElementById('mobile-sheet');
-      const maxTranslate = sheet.offsetHeight - 108 - parseInt(getComputedStyle(document.documentElement).getPropertyValue('--safe-bottom') || '0');
+      if (Math.abs(dy) > 6) dragMoved = true;
+      const peekH = handleArea.offsetHeight + peekArea.offsetHeight + (document.getElementById('mobile-tabs')?.offsetHeight || 0);
+      const maxTranslate = sheet.offsetHeight - peekH - (parseFloat(getComputedStyle(sheet).paddingBottom) || 0);
 
       if (sheetExpanded) {
         const newY = Math.max(0, Math.min(dy, maxTranslate));
@@ -5523,8 +5549,9 @@
       sheet.style.transition = '';
       sheet.style.transform = '';
 
-      if (sheetExpanded) { if (dy > 80) collapseSheet(); else expandSheet(); }
-      else               { if (dy < -40) expandSheet(); else collapseSheet(); }
+      const fling = Math.abs(dy) > 20 && Math.abs(dy) / Math.max(1, Date.now() - dragStartT) > 0.5;
+      if (sheetExpanded) { if (dy > 80 || (fling && dy > 0)) collapseSheet(); else expandSheet(); }
+      else               { if (dy < -40 || (fling && dy < 0)) expandSheet(); else collapseSheet(); }
     }
 
     [handleArea, peekArea].forEach(el => {
@@ -5532,7 +5559,7 @@
       el.addEventListener('touchmove',  onDragMove,  {passive:false});
       el.addEventListener('touchend',   onDragEnd,   {passive:true});
       el.addEventListener('click', (e) => {
-        if (Math.abs((e.changedTouches?.[0]?.clientY || e.clientY) - dragStartY) < 10) toggleSheet();
+        if (!dragMoved) toggleSheet();
       });
     });
 

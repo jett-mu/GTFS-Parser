@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <title>Route Board</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <script>
     (function () {
       try {
@@ -540,10 +540,11 @@
       .board-title, .board-clock { font-size: 22px; }
       .board-sub { font-size: 12.5px; white-space: normal; }
       .board-header-right { gap: var(--space-2); }
-      button.board-close { width: 36px; height: 36px; padding: 0; }
-      a.board-back { width: 36px; height: 36px; }
+      button.board-close { width: 44px; height: 44px; padding: 0; }
+      input, select, textarea { font-size: 16px !important; }
+      a.board-back { width: 44px; height: 44px; }
       .board-overlay .nearby-overlay-body { padding-left: var(--space-4); padding-right: var(--space-4); }
-      button.board-chip { padding: 6px 12px; font-size: 14px; }
+      button.board-chip { padding: 6px 12px; font-size: 14px; min-height: 44px; }
       .board-row.dep-card { grid-template-columns: 98px minmax(0, 1fr) auto; gap: 2px var(--space-3); --board-row-h: 82px; --board-leave-h: 26px; }
       .board-list .skel-dep-card { --board-row-h: 82px; }
       .board-route { font-size: 17px; padding: 8px 4px; }
@@ -560,44 +561,68 @@
        pill sits on the left; its next 3 departures run left-to-right beside
        it, soonest widest/biggest, the next two smaller and equal-sized. */
     .rb-grid {
-      display: flex;
-      flex-direction: column;
-      gap: var(--space-3);
-      max-width: 1400px;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(460px, 1fr));
+      gap: var(--space-2);
+      max-width: 1800px;
       margin: 0 auto;
     }
-    .rb-empty.board-empty {}
+    .rb-empty.board-empty { grid-column: 1 / -1; }
 
     .rb-card {
       background: var(--surface2);
       border: 1px solid var(--border);
       border-radius: 10px;
-      padding: var(--space-4);
+      overflow: hidden;
       display: flex;
-      align-items: stretch;
-      gap: var(--space-4);
+      flex-direction: column;
       min-width: 0;
     }
-    /* Fixed width (not content-sized) so the departure columns start at the
-       same x on every row, regardless of how long each route's code is. */
-    .rb-card-head { display: flex; align-items: center; flex-shrink: 0; width: 96px; }
+    /* Route banner: spans the whole top of the card in the route colour. */
+    .rb-card-head { display: flex; flex-shrink: 0; }
     .rb-route-pill {
       font-family: var(--font-display);
-      font-size: 22px;
+      font-size: 20px;
       font-weight: 700;
       letter-spacing: 0.02em;
       line-height: 1;
-      padding: 8px 10px;
-      border-radius: 6px;
+      padding: 7px var(--space-3);
       white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
       width: 100%;
       box-sizing: border-box;
-      text-align: center;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-3);
     }
+    .rb-route-pill .rb-route-id { overflow: hidden; text-overflow: ellipsis; }
+    .rb-dots { display: flex; gap: 5px; }
+    .rb-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; opacity: 0.35; transition: opacity 0.3s; }
+    .rb-dot.active { opacity: 1; }
 
-    .rb-rows { display: flex; flex: 1; align-items: stretch; gap: var(--space-4); min-width: 0; }
+    .rb-stage { display: grid; flex: 1; min-width: 0; overflow: hidden; }
+    /* All headsign panels stack in one grid cell; inactive ones wait off to
+       the right, the active one slides in while the previous slides out left. */
+    .rb-rows { grid-area: 1 / 1; display: flex; flex-direction: column; min-width: 0; transform: translateX(100%); visibility: hidden; }
+    /* Headsign banner: shared by every departure in the panel, slides with it. */
+    .rb-headsign {
+      background: var(--surface3);
+      border-bottom: 1px solid var(--border);
+      font-family: var(--font-display);
+      font-size: 18px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+      line-height: 1.15;
+      color: var(--text);
+      padding: 6px var(--space-3);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .rb-deps { display: flex; flex: 1; align-items: stretch; gap: var(--space-3); min-width: 0; margin: var(--space-2) var(--space-3); }
+    .rb-rows { will-change: transform; }
+    .rb-rows.active, .rb-rows.leaving { visibility: visible; transition: transform 0.55s cubic-bezier(0.65, 0, 0.35, 1); }
+    .rb-rows.active { transform: translateX(0); }
+    .rb-rows.leaving { transform: translateX(-100%); }
     .rb-row {
       display: flex;
       flex-direction: column;
@@ -605,7 +630,7 @@
       gap: 4px;
       min-width: 0;
     }
-    .rb-row + .rb-row { border-left: 1px solid var(--border); padding-left: var(--space-4); }
+    .rb-row + .rb-row { border-left: 1px solid var(--border); padding-left: var(--space-3); }
     .rb-row-main { min-width: 0; }
     .rb-leave-wrap { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
 
@@ -613,7 +638,7 @@
     .rb-row-primary { flex: 1.6; }
     .rb-row-primary .rb-dest {
       font-family: var(--font-display);
-      font-size: 24px;
+      font-size: 18px;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.02em;
@@ -622,9 +647,9 @@
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .rb-row-primary .rb-stop { font-size: 13.5px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .rb-row-primary .rb-leave { font-family: var(--font-display); font-size: 38px; font-weight: 700; line-height: 1; color: var(--text); font-variant-numeric: tabular-nums; }
+    .rb-row-primary .rb-leave { font-family: var(--font-display); font-size: 30px; font-weight: 700; line-height: 1; color: var(--text); font-variant-numeric: tabular-nums; }
     .rb-row-primary .rb-leave.due { color: var(--accent3); }
-    .rb-row-primary .rb-leave.later { font-size: 26px; }
+    .rb-row-primary .rb-leave.later { font-size: 22px; }
     .rb-row-primary .rb-sched { font-size: 12.5px; color: var(--text-dim); }
     .rb-row-primary .rb-leave-unit { font-size: 15px; }
 
@@ -646,6 +671,14 @@
     .rb-row-secondary .rb-leave-unit { font-size: 11px; }
 
     .rb-walk { color: var(--text-dim); }
+    /* Entrances: new cards rise in, new rows / RT badges fade in. Moves of
+       existing cards/rows are FLIP-animated from JS (see flipAnimate). */
+    @keyframes rb-card-in { from { opacity: 0; transform: translateY(10px) scale(0.98); } to { opacity: 1; transform: none; } }
+    @keyframes rb-fade-in { from { opacity: 0; } to { opacity: 1; } }
+    .rb-card.rb-enter { animation: rb-card-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) backwards; }
+    .rb-row.rb-enter, .rb-row .rt-delay-badge { animation: rb-fade-in 0.45s ease backwards; }
+    .rb-row { transition: opacity 0.3s ease; }
+    .rb-row .rb-leave { transition: color 0.3s ease; }
     .rb-row-missed { opacity: 0.45; }
     .rb-row .dep-badge-slot { font-size: 11px; }
     .rb-row .dep-badge-slot:empty { visibility: hidden; }
@@ -653,10 +686,8 @@
     .rb-row .rt-live-only { display: none; }
 
     @media (max-width: 640px) {
-      .rb-card { flex-direction: column; align-items: stretch; padding: var(--space-3); gap: var(--space-2); }
-      .rb-card-head { width: auto; padding-bottom: var(--space-2); }
-      .rb-route-pill { width: auto; font-size: 17px; padding: 6px 10px; }
-      .rb-rows { flex-direction: column; gap: var(--space-2); }
+      .rb-grid { grid-template-columns: 1fr; }
+      .rb-deps { flex-direction: column; gap: var(--space-2); }
       .rb-row + .rb-row { border-left: none; padding-left: 0; border-top: 1px solid var(--border); padding-top: var(--space-2); }
       .rb-row-primary .rb-dest { font-size: 20px; }
       .rb-row-primary .rb-leave { font-size: 32px; }
@@ -882,6 +913,8 @@
     // ===== ROUTE BOARD =====
 
     const RB_ROWS_PER_CARD = 3;
+    const RB_ROTATE_MS = 5000;
+    let rbRotateIdx = 0;
     let routeBoardRefreshId = null, routeBoardRtId = null, routeBoardClockId = null;
     let routeBoardLat = null, routeBoardLon = null;
     let allRouteBoardDepartures = [];
@@ -893,6 +926,7 @@
       routeBoardRefreshId = setInterval(loadRouteBoardLocation, BOARD_REFRESH_MS);
       routeBoardRtId      = setInterval(renderRouteBoardCards, BOARD_RT_MS);
       routeBoardClockId   = setInterval(tickRouteBoardClock, 1000);
+      setInterval(() => { if (document.hidden) return; rbRotateIdx++; applyRouteBoardRotation(); }, RB_ROTATE_MS);
     }
 
 
@@ -1040,9 +1074,18 @@
         });
       const groups = [...byRoute.entries()].map(([routeId, deps]) => {
         deps.sort((a, b) => realTime(a) - realTime(b));
-        return { routeId, deps: deps.slice(0, RB_ROWS_PER_CARD) };
+        // One panel per headsign (soonest headsign first); the card rotates
+        // through them.
+        const byHead = new Map();
+        deps.forEach(d => {
+          const h = d.trip_headsign || d.route_id;
+          if (!byHead.has(h)) byHead.set(h, []);
+          byHead.get(h).push(d);
+        });
+        const heads = [...byHead.values()].map(list => list.slice(0, RB_ROWS_PER_CARD));
+        return { routeId, heads, first: deps[0] };
       });
-      groups.sort((a, b) => realTime(a.deps[0]) - realTime(b.deps[0]));
+      groups.sort((a, b) => realTime(a.first) - realTime(b.first));
       return groups;
     }
 
@@ -1055,7 +1098,6 @@
         <div class="dep-card rb-row ${primary ? 'rb-row-primary' : 'rb-row-secondary'}"
              data-trip-id="${escapeHtml(dep.trip_id)}" data-arrival="${escapeHtml(dep.arrival_time)}" data-stop-id="${escapeHtml(dep._stopId || '')}" data-walk-sec="${walkSec}">
           <div class="rb-row-main">
-            <div class="rb-dest">${escapeHtml(dep.trip_headsign || dep.route_id)}</div>
             <div class="rb-stop">${stopText}</div>
           </div>
           <div class="rb-leave-wrap">
@@ -1068,21 +1110,158 @@
     }
 
     function buildRouteBoardCard(group) {
-      const first = group.deps[0];
+      const first = group.first;
       const bg = first.route_color ? `#${first.route_color}` : 'var(--accent2)';
       const fg = first.route_color ? readableTextColor(first.route_color) : '#fff';
       const card = document.createElement('div');
-      card.className = 'rb-card';
+      card.className = 'rb-card rb-enter';
       card.dataset.routeId = group.routeId;
       card.innerHTML = `
         <div class="rb-card-head">
-          <div class="rb-route-pill" style="background:${bg};color:${fg}">${escapeHtml(group.routeId)}</div>
+          <div class="rb-route-pill" style="background:${bg};color:${fg}"><span class="rb-route-id">${escapeHtml(group.routeId)}</span></div>
         </div>
-        <div class="rb-rows">
-          ${group.deps.map((dep, i) => buildRouteBoardRowHtml(dep, i === 0)).join('')}
-        </div>
+        <div class="rb-stage"></div>
       `;
+      patchRouteBoardCard(card, group);
       return card;
+    }
+
+    function rowFromDep(dep, primary) {
+      const t = document.createElement('template');
+      t.innerHTML = buildRouteBoardRowHtml(dep, primary).trim();
+      return t.content.firstElementChild;
+    }
+
+    // Diff one headsign panel's rows by trip+stop so unchanged rows (and their
+    // RT badges) are kept and only departures that came or went change.
+    function patchRouteBoardPanel(panel, deps) {
+      const box = panel.querySelector('.rb-deps');
+      const existing = new Map([...box.children].map(r => [r.dataset.tripId + '|' + r.dataset.stopId, r]));
+      const keep = new Set();
+      deps.forEach((dep, i) => {
+        const key = dep.trip_id + '|' + (dep._stopId || '');
+        const primary = i === 0;
+        const fresh = rowFromDep(dep, primary);
+        let row = existing.get(key);
+        if (!row) {
+          row = fresh;
+          row.classList.add('rb-enter');
+        } else {
+          row.classList.toggle('rb-row-primary', primary);
+          row.classList.toggle('rb-row-secondary', !primary);
+          row.dataset.arrival = fresh.dataset.arrival;
+          row.dataset.walkSec = fresh.dataset.walkSec;
+          const stop = row.querySelector('.rb-stop'), freshStop = fresh.querySelector('.rb-stop');
+          if (stop.innerHTML !== freshStop.innerHTML) stop.innerHTML = freshStop.innerHTML;
+          const sched = row.querySelector('.dep-time-sched'), freshSched = fresh.querySelector('.dep-time-sched');
+          if (sched.textContent !== freshSched.textContent) sched.textContent = freshSched.textContent;
+        }
+        keep.add(key);
+        if (box.children[i] !== row) box.insertBefore(row, box.children[i] || null);
+      });
+      existing.forEach((row, key) => { if (!keep.has(key)) row.remove(); });
+    }
+
+    function patchRouteBoardCard(card, group) {
+      const stage = card.querySelector('.rb-stage');
+      const panels = new Map([...stage.children].map(p => [p.dataset.headsign, p]));
+      const keep = new Set();
+      group.heads.forEach(deps => {
+        const key = deps[0].trip_headsign || deps[0].route_id;
+        let panel = panels.get(key);
+        if (!panel) {
+          panel = document.createElement('div');
+          panel.className = 'rb-rows';
+          panel.dataset.headsign = key;
+          panel.innerHTML = `<div class="rb-headsign">${escapeHtml(key)}</div><div class="rb-deps"></div>`;
+          stage.appendChild(panel);
+        }
+        keep.add(key);
+        patchRouteBoardPanel(panel, deps);
+      });
+      panels.forEach((panel, key) => { if (!keep.has(key)) panel.remove(); });
+
+      const pill = card.querySelector('.rb-route-pill');
+      const want = group.heads.length > 1 ? group.heads.length : 0;
+      if (card.querySelectorAll('.rb-dot').length !== want) {
+        const old = pill.querySelector('.rb-dots');
+        if (old) old.remove();
+        if (want) pill.insertAdjacentHTML('beforeend', `<span class="rb-dots">${'<span class="rb-dot"></span>'.repeat(want)}</span>`);
+      }
+      if (!card.querySelector('.rb-rows.active')) setCardPanel(card, rbRotateIdx);
+      else syncCardDots(card);
+    }
+
+    // FLIP: measure before, mutate the DOM, then animate each surviving
+    // element from its old position to its new one.
+    const RB_FLIP_MS = 450, RB_FLIP_EASE = 'cubic-bezier(0.65, 0, 0.35, 1)';
+    function posOf(el) {
+      const r = el.getBoundingClientRect();
+      if (el.classList.contains('rb-row')) {
+        const p = el.parentElement.getBoundingClientRect();
+        return { x: r.left - p.left, y: r.top - p.top };
+      }
+      return { x: r.left, y: r.top };
+    }
+    function flipAnimate(els, mutate) {
+      const first = new Map(els.map(el => [el, posOf(el)]));
+      mutate();
+      const moved = [];
+      first.forEach((from, el) => {
+        if (!el.isConnected) return;
+        const to = posOf(el);
+        const dx = from.x - to.x, dy = from.y - to.y;
+        if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
+        el.style.transition = 'none';
+        el.style.transform = `translate(${dx}px, ${dy}px)`;
+        moved.push(el);
+      });
+      if (!moved.length) return;
+      void document.body.offsetWidth;
+      moved.forEach(el => {
+        el.style.transition = `transform ${RB_FLIP_MS}ms ${RB_FLIP_EASE}`;
+        el.style.transform = '';
+        const done = () => { el.style.transition = ''; el.removeEventListener('transitionend', done); };
+        el.addEventListener('transitionend', done);
+      });
+    }
+
+    // A removed card fades out as a fixed-position ghost so the grid can
+    // close the gap (via FLIP) without waiting on it.
+    function ghostFadeOut(card) {
+      const r = card.getBoundingClientRect();
+      const g = card.cloneNode(true);
+      g.querySelectorAll('[data-trip-id]').forEach(e => e.removeAttribute('data-trip-id'));
+      g.style.cssText = `position:fixed;left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;margin:0;pointer-events:none;z-index:5;transition:opacity 0.35s ease;opacity:1`;
+      document.body.appendChild(g);
+      requestAnimationFrame(() => requestAnimationFrame(() => { g.style.opacity = '0'; }));
+      setTimeout(() => g.remove(), 450);
+    }
+
+    function syncCardDots(card) {
+      const panels = [...card.querySelectorAll('.rb-rows')];
+      const idx = panels.findIndex(p => p.classList.contains('active'));
+      card.querySelectorAll('.rb-dot').forEach((d, i) => d.classList.toggle('active', i === idx));
+    }
+
+    function setCardPanel(card, rotateIdx) {
+      const panels = card.querySelectorAll('.rb-rows');
+      if (!panels.length) return;
+      const idx = rotateIdx % panels.length;
+      // Park last cycle's outgoing panel back on the right (no transition)
+      // before sliding, so a 2-headsign card always enters from the right.
+      panels.forEach(p => p.classList.remove('leaving'));
+      void card.offsetWidth;
+      panels.forEach((p, i) => {
+        const was = p.classList.contains('active');
+        if (i === idx) p.classList.add('active');
+        else if (was) { p.classList.remove('active'); p.classList.add('leaving'); }
+      });
+      syncCardDots(card);
+    }
+
+    function applyRouteBoardRotation() {
+      document.querySelectorAll('#routeBoardGrid .rb-card').forEach(card => setCardPanel(card, rbRotateIdx));
     }
 
     function updateRouteBoardETAs(grid) {
@@ -1091,26 +1270,44 @@
         const el = row.querySelector('.rb-leave');
         if (!el) return;
         const [text, unit, cls] = fmtBoardLeave(row.dataset.arrival, row.dataset.tripId);
-        el.innerHTML = escapeHtml(text) + (unit ? `<span class="board-leave-unit">${unit}</span>` : '');
-        el.className = `rb-leave${cls ? ' ' + cls : ''}`;
+        const sig = text + '|' + unit + '|' + cls;
+        if (el.dataset.sig !== sig) {
+          el.dataset.sig = sig;
+          el.innerHTML = escapeHtml(text) + (unit ? `<span class="board-leave-unit">${unit}</span>` : '');
+          el.className = `rb-leave${cls ? ' ' + cls : ''}`;
+        }
         const secsLeft = parseTime(row.dataset.arrival) + getRTDelaySeconds(row.dataset.tripId, row.dataset.arrival, row.dataset.stopId) - now;
         row.classList.toggle('rb-row-missed', Number(row.dataset.walkSec) > secsLeft);
       });
     }
+
+    const rbCards = new Map(); // routeId -> card element
 
     function renderRouteBoardCards() {
       const grid = document.getElementById('routeBoardGrid');
       const groups = groupRouteBoardDepartures();
 
       if (!groups.length) {
+        rbCards.clear();
         setRouteBoardMessage('Nothing leaving nearby right now.');
       } else {
-        const tripKey = groups.map(g => g.routeId + ':' + g.deps.map(d => d.trip_id).join('|')).join(',');
-        if (grid.dataset.tripKey !== tripKey) {
-          grid.dataset.tripKey = tripKey;
-          grid.innerHTML = '';
-          groups.forEach(g => grid.appendChild(buildRouteBoardCard(g)));
-        }
+        // Drop cards the grid no longer holds (message / skeleton replaced them).
+        rbCards.forEach((card, id) => { if (!card.isConnected) rbCards.delete(id); });
+        const wanted = new Set(groups.map(g => g.routeId));
+        const leaving = [...rbCards.entries()].filter(([id]) => !wanted.has(id));
+        leaving.forEach(([, card]) => ghostFadeOut(card));
+
+        flipAnimate([...rbCards.values()].filter(c => wanted.has(c.dataset.routeId)).concat(
+                      [...grid.querySelectorAll('.rb-row')]), () => {
+          [...grid.children].filter(c => !c.classList.contains('rb-card')).forEach(c => c.remove());
+          leaving.forEach(([id, card]) => { card.remove(); rbCards.delete(id); });
+          groups.forEach((g, i) => {
+            let card = rbCards.get(g.routeId);
+            if (card) patchRouteBoardCard(card, g);
+            else { card = buildRouteBoardCard(g); rbCards.set(g.routeId, card); }
+            if (grid.children[i] !== card) grid.insertBefore(card, grid.children[i] || null);
+          });
+        });
         updateRouteBoardETAs(grid);
       }
 
