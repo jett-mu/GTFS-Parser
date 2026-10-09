@@ -1058,9 +1058,8 @@
     }
 
     // Group by route_id, sort each group by RT-adjusted time ascending, keep
-    // the first RB_ROWS_PER_CARD, then order the route cards by their own
-    // soonest (index-0) departure so the board reads as "what's leaving
-    // soonest" first.
+    // the first RB_ROWS_PER_CARD, then order the route cards alphabetically
+    // (natural sort) by route id so their positions stay put.
     function groupRouteBoardDepartures() {
       const now = nowInSeconds();
       const realTime = dep => parseTime(dep.arrival_time) + getRTDelaySeconds(dep.trip_id, dep.arrival_time, dep._stopId);
@@ -1085,7 +1084,8 @@
         const heads = [...byHead.values()].map(list => list.slice(0, RB_ROWS_PER_CARD));
         return { routeId, heads, first: deps[0] };
       });
-      groups.sort((a, b) => realTime(a.first) - realTime(b.first));
+      // Fixed order (natural sort: 2 < 10 < 16A) so cards never jump around.
+      groups.sort((a, b) => a.routeId.localeCompare(b.routeId, undefined, { numeric: true, sensitivity: 'base' }));
       return groups;
     }
 
