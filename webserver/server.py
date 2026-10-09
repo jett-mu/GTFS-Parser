@@ -165,4 +165,4 @@ def home():
 
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5015, host = 'localhost')
+    app.run(debug=False, port=5015, host = 'localhost')
