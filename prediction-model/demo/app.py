@@ -66,6 +66,13 @@ def favicons(filename):
     return send_from_directory(FAVICONS_DIR, filename)
 
 
+# Self-hosted fonts + Leaflet. Not token-gated for the same reason as favicons:
+# <link>/<script> requests cannot carry the X-Auth-Token header.
+@app.route("/vendor/<path:filename>")
+def vendor(filename):
+    return send_from_directory(os.path.join(os.path.dirname(os.path.abspath(__file__)), "vendor"), filename)
+
+
 @app.route("/api/mean-delay")
 @require_token
 def mean_delay():

@@ -32,6 +32,7 @@ def require_token(f):
 EXCLUDED_ROUTES = {
     '',
     '/favicon.ico',  # already unprotected in tokenserver.py
+    '/vendor/<path:filename>',  # static fonts/Leaflet; CSS/script/font requests carry no token
 }
 
 def main():

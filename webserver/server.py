@@ -140,6 +140,11 @@ def departure_board():
 def route_board():
     return send_from_directory('web', 'rteboard.html')
 
+# Self-hosted fonts + Leaflet (no third-party requests from visitors' browsers)
+@app.route('/vendor/<path:filename>')
+def vendor(filename):
+    return send_from_directory('vendor', filename)
+
 # OPTIONAL: OFFLINE TILES
 @app.route('/tiles/<int:z>/<int:x>/<int:y>.png')
 def tiles(z, x, y):

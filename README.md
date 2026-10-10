@@ -66,3 +66,12 @@ It only rebuilds a binary when its source is newer than the compiled binary. It 
 |---|---|
 | v1.8.0 | Stable — reorganized into `gtfs.hpp`, improved GTFS-RT (JSON output) |
 | v3.0 beta | HTML GUI via Flask + JavaScript frontend |
+
+
+## Data & disclaimer
+
+This is an unofficial project and is not affiliated with or endorsed by York Region Transit. Delay predictions and computed values are estimates, not official data.
+
+Contains public transit Information made available under YRT's Open Data Licence.
+
+Map tiles © OpenStreetMap contributors. The ML demo uses weather data from [Open-Meteo](https://open-meteo.com/) (free tier is non-commercial use only).

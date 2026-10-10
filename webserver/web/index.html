@@ -13,11 +13,9 @@
       } catch (e) {}
     })();
   </script>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&family=Saira:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/vendor/leaflet/leaflet.css" />
+  <script src="/vendor/leaflet/leaflet.js"></script>
+  <link rel="stylesheet" href="/vendor/fonts/fonts.css">
   <style>
     :root {
       --radius: 4px;
@@ -3180,7 +3178,7 @@
     function initMap() {
       map = L.map('map').setView([43.88,-79.34],10);
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
-        attribution:'© OpenStreetMap contributors'
+        attribution:'© OpenStreetMap contributors · Unofficial, not affiliated with York Region Transit · Contains public transit Information made available under YRT\'s Open Data Licence'
       }).addTo(map);
       map.on('click', onMapClick);
       // Route line lives in the default overlay pane (400). The trip's stop

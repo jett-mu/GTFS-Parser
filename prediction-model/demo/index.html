@@ -10,10 +10,9 @@
 <link rel="apple-touch-icon" sizes="180x180" href="/favicons/apple-touch-icon.png">
 <link rel="manifest" href="/favicons/site.webmanifest">
 <meta name="theme-color" content="#2B5FAD">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link rel="stylesheet" href="/vendor/fonts/fonts.css">
+<link rel="stylesheet" href="/vendor/leaflet/leaflet.css" />
+<script src="/vendor/leaflet/leaflet.js"></script>
 <style>
   :root {
     color-scheme: light only;
@@ -692,7 +691,7 @@ let selectedTripId = null;
 function initVehicleMap() {
   vehicleMap = L.map('vehicle-map').setView([43.9, -79.44], 11);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; OpenStreetMap contributors'
+    attribution: '&copy; OpenStreetMap contributors &middot; Unofficial, not affiliated with York Region Transit &middot; Delay predictions are estimates, not official YRT data &middot; Contains public transit Information made available under YRT\'s Open Data Licence'
   }).addTo(vehicleMap);
 }
 
