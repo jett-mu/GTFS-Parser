@@ -1717,6 +1717,16 @@
 
       .nearby-overlay-esc { display: none; }
 
+      /* On-screen keyboard: --kb-h / --vv-h are kept current by initKeyboardAvoidance().
+         The sheet rides on top of the keyboard and is capped to the visible area. */
+      #mobile-sheet { bottom: var(--kb-h, 0px); }
+      .nearby-overlay { bottom: var(--kb-h, 0px); }
+      body.kb-open #mobile-sheet {
+        max-height: calc(var(--vv-h, 100dvh) - var(--safe-top) - 8px);
+        padding-bottom: 0;
+      }
+      body.kb-open #map-controls { display: none; }
+
       /* Touch targets: >=44px hit areas for the small desktop-sized controls */
       .gear-btn, .dep-expand-btn, .stop-search-clear { min-width: 44px; min-height: 44px; }
       .toggle-row { font-size: 13px; padding: 9px 0; gap: 10px; }
@@ -2190,7 +2200,7 @@
           </div>
 
           <div class="field-block">
-            <label class="input-row-label" for="dateInput">Date</label>
+          <label class="input-row-label" for="dateInput">Date</label>
             <div class="date-row">
               <input type="date" id="dateInput" />
               <button class="secondary" onclick="document.getElementById('dateInput').value=todayStr()">Today</button>
@@ -5614,6 +5624,44 @@
       const end = e => { if (pull && pull.active) onDragEnd(e); pull = null; };
       body.addEventListener('touchend', end, { passive: true });
       body.addEventListener('touchcancel', end, { passive: true });
+    })();
+
+    // Keep the search field (and its results) above the on-screen keyboard.
+    // The keyboard shrinks the *visual* viewport but not the layout viewport, so
+    // a bottom-fixed sheet ends up underneath it; lift the sheet by the overlap.
+    (function initKeyboardAvoidance() {
+      const vv = window.visualViewport;
+      if (!vv) return;
+      const root = document.documentElement;
+      const body = document.getElementById('mobile-sheet-body');
+      let wasOpen = false;
+
+      function revealFocused() {
+        const el = document.activeElement;
+        if (!el || !body.contains(el) || !el.matches('input, textarea, select')) return;
+        // Park the field at the top of the sheet so its results have the whole visible area below it.
+        const delta = el.getBoundingClientRect().top - body.getBoundingClientRect().top - 8;
+        body.scrollTo({ top: body.scrollTop + delta, behavior: 'smooth' });
+      }
+
+      function update() {
+        const kb = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
+        const open = kb > 100 && isMobile(); // ignore URL-bar-sized changes
+        root.style.setProperty('--kb-h', open ? kb + 'px' : '0px');
+        root.style.setProperty('--vv-h', Math.round(vv.height) + 'px');
+        document.body.classList.toggle('kb-open', open);
+        if (open && !wasOpen) {
+          if (!sheetExpanded) expandSheet();
+          requestAnimationFrame(revealFocused);
+        }
+        wasOpen = open;
+      }
+
+      vv.addEventListener('resize', update);
+      vv.addEventListener('scroll', update);
+      // Focusing a second field while the keyboard is already up doesn't resize anything.
+      body.addEventListener('focusin', () => { if (wasOpen) setTimeout(revealFocused, 50); });
+      update();
     })();
 
     // ===== MOBILE TABS =====

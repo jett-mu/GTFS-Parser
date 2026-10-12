@@ -434,6 +434,11 @@
     .sb-hint { font-size: 13px; color: var(--text-muted); }
     .board-sidebar [hidden] { display: none !important; }
 
+    @media (max-width: 640px) {
+      /* Sit above the on-screen keyboard (--kb-h is set by the script below) */
+      .nearby-overlay { bottom: var(--kb-h, 0px); }
+    }
+
     @media (max-width: 640px), (pointer: coarse) {
       button.sb-btn, a.sb-back, summary.sb-sum { min-height: 44px; box-sizing: border-box; }
       a.sb-back { display: flex; align-items: center; }
@@ -1763,6 +1768,24 @@
       document.querySelector('#boardMain > .nearby-overlay-body').addEventListener('click', collapseSidebarOnMobile);
       document.addEventListener('keydown', e => { if (e.key === 'Escape') collapseSidebarOnMobile(); });
 
+    })();
+
+    // Keep the sidebar's search fields above the on-screen keyboard: the keyboard
+    // shrinks the visual viewport only, so shrink the overlay by the overlap.
+    (function initKeyboardAvoidance() {
+      const vv = window.visualViewport;
+      if (!vv) return;
+      const update = () => {
+        const kb = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
+        document.documentElement.style.setProperty('--kb-h', (kb > 100 && sbIsMobile() ? kb : 0) + 'px');
+      };
+      vv.addEventListener('resize', update);
+      vv.addEventListener('scroll', update);
+      document.addEventListener('focusin', e => {
+        if (!e.target.matches || !e.target.matches('input')) return;
+        setTimeout(() => e.target.scrollIntoView({ block: 'center', behavior: 'smooth' }), 300);
+      });
+      update();
     })();
 
     renderRouteBoardFilter();
