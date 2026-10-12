@@ -117,7 +117,8 @@
 
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
-    html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+    /* font-variant-emoji + the U+FE0E selectors in the text keep arrows/triangles/gear as text glyphs, not colour emoji (iOS) */
+    html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; font-variant-emoji: text; }
     a, button, input, select, label, summary { touch-action: manipulation; }
     html, body {
       height: 100%;
@@ -836,7 +837,7 @@
     <div class="board-main sb-init" id="boardMain">
       <aside class="board-sidebar" id="boardSidebar" aria-label="Location and filter settings">
         <div class="board-sidebar-inner">
-          <a class="sb-back" href="/">&#x2190; Back to main page</a>
+          <a class="sb-back" href="/">&#x2190;&#xFE0E; Back to main page</a>
           <div class="sb-current" id="locCurrent"></div>
           <button type="button" class="sb-btn sb-primary" id="locGps">Use my current location</button>
           <details class="sb-acc">
@@ -998,12 +999,12 @@
           if (delay === null) { badge.textContent='Live'; badge.className='rt-delay-badge rt-live-only'; }
           else if (delay <= 0) {
             const mins = Math.abs(Math.round(delay/60));
-            if (mins > 0) { badge.textContent=`▲ ${mins}m early`; badge.className='rt-delay-badge rt-early'; isEarly = true; }
+            if (mins > 0) { badge.textContent=`▲︎ ${mins}m early`; badge.className='rt-delay-badge rt-early'; isEarly = true; }
             else { badge.textContent='On time'; badge.className='rt-delay-badge rt-ontime'; }
           } else {
             const dCls = delay <= 90 ? 'rt-slight' : 'rt-delayed'; // ≤1.5 min: amber, not red
-            if (delay > 60) { badge.textContent=`▼ ${Math.round(delay/60)}m delay`; badge.className='rt-delay-badge '+dCls; }
-            else { badge.textContent=`▼ ${delay}s delay`; badge.className='rt-delay-badge '+dCls; }
+            if (delay > 60) { badge.textContent=`▼︎ ${Math.round(delay/60)}m delay`; badge.className='rt-delay-badge '+dCls; }
+            else { badge.textContent=`▼︎ ${delay}s delay`; badge.className='rt-delay-badge '+dCls; }
             isLate = true;
           }
 
@@ -1469,7 +1470,7 @@
         pick.innerHTML = `${escapeHtml(l.name)}<small>${(+l.lat).toFixed(4)}, ${(+l.lon).toFixed(4)}</small>`;
         pick.addEventListener('click', () => setBoardLocation(l));
         const del = document.createElement('button');
-        del.type = 'button'; del.className = 'sb-btn'; del.textContent = '✕'; del.title = 'Delete'; del.setAttribute('aria-label', 'Delete ' + l.name);
+        del.type = 'button'; del.className = 'sb-btn'; del.textContent = '✕︎'; del.title = 'Delete'; del.setAttribute('aria-label', 'Delete ' + l.name);
         del.addEventListener('click', () => {
           const cur = getSavedLocations(); cur.splice(i, 1); lsSet(LOC_SAVED_KEY, cur); renderSavedLocations();
         });

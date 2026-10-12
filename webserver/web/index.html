@@ -118,7 +118,8 @@
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-    html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+    /* font-variant-emoji + the U+FE0E selectors in the text keep arrows/triangles/gear as text glyphs, not colour emoji (iOS) */
+    html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; font-variant-emoji: text; }
     /* Kill the double-tap-to-zoom delay on every control */
     a, button, input, select, label, summary, [role="button"] { touch-action: manipulation; }
 
@@ -2162,7 +2163,7 @@
         <div class="panel">
           <div class="panel-heading-row settings-popover-wrap">
             <div class="panel-heading">Find a stop</div>
-            <button type="button" class="gear-btn" id="stopSettingsBtn" aria-label="Stop search settings" aria-haspopup="true" aria-expanded="false" title="Stop search settings">&#9881;</button>
+            <button type="button" class="gear-btn" id="stopSettingsBtn" aria-label="Stop search settings" aria-haspopup="true" aria-expanded="false" title="Stop search settings">&#9881;&#xFE0E;</button>
             <div class="settings-popover" id="stopSettingsPopover" hidden>
               <div class="settings-popover-title">Search settings</div>
               <label class="toggle-row" for="searchMultipleStopsToggle" title="When on, a name search combines every stop sharing that exact name into one board instead of loading a single stop">
@@ -2379,7 +2380,7 @@
       <span id="mPickBtnIcon" style="font-size:16px;line-height:1;font-family:var(--font-mono);font-weight:600;">pin</span>
     </button>
     <button class="map-ctrl-btn" title="My location" onclick="useMyLocation('m-latInput','m-lonInput',true)">
-      <span style="font-size:16px;line-height:1;">⌖</span>
+      <span style="font-size:16px;line-height:1;">⌖︎</span>
     </button>
   </div>
 
@@ -2412,7 +2413,7 @@
       <div class="tab-panel active" id="m-tab-stop">
         <div class="panel-heading-row settings-popover-wrap">
           <div class="panel-heading">Find a stop</div>
-          <button type="button" class="gear-btn" id="m-stopSettingsBtn" aria-label="Stop search settings" aria-haspopup="true" aria-expanded="false" title="Stop search settings">&#9881;</button>
+          <button type="button" class="gear-btn" id="m-stopSettingsBtn" aria-label="Stop search settings" aria-haspopup="true" aria-expanded="false" title="Stop search settings">&#9881;&#xFE0E;</button>
           <div class="settings-popover" id="m-stopSettingsPopover" hidden>
             <div class="settings-popover-title">Search settings</div>
             <label class="toggle-row" for="m-searchMultipleStopsToggle" title="When on, a name search combines every stop sharing that exact name into one board instead of loading a single stop">
@@ -3697,7 +3698,7 @@
         if (on) {
           mobileBtn.classList.add('active-mode');
           if (mobileIcon) {
-            mobileIcon.textContent = '✕';
+            mobileIcon.textContent = '✕︎';
             mobileIcon.style.fontSize = '18px';
           }
         } else {
@@ -3959,12 +3960,12 @@
           if (delay === null) { badge.textContent='Live'; badge.className='rt-delay-badge rt-live-only'; }
           else if (delay <= 0) {
             const mins = Math.abs(Math.round(delay/60));
-            if (mins > 0) { badge.textContent=`▲ ${mins}m early`; badge.className='rt-delay-badge rt-early'; isEarly = true; }
+            if (mins > 0) { badge.textContent=`▲︎ ${mins}m early`; badge.className='rt-delay-badge rt-early'; isEarly = true; }
             else { badge.textContent='On time'; badge.className='rt-delay-badge rt-ontime'; }
           } else {
             const dCls = delay <= 90 ? 'rt-slight' : 'rt-delayed'; // ≤1.5 min: amber, not red
-            if (delay > 60) { badge.textContent=`▼ ${Math.round(delay/60)}m delay`; badge.className='rt-delay-badge '+dCls; }
-            else { badge.textContent=`▼ ${delay}s delay`; badge.className='rt-delay-badge '+dCls; }
+            if (delay > 60) { badge.textContent=`▼︎ ${Math.round(delay/60)}m delay`; badge.className='rt-delay-badge '+dCls; }
+            else { badge.textContent=`▼︎ ${delay}s delay`; badge.className='rt-delay-badge '+dCls; }
             isLate = true;
           }
 
@@ -4015,7 +4016,7 @@
               <div class="dep-time"><span class="dep-time-sched">${fmtTime(dep.arrival_time)}</span><span class="dep-time-actual"></span></div>
               <div class="dep-eta" data-arrival="${dep.arrival_time}" data-trip-id="${dep.trip_id}"></div>
             </div>
-            ${(dep.trip_headsign || dep.direction_id != null) ? `<div class="dep-headsign-row">${dep.direction_id != null ? `<span class="dep-dir" title="Direction ${dep.direction_id}">${dep.direction_id ? '↙' : '↗'}</span>` : ''}${dep.trip_headsign ? `<div class="dep-headsign">${dep.trip_headsign}</div>` : ''}</div>` : ''}
+            ${(dep.trip_headsign || dep.direction_id != null) ? `<div class="dep-headsign-row">${dep.direction_id != null ? `<span class="dep-dir" title="Direction ${dep.direction_id}">${dep.direction_id ? '↙︎' : '↗︎'}</span>` : ''}${dep.trip_headsign ? `<div class="dep-headsign">${dep.trip_headsign}</div>` : ''}</div>` : ''}
             <div class="dep-card-footer">
               <div class="dep-trip">Trip ${dep.trip_id}</div>
             </div>
@@ -4072,7 +4073,7 @@
 
     function cycleDepView(prefix) {
       // The button names the window currently showing; clicking cycles
-      // 3h → next 4 → all. When the 3h window is empty there's no point in
+      // 3h →︎ next 4 →︎ all. When the 3h window is empty there's no point in
       // a "next 4" step in between, so skip straight to
       // the all-departures state instead of following the normal 3-way cycle.
       const empty3h = filterNext3h(applyDepFilter(allDepartures, 'dep-' + prefix)).length === 0;
@@ -5131,7 +5132,7 @@
               <div class="dep-time"><span class="dep-time-sched">${fmtTime(dep.arrival_time)}</span><span class="dep-time-actual"></span></div>
               <div class="dep-eta" data-arrival="${dep.arrival_time}" data-trip-id="${dep.trip_id}"></div>
             </div>
-            ${(dep.trip_headsign || dep.direction_id != null) ? `<div class="dep-headsign-row">${dep.direction_id != null ? `<span class="dep-dir" title="Direction ${dep.direction_id}">${dep.direction_id ? '↙' : '↗'}</span>` : ''}${dep.trip_headsign ? `<div class="dep-headsign">${dep.trip_headsign}</div>` : ''}</div>` : ''}
+            ${(dep.trip_headsign || dep.direction_id != null) ? `<div class="dep-headsign-row">${dep.direction_id != null ? `<span class="dep-dir" title="Direction ${dep.direction_id}">${dep.direction_id ? '↙︎' : '↗︎'}</span>` : ''}${dep.trip_headsign ? `<div class="dep-headsign">${dep.trip_headsign}</div>` : ''}</div>` : ''}
             <div class="dep-card-footer">
               <div class="dep-trip">Trip ${dep.trip_id}</div>
             </div>
