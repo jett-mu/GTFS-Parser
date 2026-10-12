@@ -117,6 +117,8 @@
 
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
+    html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+    a, button, input, select, label, summary { touch-action: manipulation; }
     html, body {
       height: 100%;
       font-family: var(--font-body);
@@ -285,7 +287,8 @@
       border-bottom: 2px solid var(--text);
       flex-shrink: 0;
     }
-    .board-header-left { min-width: 0; }
+    .board-header-left { min-width: 0; display: flex; align-items: flex-start; gap: var(--space-3); }
+    .board-header-text { min-width: 0; flex: 1; }
     .board-title {
       font-family: var(--font-display);
       font-size: 30px;
@@ -352,6 +355,147 @@
       color: var(--text);
     }
     button.board-close:hover { background: var(--surface3); border-color: var(--border2); }
+
+    /* ===== SETTINGS SIDEBAR (location + filter), collapsible ===== */
+    button.board-sb-toggle {
+      width: 40px; height: 40px; padding: 0; border-radius: 50%; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center; position: relative;
+      background: var(--surface2); border: 1px solid var(--border); color: var(--text); cursor: pointer;
+    }
+    button.board-sb-toggle:hover, button.board-sb-toggle.active { background: var(--surface3); border-color: var(--border2); }
+    button.board-sb-toggle svg { width: 20px; height: 20px; }
+    .dep-filter-badge {
+      position: absolute; top: -4px; right: -4px;
+      min-width: 17px; height: 17px; padding: 0 4px; border-radius: 9px;
+      background: var(--accent); color: #fff; font-size: 10.5px; font-weight: 700; line-height: 17px; text-align: center;
+    }
+    .dep-filter-badge[hidden] { display: none; }
+
+    .board-main { flex: 1; min-height: 0; display: flex; position: relative; --sb-w: 320px; }
+    .board-main > .nearby-overlay-body { flex: 1; min-width: 0; }
+    .board-sidebar {
+      flex: 0 0 auto; width: var(--sb-w); overflow: hidden;
+      background: var(--surface); border-right: 1px solid var(--border);
+      transition: width var(--sidebar-transition), border-color var(--sidebar-transition), visibility 0s;
+    }
+    .board-main.sb-collapsed .board-sidebar {
+      width: 0; border-right-color: transparent; visibility: hidden;
+      transition: width var(--sidebar-transition), border-color var(--sidebar-transition), visibility 0s linear 0.32s;
+    }
+    .board-main.sb-init .board-sidebar { transition: none !important; }
+
+    .board-header { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: start; }
+    .board-header-center { display: flex; justify-content: center; }
+    .board-header-right { justify-self: end; }
+    .board-sidebar-inner { gap: var(--space-3); }
+    a.sb-back {
+      display: block; padding: 9px 11px; font-size: 14px; font-weight: 600; text-decoration: none; color: var(--text);
+      background: var(--surface2); border: 1px solid var(--border); border-radius: var(--card-radius);
+    }
+    a.sb-back:hover { background: var(--surface3); border-color: var(--border2); }
+    details.sb-acc { border: 1px solid var(--border); border-radius: var(--card-radius); background: var(--surface2); }
+    summary.sb-sum {
+      list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      padding: 10px 12px; font-size: 14px; font-weight: 600; color: var(--text); border-radius: var(--card-radius);
+      -webkit-tap-highlight-color: transparent;
+    }
+    summary.sb-sum::-webkit-details-marker { display: none; }
+    summary.sb-sum:hover { background: var(--surface3); }
+    summary.sb-sum::after {
+      content: ''; width: 8px; height: 8px; margin-left: auto; flex-shrink: 0;
+      border-right: 2px solid var(--text-muted); border-bottom: 2px solid var(--text-muted);
+      transform: rotate(45deg) translate(-2px, -2px); transition: transform 0.2s;
+    }
+    details[open] > summary.sb-sum::after { transform: rotate(-135deg); }
+    details[open] > summary.sb-sum { border-bottom: 1px solid var(--border); border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+    .sb-acc-body { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3); }
+    .sb-count {
+      min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; box-sizing: border-box;
+      background: var(--accent); color: #fff; font-size: 11px; font-weight: 700; line-height: 18px; text-align: center;
+    }
+    .board-sidebar .sb-label { margin-top: var(--space-2); }
+    @media (max-width: 640px) {
+      .board-header { grid-template-columns: minmax(0, 1fr) auto auto; column-gap: var(--space-3); }
+    }
+    .board-sidebar-inner {
+      width: var(--sb-w); height: 100%; overflow-y: auto; overscroll-behavior: contain;
+      padding: var(--space-4) var(--space-4) calc(var(--space-5) + var(--safe-bottom));
+      display: flex; flex-direction: column; gap: var(--space-5);
+    }
+    .sb-section { display: flex; flex-direction: column; gap: var(--space-2); }
+    .sb-title {
+      margin: 0; padding-bottom: 6px; border-bottom: 1px solid var(--border);
+      font-family: var(--font-display); font-size: 16px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.06em; color: var(--text);
+    }
+    .sb-label { margin-top: var(--space-2); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
+    .sb-current { font-size: 13px; color: var(--text-muted); }
+    .sb-row { display: flex; gap: 6px; }
+    .sb-hint { font-size: 13px; color: var(--text-muted); }
+    .board-sidebar [hidden] { display: none !important; }
+
+    @media (max-width: 640px), (pointer: coarse) {
+      button.sb-btn, a.sb-back, summary.sb-sum { min-height: 44px; box-sizing: border-box; }
+      a.sb-back { display: flex; align-items: center; }
+      .board-sidebar input[type="search"], .board-sidebar input[type="text"] { min-height: 44px; }
+      .dep-filter-route-row, .dep-filter-headsign-row { padding: 11px 0; gap: 12px; font-size: 14px; }
+      .dep-filter-route-row input, .dep-filter-headsign-row input { width: 22px; height: 22px; }
+      .dep-filter-clear { padding: 14px 0 8px; }
+    }
+    @media (hover: none) {
+      .board-row.dep-card:hover, .rb-card:hover { transform: none; box-shadow: none; }
+    }
+    .board-sidebar input[type="search"], .board-sidebar input[type="text"] {
+      flex: 1; min-width: 0; width: 100%; box-sizing: border-box; font: inherit; font-size: 14px; color: var(--text);
+      background: var(--surface2); border: 1px solid var(--border); border-radius: var(--card-radius); padding: 9px 11px;
+    }
+    button.sb-btn {
+      width: 100%; text-align: left; font-size: 14px; padding: 9px 11px; white-space: normal;
+      background: var(--surface2); border: 1px solid var(--border); border-radius: var(--card-radius); color: var(--text);
+    }
+    button.sb-btn:hover { background: var(--surface3); border-color: var(--border2); }
+    button.sb-btn.sb-primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+    button.sb-btn.sb-primary.is-current { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent); }
+    .sb-row button.sb-btn { width: auto; flex-shrink: 0; }
+    .sb-list { display: flex; flex-direction: column; gap: 6px; }
+    .sb-item { display: flex; gap: 6px; }
+    .sb-item .sb-pick { flex: 1; min-width: 0; }
+    .sb-item.active .sb-pick { border-color: var(--accent); }
+    .sb-item button.sb-btn:last-child { width: auto; flex-shrink: 0; }
+    button.sb-btn small { display: block; color: var(--text-muted); font-size: 11.5px; }
+    button.sb-btn.sb-primary small { color: inherit; }
+    .sb-empty { font-size: 13px; color: var(--text-muted); }
+
+    @media (max-width: 640px) {
+      .board-main { --sb-w: min(88vw, 340px); }
+      .board-sidebar {
+        position: absolute; top: 0; bottom: 0; left: 0; z-index: 30; box-shadow: var(--shadow-2);
+        transition: transform var(--sidebar-transition), visibility 0s;
+      }
+      .board-main.sb-collapsed .board-sidebar {
+        width: var(--sb-w); transform: translateX(-100%); box-shadow: none;
+        transition: transform var(--sidebar-transition), visibility 0s linear 0.32s;
+      }
+      button.board-sb-toggle { width: 44px; height: 44px; }
+    }
+
+    .dep-filter-tree { display: flex; flex-direction: column; gap: 2px; }
+    .dep-filter-route { padding: 2px 0; }
+    .dep-filter-route-row, .dep-filter-headsign-row {
+      display: flex; align-items: center; gap: 8px; padding: 5px 0; cursor: pointer; font-size: 14px;
+    }
+    .dep-filter-route-row { font-weight: 600; color: var(--text); }
+    .dep-filter-headsign-row { color: var(--text-muted); font-size: 13px; }
+    .dep-filter-route-row input, .dep-filter-headsign-row input {
+      accent-color: var(--accent); width: 16px; height: 16px; cursor: pointer; flex-shrink: 0;
+    }
+    .dep-filter-headsigns { display: flex; flex-direction: column; padding-left: 20px; border-left: 1px solid var(--border); margin-left: 7px; }
+    .dep-filter-empty { font-size: 13px; color: var(--text-muted); padding: 6px 0; }
+    .dep-filter-clear {
+      width: 100%; margin-top: 6px; padding: 8px 0 0; border: none; border-top: 1px solid var(--border);
+      background: none; color: var(--accent); font-size: 13px; font-weight: 600; cursor: pointer; text-align: center;
+    }
+    .dep-filter-clear:hover { text-decoration: underline; background: none; }
 
     .board-chips {
       display: flex;
@@ -733,18 +877,71 @@
   <main id="routeBoardOverlay" class="nearby-overlay board-overlay route-board-overlay" aria-label="Route board">
     <div class="board-header">
       <div class="board-header-left">
-        <div class="board-title">Routes</div>
-        <div class="board-sub" id="routeBoardOverlaySub"></div>
+        <div class="board-header-text">
+          <div class="board-title">Routes</div>
+          <div class="board-sub" id="routeBoardOverlaySub"></div>
+        </div>
+      </div>
+      <div class="board-header-center">
+        <button type="button" class="board-sb-toggle" id="sbToggle" aria-controls="boardSidebar" aria-expanded="true" aria-label="Toggle settings sidebar" title="Location &amp; filter">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h9M19 6h1M4 12h3M13 12h7M4 18h11"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>
+          <span class="dep-filter-badge" id="boardFilterBadge" hidden>0</span>
+        </button>
       </div>
       <div class="board-header-right">
         <div class="board-clock-wrap">
           <div class="board-clock" id="routeBoardClock"></div>
         </div>
-        <a class="board-back" href="/" aria-label="Back to home" title="Back to home">&#x2190;</a>
       </div>
     </div>
-    <div class="nearby-overlay-body">
-      <div class="rb-grid" id="routeBoardGrid"></div>
+    <div class="board-main sb-init" id="boardMain">
+      <aside class="board-sidebar" id="boardSidebar" aria-label="Location and filter settings">
+        <div class="board-sidebar-inner">
+          <a class="sb-back" href="/">&#x2190; Back to main page</a>
+          <div class="sb-current" id="locCurrent"></div>
+          <button type="button" class="sb-btn sb-primary" id="locGps">Use my current location</button>
+          <details class="sb-acc">
+            <summary class="sb-sum"><span>Search for a stop</span></summary>
+            <div class="sb-acc-body">
+              <input id="locSearch" type="search" placeholder="Stop name, ID or code" aria-label="Search for a stop" autocomplete="off">
+              <div class="sb-list" id="locResults"></div>
+            </div>
+          </details>
+          <details class="sb-acc">
+            <summary class="sb-sum"><span>Enter coordinates</span></summary>
+            <div class="sb-acc-body">
+              <div class="sb-row">
+                <input id="locCoords" type="text" inputmode="decimal" placeholder="Latitude, longitude" aria-label="Latitude, longitude" autocomplete="off">
+                <button type="button" class="sb-btn" id="locCoordsGo">Go</button>
+              </div>
+              <div class="sb-empty" id="locCoordsErr" hidden>Enter a valid latitude (-90 to 90) and longitude (-180 to 180).</div>
+            </div>
+          </details>
+          <details class="sb-acc">
+            <summary class="sb-sum"><span>Saved locations</span></summary>
+            <div class="sb-acc-body">
+              <div class="sb-list" id="locSaved"></div>
+              <div id="locSaveWrap">
+                <div class="sb-label">Save current location</div>
+                <div class="sb-row">
+                  <input id="locNick" type="text" maxlength="40" placeholder="Nickname (e.g. Home)" aria-label="Nickname" autocomplete="off">
+                  <button type="button" class="sb-btn" id="locSave">Save</button>
+                </div>
+              </div>
+            </div>
+          </details>
+          <details class="sb-acc">
+            <summary class="sb-sum"><span>Filter routes</span><span class="sb-count" id="sbFilterCount" hidden>0</span></summary>
+            <div class="sb-acc-body">
+              <div class="dep-filter-tree" id="boardFilterTree"></div>
+              <button type="button" class="dep-filter-clear" id="boardFilterClear">Clear filters</button>
+            </div>
+          </details>
+        </div>
+      </aside>
+      <div class="nearby-overlay-body">
+        <div class="rb-grid" id="routeBoardGrid"></div>
+      </div>
     </div>
   </main>
   <script>
@@ -915,6 +1112,9 @@
     let rbRotateIdx = 0;
     let routeBoardRefreshId = null, routeBoardRtId = null, routeBoardClockId = null;
     let routeBoardLat = null, routeBoardLon = null;
+    let routeBoardCustom = null; // {lat, lon, name} when a chosen/saved location replaces GPS
+    const LOC_SAVED_KEY = 'gtfs-board-saved-locations';   // shared with the departure board
+    const LOC_ACTIVE_KEY = 'gtfs-board-active-location';
     let allRouteBoardDepartures = [];
     let lastRouteBoardStopDatas = [];
 
@@ -1008,8 +1208,16 @@
       grid.dataset.tripKey = '';
     }
 
+    function routeBoardLabel() { return routeBoardCustom ? `Near ${routeBoardCustom.name}` : 'Near you'; }
+
     function loadRouteBoardLocation() {
       const sub = document.getElementById('routeBoardOverlaySub');
+      if (routeBoardCustom) {
+        routeBoardLat = routeBoardCustom.lat;
+        routeBoardLon = routeBoardCustom.lon;
+        fetchRouteBoard();
+        return;
+      }
       if (!navigator.geolocation) {
         sub.textContent = 'Location is not available in this browser';
         setRouteBoardMessage('Turn on location to see nearby routes.');
@@ -1022,11 +1230,13 @@
         sub.textContent = 'Finding you…';
       }
       navigator.geolocation.getCurrentPosition(pos => {
+        if (routeBoardCustom) return; // a chosen location took over while GPS was resolving
         routeBoardLat = pos.coords.latitude;
         routeBoardLon = pos.coords.longitude;
         fetchRouteBoard();
+        refreshLocPanel();
       }, () => {
-        if (routeBoardLat == null) {
+        if (routeBoardLat == null && !routeBoardCustom) {
           sub.textContent = 'Location unavailable';
           setRouteBoardMessage('Turn on location to see nearby routes.');
         }
@@ -1036,20 +1246,30 @@
     function fetchRouteBoard() {
       if (routeBoardLat == null || routeBoardLon == null) return;
       const sub = document.getElementById('routeBoardOverlaySub');
-      if (!allRouteBoardDepartures.length) sub.textContent = 'Finding stops near you…';
+      const lat = routeBoardLat, lon = routeBoardLon;
+      const stale = () => lat !== routeBoardLat || lon !== routeBoardLon; // location changed mid-flight
+      if (!allRouteBoardDepartures.length) sub.textContent = routeBoardCustom ? `Finding stops near ${routeBoardCustom.name}…` : 'Finding stops near you…';
 
-      fetchNearbyStopDepartures(routeBoardLat, routeBoardLon)
+      fetchNearbyStopDepartures(lat, lon)
         .then(stopDatas => {
+          if (stale()) return;
           allRouteBoardDepartures = mergeNearbyDepartures(stopDatas);
           lastRouteBoardStopDatas = stopDatas;
+          // Forget filter selections for routes that are no longer nearby.
+          const present = new Set(allRouteBoardDepartures.map(d => d.route_id));
+          const st = getDepFilterState('route');
+          [...st.selected.keys()].forEach(r => { if (!present.has(r)) st.selected.delete(r); });
           const n = stopDatas.length;
           const farthestKM = Math.max(0, ...stopDatas.map(s => s._distanceKM || 0));
-          sub.textContent = `Near you – ${n} stop${n !== 1 ? 's' : ''} within a ${walkMinutes(farthestKM)} min walk`;
+          sub.textContent = `${routeBoardLabel()} – ${n} stop${n !== 1 ? 's' : ''} within a ${walkMinutes(farthestKM)} min walk`;
+          renderRouteBoardFilter();
           renderRouteBoardCards();
+          refreshLocPanel();
         })
         .catch(err => {
+          if (stale()) return;
           if (!allRouteBoardDepartures.length) {
-            sub.textContent = 'Near you';
+            sub.textContent = routeBoardLabel();
             setRouteBoardMessage(err === 'no-stops' ? 'No stops within walking distance.' : 'Couldn’t load routes. Trying again shortly.');
           }
         });
@@ -1062,7 +1282,7 @@
       const now = nowInSeconds();
       const realTime = dep => parseTime(dep.arrival_time) + getRTDelaySeconds(dep.trip_id, dep.arrival_time, dep._stopId);
       const byRoute = new Map();
-      allRouteBoardDepartures
+      applyDepFilter(allRouteBoardDepartures, 'route')
         .filter(dep => realTime(dep) >= now)
         .forEach(dep => {
           if (!dep.route_id) return;
@@ -1287,7 +1507,10 @@
 
       if (!groups.length) {
         rbCards.clear();
-        setRouteBoardMessage('Nothing leaving nearby right now.');
+        const picked = [...getDepFilterState('route').selected.keys()];
+        setRouteBoardMessage(picked.length
+          ? `No more route ${picked.join(' / ')} departures today.`
+          : 'Nothing leaving nearby right now.');
       } else {
         // Drop cards the grid no longer holds (message / skeleton replaced them).
         rbCards.forEach((card, id) => { if (!card.isConnected) rbCards.delete(id); });
@@ -1312,6 +1535,255 @@
       lastRouteBoardStopDatas.forEach(s => { reapplyCachedRT(s.stop_id); loadRTStopUpdates(s.stop_id); });
     }
 
+    // ===== Filter (route / headsign tree; same shape as the departure board) =====
+    const depFilterState = {};
+    function getDepFilterState(key) {
+      return depFilterState[key] || (depFilterState[key] = { selected: new Map() });
+    }
+    function resetDepFilterState(key) {
+      getDepFilterState(key).selected = new Map();
+    }
+    function applyDepFilter(departures, key) {
+      const st = getDepFilterState(key);
+      if (st.selected.size === 0) return departures;
+      return departures.filter(d => {
+        const v = st.selected.get(d.route_id);
+        if (!v) return false;
+        return v === 'ALL' || v.has(d.trip_headsign || d.route_id);
+      });
+    }
+    function depFilterActiveCount(key) {
+      let n = 0;
+      getDepFilterState(key).selected.forEach(v => { n += v === 'ALL' ? 1 : v.size; });
+      return n;
+    }
+    function buildRouteHeadsignTree(departures) {
+      const map = new Map();
+      departures.forEach(d => {
+        if (!d.route_id) return;
+        if (!map.has(d.route_id)) map.set(d.route_id, new Set());
+        const h = d.trip_headsign || d.route_id;
+        map.get(d.route_id).add(h);
+      });
+      return [...map.entries()]
+        .sort((a, b) => a[0].localeCompare(b[0], undefined, { numeric: true, sensitivity: 'base' }))
+        .map(([routeId, hs]) => ({ routeId, headsigns: [...hs].sort((a, b) => a.localeCompare(b)) }));
+    }
+
+    function renderRouteBoardFilter() {
+      const tree = document.getElementById('boardFilterTree');
+      const key = 'route';
+      const st = getDepFilterState(key);
+      const routes = buildRouteHeadsignTree(allRouteBoardDepartures);
+      const onChange = () => { renderRouteBoardFilter(); renderRouteBoardCards(); };
+
+      tree.innerHTML = routes.length ? routes.map(r => {
+        const sel = st.selected.get(r.routeId);
+        const routeChecked = sel === 'ALL' || (sel && r.headsigns.length > 0 && sel.size === r.headsigns.length);
+        const rid = escapeHtml(r.routeId);
+        return `
+          <div class="dep-filter-route">
+            <label class="dep-filter-route-row">
+              <input type="checkbox" class="dep-filter-route-cb" data-route="${rid}" ${routeChecked ? 'checked' : ''}>
+              <span>${rid}</span>
+            </label>
+            ${r.headsigns.length ? `<div class="dep-filter-headsigns">
+              ${r.headsigns.map(h => `
+                <label class="dep-filter-headsign-row">
+                  <input type="checkbox" class="dep-filter-headsign-cb" data-route="${rid}" data-headsign="${escapeHtml(h)}" ${(sel === 'ALL' || (sel && sel.has(h))) ? 'checked' : ''}>
+                  <span>${escapeHtml(h)}</span>
+                </label>
+              `).join('')}
+            </div>` : ''}
+          </div>`;
+      }).join('') : '<div class="dep-filter-empty">No routes to filter.</div>';
+
+      tree.querySelectorAll('.dep-filter-route-cb').forEach(cb => {
+        const r = routes.find(x => x.routeId === cb.dataset.route);
+        const sel = st.selected.get(cb.dataset.route);
+        cb.indeterminate = !!(sel && sel !== 'ALL' && sel.size > 0 && r && sel.size < r.headsigns.length);
+        cb.addEventListener('change', () => {
+          if (cb.checked) st.selected.set(cb.dataset.route, 'ALL');
+          else st.selected.delete(cb.dataset.route);
+          onChange();
+        });
+      });
+      tree.querySelectorAll('.dep-filter-headsign-cb').forEach(cb => {
+        cb.addEventListener('change', () => {
+          const rid = cb.dataset.route, hs = cb.dataset.headsign;
+          const r = routes.find(x => x.routeId === rid);
+          let sel = st.selected.get(rid);
+          sel = sel === 'ALL' ? new Set(r.headsigns) : (sel ? new Set(sel) : new Set());
+          if (cb.checked) sel.add(hs); else sel.delete(hs);
+          if (sel.size === 0) st.selected.delete(rid);
+          else if (sel.size === r.headsigns.length) st.selected.set(rid, 'ALL');
+          else st.selected.set(rid, sel);
+          onChange();
+        });
+      });
+
+      const badge = document.getElementById('boardFilterBadge');
+      const n = depFilterActiveCount(key);
+      badge.textContent = n;
+      badge.hidden = n === 0;
+      const cnt = document.getElementById('sbFilterCount');
+      cnt.textContent = n;
+      cnt.hidden = n === 0;
+    }
+
+    document.getElementById('boardFilterClear').addEventListener('click', () => {
+      resetDepFilterState('route');
+      renderRouteBoardFilter();
+      renderRouteBoardCards();
+    });
+
+    // ===== Location chooser (saved locations live in localStorage, shared with the departure board) =====
+    function debounce(fn, ms) {
+      let timer = null;
+      return function (...args) {
+        clearTimeout(timer);
+        timer = setTimeout(() => { timer = null; fn.apply(this, args); }, ms);
+      };
+    }
+    function lsGet(key, fallback) {
+      try { const v = JSON.parse(localStorage.getItem(key)); return v ?? fallback; } catch (e) { return fallback; }
+    }
+    function lsSet(key, val) {
+      try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) {}
+    }
+    function getSavedLocations() {
+      const v = lsGet(LOC_SAVED_KEY, []);
+      return Array.isArray(v) ? v.filter(l => l && isFinite(l.lat) && isFinite(l.lon) && l.name) : [];
+    }
+
+    // Switch the board to a location (null = live GPS) and reload it.
+    function setRouteBoardLocation(loc) {
+      routeBoardCustom = loc ? { lat: +loc.lat, lon: +loc.lon, name: loc.name } : null;
+      if (routeBoardCustom) lsSet(LOC_ACTIVE_KEY, routeBoardCustom); else { try { localStorage.removeItem(LOC_ACTIVE_KEY); } catch (e) {} }
+      routeBoardLat = routeBoardLon = null;
+      allRouteBoardDepartures = [];
+      lastRouteBoardStopDatas = [];
+      resetDepFilterState('route');
+      renderRouteBoardFilter();
+      const grid = document.getElementById('routeBoardGrid');
+      grid.innerHTML = skeletonDepCards(6);
+      grid.dataset.tripKey = '';
+      refreshLocPanel();
+      collapseSidebarOnMobile();
+      loadRouteBoardLocation();
+    }
+
+    function renderSavedLocations() {
+      const box = document.getElementById('locSaved');
+      const saved = getSavedLocations();
+      box.innerHTML = saved.length ? '' : '<div class="sb-empty">Nothing saved yet.</div>';
+      saved.forEach((l, i) => {
+        const row = document.createElement('div');
+        row.className = 'sb-item' + (routeBoardCustom && routeBoardCustom.lat === l.lat && routeBoardCustom.lon === l.lon ? ' active' : '');
+        const pick = document.createElement('button');
+        pick.type = 'button'; pick.className = 'sb-btn sb-pick';
+        pick.innerHTML = `${escapeHtml(l.name)}<small>${(+l.lat).toFixed(4)}, ${(+l.lon).toFixed(4)}</small>`;
+        pick.addEventListener('click', () => setRouteBoardLocation(l));
+        const del = document.createElement('button');
+        del.type = 'button'; del.className = 'sb-btn'; del.textContent = '✕'; del.title = 'Delete'; del.setAttribute('aria-label', 'Delete ' + l.name);
+        del.addEventListener('click', () => {
+          const cur = getSavedLocations(); cur.splice(i, 1); lsSet(LOC_SAVED_KEY, cur); renderSavedLocations();
+        });
+        row.append(pick, del);
+        box.appendChild(row);
+      });
+    }
+
+    function saveCurrentLocation() {
+      const nickEl = document.getElementById('locNick');
+      const name = nickEl.value.trim();
+      if (!name || routeBoardLat == null) { nickEl.focus(); return; }
+      const cur = getSavedLocations().filter(l => l.name.toLowerCase() !== name.toLowerCase());
+      cur.push({ name, lat: routeBoardLat, lon: routeBoardLon });
+      lsSet(LOC_SAVED_KEY, cur);
+      routeBoardCustom = { lat: routeBoardLat, lon: routeBoardLon, name };
+      lsSet(LOC_ACTIVE_KEY, routeBoardCustom);
+      nickEl.value = '';
+      document.getElementById('routeBoardOverlaySub').textContent = routeBoardLabel();
+      refreshLocPanel();
+    }
+
+    // Sidebar location panel: current label, GPS highlight, save box, saved list.
+    function refreshLocPanel() {
+      document.getElementById('locCurrent').textContent = routeBoardCustom
+        ? `Showing: ${routeBoardCustom.name}` : 'Showing: your live location';
+      document.getElementById('locGps').classList.toggle('is-current', !routeBoardCustom);
+      document.getElementById('locSaveWrap').hidden = routeBoardLat == null;
+      renderSavedLocations();
+    }
+
+    const runLocSearch = debounce(q => {
+      const box = document.getElementById('locResults');
+      if (!q) { box.innerHTML = ''; return; }
+      apiFetch('/api/searchstop/' + encodeURIComponent(q))
+        .then(r => r.ok ? r.json() : { matches: [] })
+        .then(d => {
+          if (document.getElementById('locSearch').value.trim() !== q) return;
+          const ms = (d.matches || []).filter(m => isFinite(m.lat) && isFinite(m.lon)).slice(0, 8);
+          box.innerHTML = ms.length ? '' : '<div class="sb-empty">No stops found.</div>';
+          ms.forEach(m => {
+            const b = document.createElement('button');
+            b.type = 'button'; b.className = 'sb-btn';
+            b.innerHTML = `${escapeHtml(m.stop_name)}<small>${escapeHtml(m.stop_code || m.stop_id)}</small>`;
+            b.addEventListener('click', () => setRouteBoardLocation({ lat: m.lat, lon: m.lon, name: m.stop_name }));
+            box.appendChild(b);
+          });
+        })
+        .catch(() => { box.innerHTML = '<div class="sb-empty">Search failed.</div>'; });
+    }, 250);
+
+    function submitCoords() {
+      const inp = document.getElementById('locCoords'), err = document.getElementById('locCoordsErr');
+      const m = inp.value.trim().match(/^(-?\d+(?:\.\d+)?)\s*[,\s]\s*(-?\d+(?:\.\d+)?)$/);
+      const lat = m ? parseFloat(m[1]) : NaN, lon = m ? parseFloat(m[2]) : NaN;
+      if (!m || Math.abs(lat) > 90 || Math.abs(lon) > 180) { err.hidden = false; return; }
+      err.hidden = true;
+      inp.value = '';
+      setRouteBoardLocation({ lat, lon, name: `${lat.toFixed(4)}, ${lon.toFixed(4)}` });
+    }
+    document.getElementById('locCoordsGo').addEventListener('click', submitCoords);
+    document.getElementById('locCoords').addEventListener('keydown', e => { if (e.key === 'Enter') submitCoords(); });
+    document.getElementById('locGps').addEventListener('click', () => setRouteBoardLocation(null));
+    document.getElementById('locSave').addEventListener('click', saveCurrentLocation);
+    document.getElementById('locNick').addEventListener('keydown', e => { if (e.key === 'Enter') saveCurrentLocation(); });
+    document.getElementById('locSearch').addEventListener('input', e => runLocSearch(e.target.value.trim()));
+
+    (function restoreActiveLocation() {
+      const a = lsGet(LOC_ACTIVE_KEY, null);
+      if (a && isFinite(a.lat) && isFinite(a.lon) && a.name) routeBoardCustom = { lat: +a.lat, lon: +a.lon, name: a.name };
+    })();
+
+    // ===== Settings sidebar (location + filter) =====
+    const SB_KEY = 'gtfs-board-sidebar-collapsed';
+    const sbIsMobile = () => window.matchMedia('(max-width: 640px)').matches;
+    function setSidebarCollapsed(collapsed, persist) {
+      document.getElementById('boardMain').classList.toggle('sb-collapsed', collapsed);
+      const btn = document.getElementById('sbToggle');
+      btn.classList.toggle('active', !collapsed);
+      btn.setAttribute('aria-expanded', String(!collapsed));
+      if (persist) lsSet(SB_KEY, collapsed);
+    }
+    function collapseSidebarOnMobile() { if (sbIsMobile()) setSidebarCollapsed(true, false); }
+    (function initSidebar() {
+      // Desktop remembers open/closed; phones start closed so the board is visible.
+      setSidebarCollapsed(sbIsMobile() ? true : lsGet(SB_KEY, false) === true, false);
+      requestAnimationFrame(() => requestAnimationFrame(() => document.getElementById('boardMain').classList.remove('sb-init')));
+      document.getElementById('sbToggle').addEventListener('click', () => {
+        const collapsed = !document.getElementById('boardMain').classList.contains('sb-collapsed');
+        setSidebarCollapsed(collapsed, !sbIsMobile());
+      });
+      document.querySelector('#boardMain > .nearby-overlay-body').addEventListener('click', collapseSidebarOnMobile);
+      document.addEventListener('keydown', e => { if (e.key === 'Escape') collapseSidebarOnMobile(); });
+
+    })();
+
+    renderRouteBoardFilter();
+    refreshLocPanel();
     startRouteBoard();
   </script>
 <div style="padding:10px 16px;font-size:11px;line-height:1.4;text-align:center;color:var(--text-muted,#888);">Unofficial &mdash; not affiliated with or endorsed by York Region Transit. Departure and delay estimates may differ from official sources. Contains public transit Information made available under YRT's Open Data Licence.</div>

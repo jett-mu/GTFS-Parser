@@ -118,6 +118,9 @@
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+    /* Kill the double-tap-to-zoom delay on every control */
+    a, button, input, select, label, summary, [role="button"] { touch-action: manipulation; }
 
     html, body {
       height: 100%;
@@ -1713,6 +1716,22 @@
       .show-all-deps-btn { padding: 8px 12px; }
 
       .nearby-overlay-esc { display: none; }
+
+      /* Touch targets: >=44px hit areas for the small desktop-sized controls */
+      .gear-btn, .dep-expand-btn, .stop-search-clear { min-width: 44px; min-height: 44px; }
+      .toggle-row { font-size: 13px; padding: 9px 0; gap: 10px; }
+      .toggle-row input[type="checkbox"] { width: 22px; height: 22px; }
+      .toggle-row input[type="number"].radius-input { width: 64px; padding: 8px; }
+      .dep-filter-route-row, .dep-filter-headsign-row { padding: 11px 0; gap: 12px; font-size: 14px; }
+      .dep-filter-route-row input, .dep-filter-headsign-row input { width: 22px; height: 22px; }
+      .dep-filter-headsigns { margin-left: 10px; }
+      .dep-filter-clear { padding: 14px 0 8px; font-size: 14px; }
+      .leaflet-control-zoom a { width: 44px !important; height: 44px !important; line-height: 44px !important; }
+    }
+
+    /* No hover on touch screens: stop cards staying "lifted" after a tap */
+    @media (hover: none) {
+      .dep-card:hover, .rt-trip-card:hover { transform: none; box-shadow: none; }
     }
 
     @media (max-width: 400px) {
@@ -2309,7 +2328,7 @@
             <button class="secondary tab-accent-btn" style="flex:1" onclick="handleFindNearest('latInput','lonInput')">Search nearby</button>
             <button class="secondary tab-accent-btn" style="flex:1" onclick="useMyLocation('latInput','lonInput',true)">Use my location</button>
           </div>
-          <button class="secondary tab-accent-btn" style="width:100%" onclick="showUserLocation()">Show my location on map</button>
+          <button class="secondary tab-accent-btn show-loc-btn" style="width:100%" onclick="showUserLocation()">Show my location on map</button>
           <button class="pick-mode-btn tab-accent-btn" id="pickModeBtn" onclick="setPickMode(!pickModeActive)">Pick a point on the map</button>
         </div>
 
@@ -2557,7 +2576,7 @@
             <button class="secondary tab-accent-btn" style="flex:1" onclick="handleFindNearest('m-latInput','m-lonInput')">Search nearby</button>
             <button class="secondary tab-accent-btn" style="flex:1" onclick="useMyLocation('m-latInput','m-lonInput',true)">Use my location</button>
           </div>
-          <button class="secondary tab-accent-btn" style="width:100%;margin-top:5px" onclick="showUserLocation()">Show my location on map</button>
+          <button class="secondary tab-accent-btn show-loc-btn" style="width:100%;margin-top:5px" onclick="showUserLocation()">Show my location on map</button>
         </div>
         <div id="m-nearestStopsInfo"></div>
       </div>
@@ -5337,15 +5356,42 @@
       }, () => showToast('Unable to get your location.'));
     }
 
+    // Live "my location" marker: follows the rider via watchPosition until the
+    // button is pressed again (it becomes "Stop showing my location").
+    let userLocWatchId = null;
+    function setShowLocButtons(on) {
+      document.querySelectorAll('.show-loc-btn').forEach(b => {
+        b.textContent = on ? 'Stop showing my location' : 'Show my location on map';
+      });
+    }
+
+    function stopUserLocation() {
+      if (userLocWatchId !== null) navigator.geolocation.clearWatch(userLocWatchId);
+      userLocWatchId = null;
+      if (window.userLocationMarker) { map.removeLayer(window.userLocationMarker); window.userLocationMarker = null; }
+      setShowLocButtons(false);
+    }
+
     function showUserLocation() {
-      navigator.geolocation?.getCurrentPosition(pos => {
-        const {latitude:lat,longitude:lon} = pos.coords;
-        if (window.userLocationMarker) map.removeLayer(window.userLocationMarker);
-        const icon = L.divIcon({className:'user-location-marker',html:'<div></div>',iconSize:[14,14],iconAnchor:[7,7]});
-        window.userLocationMarker = L.marker([lat,lon],{icon}).addTo(map);
-        window.userLocationMarker.bindPopup('Your Location');
-        map.setView([lat,lon],15);
-      }, () => showToast('Unable to get your location.'));
+      if (!navigator.geolocation) { showToast('Unable to get your location.'); return; }
+      if (userLocWatchId !== null) { stopUserLocation(); return; }
+      setShowLocButtons(true);
+      userLocWatchId = navigator.geolocation.watchPosition(pos => {
+        const ll = [pos.coords.latitude, pos.coords.longitude];
+        if (window.userLocationMarker) {
+          window.userLocationMarker.setLatLng(ll); // follow movement; leave the map view where the rider put it
+        } else {
+          const icon = L.divIcon({className:'user-location-marker',html:'<div></div>',iconSize:[14,14],iconAnchor:[7,7]});
+          window.userLocationMarker = L.marker(ll,{icon}).addTo(map);
+          window.userLocationMarker.bindPopup('Your Location');
+          map.setView(ll,15);
+        }
+      }, err => {
+        if (err.code === 1 || !window.userLocationMarker) { // denied, or never got a first fix
+          showToast('Unable to get your location.');
+          stopUserLocation();
+        } // a later timeout / dropout just keeps the last known position
+      }, { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 });
     }
 
     const NEAREST_LIST_MAX = 10;
@@ -5544,6 +5590,32 @@
       });
     });
 
+    // Pull-down from the content: when the body is scrolled to the top, dragging
+    // down hands the gesture to the sheet so it can be dismissed from anywhere.
+    (function initSheetBodyPull() {
+      const body = document.getElementById('mobile-sheet-body');
+      let pull = null;
+      body.addEventListener('touchstart', e => {
+        pull = (sheetExpanded && body.scrollTop <= 0 && e.touches.length === 1)
+          ? { y: e.touches[0].clientY, active: false } : null;
+      }, { passive: true });
+      body.addEventListener('touchmove', e => {
+        if (!pull) return;
+        const dy = e.touches[0].clientY - pull.y;
+        if (!pull.active) {
+          if (body.scrollTop > 0 || dy < -4) { pull = null; return; } // scrolling content instead
+          if (dy < 12) return;
+          pull.active = true;
+          onDragStart(e);
+          dragStartY = pull.y;
+        }
+        onDragMove(e);
+      }, { passive: false });
+      const end = e => { if (pull && pull.active) onDragEnd(e); pull = null; };
+      body.addEventListener('touchend', end, { passive: true });
+      body.addEventListener('touchcancel', end, { passive: true });
+    })();
+
     // ===== MOBILE TABS =====
     function switchTab(tabId) {
       document.querySelectorAll('.m-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tabId));
@@ -5553,7 +5625,10 @@
     }
 
     document.querySelectorAll('.m-tab').forEach(tab => {
-      tab.addEventListener('click', () => switchTab(tab.dataset.tab));
+      tab.addEventListener('click', () => {
+        switchTab(tab.dataset.tab);
+        if (!sheetExpanded) expandSheet();
+      });
     });
 
     // ===== DESKTOP SIDEBAR TABS =====
