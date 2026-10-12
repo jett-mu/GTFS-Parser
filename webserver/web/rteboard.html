@@ -771,10 +771,6 @@
     .rb-rows.active, .rb-rows.leaving { visibility: visible; transition: transform 0.55s cubic-bezier(0.65, 0, 0.35, 1); }
     .rb-rows.active { transform: translateX(0); }
     .rb-rows.leaving { transform: translateX(-100%); }
-    /* Swiping back: panels come in from the left and the old one leaves to the right */
-    .rb-card.rb-back .rb-rows { transform: translateX(-100%); }
-    .rb-card.rb-back .rb-rows.active { transform: translateX(0); }
-    .rb-card.rb-back .rb-rows.leaving { transform: translateX(100%); }
     .rb-card { touch-action: pan-y; } /* vertical scroll stays native; horizontal swipes are ours */
     .rb-row {
       display: flex;
@@ -1457,11 +1453,10 @@
       card.querySelectorAll('.rb-dot').forEach((d, i) => d.classList.toggle('active', i === idx));
     }
 
-    function setCardPanel(card, rotateIdx, back) {
+    function setCardPanel(card, rotateIdx) {
       const panels = card.querySelectorAll('.rb-rows');
       if (!panels.length) return;
       const idx = rotateIdx % panels.length;
-      card.classList.toggle('rb-back', !!back);
       // Park last cycle's outgoing panel back on the right (no transition)
       // before sliding, so a 2-headsign card always enters from the right.
       panels.forEach(p => p.classList.remove('leaving'));
@@ -1482,35 +1477,75 @@
       });
     }
 
-    // Manual swipe: left = next destination, right = previous. The card then
-    // stops auto-rotating for a while so the rider can read it.
-    const RB_MANUAL_HOLD_MS = 12000;
-    function stepCardPanel(card, dir) {
-      const panels = [...card.querySelectorAll('.rb-rows')];
-      if (panels.length < 2) return;
-      const cur = Math.max(0, panels.findIndex(p => p.classList.contains('active')));
-      const next = (cur + dir + panels.length) % panels.length;
-      card._manualUntil = Date.now() + RB_MANUAL_HOLD_MS;
-      setCardPanel(card, next, dir < 0);
-    }
+    // Manual swipe: the card follows the finger (current + neighbouring
+    // destination slide together), and on release snaps to whichever is
+    // nearer — or the next/previous one on a quick flick. The card then stops
+    // auto-rotating for a while so the rider can read it.
+    const RB_MANUAL_HOLD_MS = 12000, RB_SNAP_MS = 260;
 
     function attachCardSwipe(card) {
-      let x0 = 0, y0 = 0, t0 = 0, tracking = false;
+      let st = null, settling = false;
+      const resetPanel = p => { p.style.transition = ''; p.style.transform = ''; p.style.visibility = ''; };
+
       card.addEventListener('touchstart', e => {
-        tracking = e.touches.length === 1;
-        if (!tracking) return;
-        x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; t0 = Date.now();
+        if (settling) { st = null; return; }
+        const panels = [...card.querySelectorAll('.rb-rows')];
+        const cur = panels.findIndex(p => p.classList.contains('active'));
+        if (e.touches.length !== 1 || panels.length < 2 || cur < 0) { st = null; return; }
+        const t = e.touches[0];
+        st = { x0: t.clientX, y0: t.clientY, t0: Date.now(), panels, cur, w: card.querySelector('.rb-stage').clientWidth,
+               drag: false, dx: 0, active: panels[cur], other: null };
       }, { passive: true });
-      card.addEventListener('touchend', e => {
-        if (!tracking) return;
-        tracking = false;
-        const t = e.changedTouches[0];
-        const dx = t.clientX - x0, dy = t.clientY - y0;
-        if (Date.now() - t0 > 700) return;                       // a drag-and-hold, not a swipe
-        if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy) * 1.5) return; // too short or mostly vertical
-        stepCardPanel(card, dx < 0 ? 1 : -1);
-      }, { passive: true });
-      card.addEventListener('touchcancel', () => { tracking = false; }, { passive: true });
+
+      card.addEventListener('touchmove', e => {
+        if (!st) return;
+        const t = e.touches[0], dx = t.clientX - st.x0, dy = t.clientY - st.y0;
+        if (!st.drag) {
+          if (Math.abs(dy) > 8 && Math.abs(dy) > Math.abs(dx)) { st = null; return; } // vertical: let the page scroll
+          if (Math.abs(dx) < 8) return;
+          st.drag = true;
+          card._manualUntil = Infinity;                       // hold auto-rotation while the finger is down
+          st.panels.forEach(p => p.classList.remove('leaving'));
+          st.active.style.transition = 'none';
+        }
+        st.dx = dx;
+        const n = st.panels.length;
+        const other = st.panels[dx < 0 ? (st.cur + 1) % n : (st.cur - 1 + n) % n];
+        if (st.other && st.other !== other) resetPanel(st.other);
+        st.other = other;
+        other.style.transition = 'none';
+        other.style.visibility = 'visible';
+        other.style.transform = `translateX(${dx < 0 ? st.w + dx : -st.w + dx}px)`;
+        st.active.style.transform = `translateX(${dx}px)`;
+        if (e.cancelable) e.preventDefault();
+      }, { passive: false });
+
+      const release = cancelled => {
+        const s = st; st = null;
+        if (!s || !s.drag || !s.other) return;
+        const dx = s.dx, dt = Math.max(1, Date.now() - s.t0);
+        const flick = Math.abs(dx) > 30 && Math.abs(dx) / dt > 0.5;
+        const commit = !cancelled && (Math.abs(dx) > s.w * 0.3 || flick);
+        const ease = `transform ${RB_SNAP_MS}ms cubic-bezier(0.22, 1, 0.36, 1)`;
+        s.active.style.transition = s.other.style.transition = ease;
+        if (commit) {
+          s.active.style.transform = `translateX(${dx < 0 ? -s.w : s.w}px)`;
+          s.other.style.transform = 'translateX(0px)';
+        } else {
+          s.active.style.transform = 'translateX(0px)';
+          s.other.style.transform = `translateX(${dx < 0 ? s.w : -s.w}px)`;
+        }
+        settling = true;
+        setTimeout(() => {
+          settling = false;
+          s.panels.forEach(resetPanel);
+          if (commit && s.other.isConnected) { s.active.classList.remove('active'); s.other.classList.add('active'); }
+          syncCardDots(card);
+          card._manualUntil = Date.now() + RB_MANUAL_HOLD_MS;
+        }, RB_SNAP_MS + 20);
+      };
+      card.addEventListener('touchend', () => release(false), { passive: true });
+      card.addEventListener('touchcancel', () => release(true), { passive: true });
     }
 
     function updateRouteBoardETAs(grid) {
