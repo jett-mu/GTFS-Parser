@@ -1956,6 +1956,14 @@
       padding-right: 0;
     }
 
+    /* GTFS feed state card (More tab) */
+    .feed-status-row { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 500; }
+    .feed-status-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--text-dim); flex: none; }
+    .feed-status-dot.in_use { background: #2fb344; }
+    .feed-status-dot.upcoming { background: #e0a100; }
+    .feed-status-dot.expired { background: #d63939; }
+    .feed-status-dates { white-space: pre-line; margin-top: 6px; font-size: 12px; color: var(--text-dim); font-family: var(--font-mono); line-height: 1.6; }
+
     /* Links to the standalone board pages (styled like .secondary.tab-accent-btn buttons) */
     a.board-link {
       display: block;
@@ -2510,6 +2518,11 @@
 
       <div class="sidebar-section" id="sb-tab-more">
         <div class="panel">
+          <div class="panel-heading">GTFS feed</div>
+          <div class="feed-status-row"><span class="feed-status-dot" data-feed-dot></span><span data-feed-label>Loading…</span></div>
+          <div class="feed-status-dates" data-feed-dates></div>
+        </div>
+        <div class="panel">
           <div class="panel-heading">Extra features</div>
           <a class="secondary tab-accent-btn board-link" href="/depbd">Departure board</a>
           <a class="secondary tab-accent-btn board-link" href="/rtebd" style="margin-top:5px">Route board</a>
@@ -2779,6 +2792,11 @@
 
       <!-- MORE TAB -->
       <div class="tab-panel" id="m-tab-more">
+        <div class="field-block">
+          <div class="panel-heading">GTFS feed</div>
+          <div class="feed-status-row"><span class="feed-status-dot" data-feed-dot></span><span data-feed-label>Loading…</span></div>
+          <div class="feed-status-dates" data-feed-dates></div>
+        </div>
         <div class="field-block">
           <a class="secondary tab-accent-btn board-link" href="/depbd">Departure board</a>
           <a class="secondary tab-accent-btn board-link" href="/rtebd" style="margin-top:5px">Route board</a>
@@ -6028,8 +6046,28 @@
     document.getElementById('m-tripIdInput').addEventListener('keypress', e => { if(e.key==='Enter') handleLoadTrip('m-tripIdInput'); });
     document.getElementById('m-routeIdInput').addEventListener('keypress', e => { if(e.key==='Enter') handleLoadRoute('m-routeIdInput','m-dateInput'); });
 
+    // ===== GTFS FEED STATE =====
+    function loadFeedStatus() {
+      const labels = {
+        in_use: 'Feed in use', upcoming: 'Feed not started yet', expired: 'Feed expired',
+        no_feed_end_date: 'No feed end date', no_feed_start_date: 'No feed start date', no_result: 'Feed state unknown'
+      };
+      const fmt = d => d ? `${d.year}-${String(d.month).padStart(2, '0')}-${String(d.day).padStart(2, '0')}` : '—';
+      const set = (cls, label, dates) => {
+        document.querySelectorAll('[data-feed-dot]').forEach(el => { el.className = 'feed-status-dot ' + cls; });
+        document.querySelectorAll('[data-feed-label]').forEach(el => { el.textContent = label; });
+        document.querySelectorAll('[data-feed-dates]').forEach(el => { el.textContent = dates; });
+      };
+      apiFetch('/api/feedstatus')
+        .then(r => r.json().then(d => { if (!r.ok) throw new Error(d.error || r.status); return d; }))
+        .then(d => set(d.status, labels[d.status] || labels.no_result,
+          `Valid ${fmt(d.start_date)} → ${fmt(d.end_date)}\nChecked ${fmt(d.checked_date)}`))
+        .catch(() => set('', 'Feed state unavailable', ''));
+    }
+
     // ===== INIT =====
     initMap();
+    loadFeedStatus();
     syncThemeToggleLabel();
     document.getElementById('dateInput').value = todayStr();
     document.getElementById('m-dateInput').value = todayStr();
