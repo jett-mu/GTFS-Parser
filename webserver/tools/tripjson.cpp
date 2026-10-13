@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <iostream>
 #include <vector>
 #include <string>
@@ -59,6 +60,8 @@ int main(int argc, char* argv[]) {
                 "\", \"name\": \"" << x.stop_name <<
                 "\", \"time\": \"" << y.stop.arrival_time.leadingRoundedTime() << "\"" <<
                 ", \"stop_sequence\": " << y.stop.stop_sequence <<
+                ", \"pickup_type\": " << std::max(0, static_cast<int>(y.stop.pickup_type)) <<
+                ", \"drop_off_type\": " << std::max(0, static_cast<int>(y.stop.drop_off_type)) <<
                 (i == (length - 1) ? " }\n" : " },\n");
     } 
 

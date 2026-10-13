@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <iostream>
 #include <iomanip>
 #include <sstream>
@@ -57,6 +58,8 @@ inline string getTrip(const string& trip_id,
                 "\", \"name\": \"" << x.stop_name <<
                 "\", \"time\": \"" << y.stop.arrival_time.leadingRoundedTime() << "\"" <<
                 ", \"stop_sequence\": " << y.stop.stop_sequence <<
+                ", \"pickup_type\": " << std::max(0, static_cast<int>(y.stop.pickup_type)) <<
+                ", \"drop_off_type\": " << std::max(0, static_cast<int>(y.stop.drop_off_type)) <<
                 (i == (length - 1) ? " }\n" : " },\n");
     }
 
@@ -125,6 +128,8 @@ inline string getStopDayTimes(const string& stop_id, const int& year, const int&
                 "\", \"trip_id\": \"" << x.stop.trip_id <<
                 "\", \"trip_headsign\": \"" << tripInfo.trip_headsign <<
                 "\", \"direction_id\": " << tripInfo.direction_id <<
+                ", \"pickup_type\": " << std::max(0, static_cast<int>(x.stop.pickup_type)) <<
+                ", \"drop_off_type\": " << std::max(0, static_cast<int>(x.stop.drop_off_type)) <<
                 ", \"route_color\": \"" << routeInfo.route_color <<
                 (i == (length - 1) ? "\" } \n" : "\" }, \n");
     }

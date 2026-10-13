@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <iostream>
 #include <vector>
 #include <string>
@@ -60,6 +61,8 @@ int main(int argc, char* argv[]) {
                 "\", \"trip_id\": \"" << x.stop.trip_id << 
                 "\", \"trip_headsign\": \"" << tripInfo.trip_headsign << 
                 "\", \"direction_id\": " << tripInfo.direction_id << 
+                ", \"pickup_type\": " << std::max(0, static_cast<int>(x.stop.pickup_type)) <<
+                ", \"drop_off_type\": " << std::max(0, static_cast<int>(x.stop.drop_off_type)) <<
                 ", \"route_color\": \"" << routeInfo.route_color << 
                 (i == (tsLen-1) ? "\" } \n" : "\" }, \n");
     }
