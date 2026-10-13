@@ -3112,13 +3112,31 @@
       }
     }
 
+    // Seconds elapsed since local midnight of the date picked in the (visible)
+    // date field, so a card's scheduled time-of-day can be compared against the
+    // service date being viewed rather than against today. Negative for a later
+    // date, > 86400 for an earlier one. Falls back to today if the field is empty.
+    function selectedDateOffset() {
+      const v = document.getElementById(isMobile() ? 'm-dateInput' : 'dateInput')?.value;
+      const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v || '');
+      if (!m || v === todayStr()) return { secs: nowInSeconds(), isToday: true };
+      const midnight = new Date(+m[1], +m[2] - 1, +m[3]);
+      return { secs: Math.round((Date.now() - midnight.getTime()) / 1000), isToday: false };
+    }
+
     function fmtETA(arrivalTime, tripId) {
-      const eta = parseTime(arrivalTime) + getRTDelaySeconds(tripId, arrivalTime) - nowInSeconds();
+      const { secs, isToday } = selectedDateOffset();
+      // Realtime delays only describe today's trips, so ignore them for any other date.
+      const delay = isToday ? getRTDelaySeconds(tripId, arrivalTime) : 0;
+      const eta = parseTime(arrivalTime) + delay - secs;
       if (eta < 0) return ['Departed', 'dep-eta-past'];
       if (eta <= 30) return ['Due', 'dep-eta-due'];
-      if (eta < 3600) return [`in ${Math.round(eta/60)} min`, ''];
-      const h = Math.floor(eta/3600), m = Math.round((eta%3600)/60);
-      return [m > 0 ? `in ${h}h ${m}m` : `in ${h}h`, ''];
+      const mins = Math.round(eta / 60);
+      if (mins < 60) return [`in ${mins} min`, ''];
+      // 1d 2h 1m — zero parts are dropped ("in 1d", "in 3h", "in 2d 5m")
+      const parts = [[Math.floor(mins / 1440), 'd'], [Math.floor(mins % 1440 / 60), 'h'], [mins % 60, 'm']]
+        .filter(([n]) => n > 0).map(([n, u]) => n + u);
+      return [`in ${parts.join(' ')}`, ''];
     }
 
     function updateGridETAs(grid) {
@@ -5270,8 +5288,9 @@
       allMultiDepartures.sort((a, b) => parseTime(a.arrival_time) - parseTime(b.arrival_time));
 
       if (!isRefresh) {
-        showingAllMultiDeps_d = false; showingNext4MultiDeps_d = false;
-        showingAllMultiDeps_m = false; showingNext4MultiDeps_m = false;
+        const defaultShowAll = !selectedDateOffset().isToday;
+        showingAllMultiDeps_d = defaultShowAll; showingNext4MultiDeps_d = false;
+        showingAllMultiDeps_m = defaultShowAll; showingNext4MultiDeps_m = false;
         resetDepFilterState('multi-d'); resetDepFilterState('multi-m');
       }
       renderDepFilterPanel(allMultiDepartures, 'multiDepFilterTree', 'multiDepFilterBadge', 'multi-d', updateMultiDeparturesView);
@@ -5466,8 +5485,10 @@
       document.getElementById('sheet-peek-sub').textContent = `Stop ${data.stop_code} – ID ${data.stop_id}`;
 
       allDepartures = [...data.departures].sort((a,b) => parseTime(a.arrival_time)-parseTime(b.arrival_time));
-      showingAllDeps_d = false; showingNext4_d = false;
-      showingAllDeps_m = false; showingNext4_m = false;
+      // "Next 3h" only means something for today; any other date opens on all departures.
+      const defaultShowAll = !selectedDateOffset().isToday;
+      showingAllDeps_d = defaultShowAll; showingNext4_d = false;
+      showingAllDeps_m = defaultShowAll; showingNext4_m = false;
       currentStopId = data.stop_id;
       currentStopView = { kind: 'single', stopId: String(data.stop_id) };
 
