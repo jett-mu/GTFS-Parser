@@ -878,6 +878,68 @@ inline feedStatus verifyGTFS(const data_feed& d, const int& year, const int& mon
 inline feedStatus verifyGTFS(const data_feed& d, const calendar_day& date) { // requirements: feed_info.txt
     return verifyGTFS(d, date.year, date.month, date.day);
 }
+inline calendar_day getStartDate(const data_feed& d) {
+    ifstream feedInfo(d.feedInfoFile);
+    string currentLine;
+    std::vector<string> parsedCurrentLine;
+    calendar_day output;
+
+    int lineNumber = 0;
+    
+    std::unordered_map<string, int> refs;
+
+    while (getline(feedInfo, currentLine)) {
+        lineNumber++;
+
+        parsedCurrentLine = parseDataCSV(currentLine);
+
+        if (lineNumber == 1) {
+            for (int i = 0; i < parsedCurrentLine.size(); i++) {
+                refs[parsedCurrentLine[i]] = i;
+            }
+        }
+
+        if (lineNumber == 2) {
+            if (refs.find("feed_start_date") == refs.end()) continue;
+            else output = parseFormattedDate(parsedCurrentLine[refs["feed_start_date"]]);
+
+
+        }
+
+    }
+    return output;
+}
+inline calendar_day getEndDate(const data_feed& d) {
+    ifstream feedInfo(d.feedInfoFile);
+    string currentLine;
+    std::vector<string> parsedCurrentLine;
+    calendar_day output;
+
+    int lineNumber = 0;
+    
+    std::unordered_map<string, int> refs;
+
+    while (getline(feedInfo, currentLine)) {
+        lineNumber++;
+
+        parsedCurrentLine = parseDataCSV(currentLine);
+
+        if (lineNumber == 1) {
+            for (int i = 0; i < parsedCurrentLine.size(); i++) {
+                refs[parsedCurrentLine[i]] = i;
+            }
+        }
+
+        if (lineNumber == 2) {
+            if (refs.find("feed_end_date") == refs.end()) continue;
+            else output = parseFormattedDate(parsedCurrentLine[refs["feed_end_date"]]);
+
+
+        }
+
+    }
+    return output;
+}
 inline route getRouteInfo(const data_feed& d, const string& route_id) { // requirements: routes.txt
     route output;
     ifstream routeFile = ifstream(d.routePath);
