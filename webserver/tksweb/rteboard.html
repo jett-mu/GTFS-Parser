@@ -720,6 +720,19 @@
       text-transform: uppercase;
     }
     .board-row .rt-live-only { display: none; }
+    .dep-pd-note {
+      min-width: 0;
+      max-width: 100%;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: rgb(var(--warn-rgb));
+    }
+    .board-row .dep-pd-note { font-size: 11px; }
+    .rb-row .dep-pd-note { font-size: 10.5px; }
 
     @media (max-width: 640px) {
       .board-header { padding-left: var(--space-4); padding-right: var(--space-4); }
@@ -1000,6 +1013,27 @@
 
     function escapeHtml(s) {
       return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    // pickup_type / drop_off_type: 0 regular, 1 none, 2 phone agency, 3 coordinate with driver.
+    // Short text goes on the row; the title carries the full wording. Copy of index.html's helper.
+    function pickupDropoffNote(dep) {
+      const pu = dep.pickup_type | 0, dof = dep.drop_off_type | 0;
+      if (!pu && !dof) return '';
+      const short = [], full = [];
+      const add = (s, f) => { short.push(s); full.push(f); };
+      if (pu === 1 && dof === 1) add('No pick-up/drop-off', 'No pickup or dropoff');
+      else if (pu === 1 && !dof) add('Drop-off only', 'Dropoff only');
+      else if (dof === 1 && !pu) add('Pick-up only', 'Pickup only');
+      else {
+        if (pu === 1) add('No pick-up', 'No pickup');
+        if (dof === 1) add('No drop-off', 'No dropoff');
+      }
+      if (pu === 2) add('Pick-up: call', 'Phone agency for pickup');
+      if (pu === 3) add('Pick-up: driver', 'Coordinate with driver for pickup');
+      if (dof === 2) add('Drop-off: call', 'Phone agency for dropoff');
+      if (dof === 3) add('Drop-off: driver', 'Coordinate with driver for dropoff');
+      return `<span class="dep-pd-note" title="${escapeHtml(full.join('; '))}">${escapeHtml(short.join(' · '))}</span>`;
     }
 
     function readableTextColor(hex) {
@@ -1386,7 +1420,7 @@
           <div class="rb-leave-wrap">
             <div class="rb-leave"></div>
             <div class="rb-sched"><span class="dep-time-sched">${fmtClockShort(parseTime(dep.arrival_time))}</span><span class="dep-time-actual"></span></div>
-            <div class="dep-badge-slot"></div>
+            <div class="dep-badge-slot">${pickupDropoffNote(dep)}</div>
           </div>
         </div>
       `;
