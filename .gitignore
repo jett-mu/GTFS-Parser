@@ -54,6 +54,7 @@ webserver/tools/stopjson
 webserver/tools/getneareststopsjson
 webserver/tools/stopinfo
 webserver/tools/searchroute
+webserver/tools/routeinfo
 fast-static-gtfs/webserver
 
 # Generated / downloaded data

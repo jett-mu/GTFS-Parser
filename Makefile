@@ -24,7 +24,7 @@ FAST_DIR              := fast-static-gtfs
 
 STATIC_GTFS_BINS := $(STATIC_GTFS_DIR)/gtfs_cli
 
-WEBSERVER_TOOLS  := getTrips searchstop tripjson stopjson getneareststopsjson stopinfo searchroute
+WEBSERVER_TOOLS  := getTrips searchstop tripjson stopjson getneareststopsjson stopinfo searchroute routeinfo
 WEBSERVER_BINS   := $(addprefix $(WEBSERVER_TOOLS_DIR)/,$(WEBSERVER_TOOLS))
 
 RT_TOOLS := decodeTrip decodeStop decodeAlerts routeVehicles routeMedianDelay

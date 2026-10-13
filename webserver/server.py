@@ -150,6 +150,19 @@ def vendor(filename):
 def tiles(z, x, y):
     return send_from_directory(f'tiles/{z}/{x}', f'{y}.png')
 
+@app.route('/api/routeinfo/<route_id>')
+def get_route_info(route_id):
+    try:
+        result = subprocess.run(['./tools/routeinfo', route_id], capture_output=True, text=True)
+        if result.returncode != 0:
+            return jsonify({'error': result.stderr}), 500
+        data = json.loads(result.stdout)
+        if not data:
+            return jsonify(data), 422
+        return jsonify(data)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/route/<route_id>/<year>/<month>/<day>')
 def get_trip_root(route_id, year, month, day):
     try:

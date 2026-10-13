@@ -387,7 +387,8 @@
 
     #sidebar-tabs {
       display: flex;
-      gap: 2px;
+      align-items: stretch;
+      gap: var(--space-4);
       padding: 0 var(--space-4);
       border-bottom: 1px solid var(--border);
       flex-shrink: 0;
@@ -398,17 +399,44 @@
       border: none;
       border-bottom: 2px solid transparent;
       color: var(--text-dim);
-      font-family: var(--font-mono);
-      font-size: 11px;
+      font-family: var(--font-body);
+      font-size: 13px;
       font-weight: 600;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-      padding: 10px 4px 9px;
+      padding: 10px 2px 9px;
       cursor: pointer;
       transition: color var(--transition), border-color var(--transition);
-      flex: 1;
+      flex: 0 0 auto;
       text-align: center;
     }
+    /* Icon-only tabs (Alerts, More) sit at the right end of either tab bar. */
+    .sb-tab-icon, .m-tab-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+    .sb-tab-icon { padding: 10px 7px 9px; }
+    .m-tab-icon { padding: 12px 10px 11px; min-width: 42px; }
+    .sb-tab-icon svg, .m-tab-icon svg { width: 18px; height: 18px; display: block; }
+    .tab-end { margin-left: auto; }
+    .tab-badge {
+      position: absolute;
+      top: 4px;
+      right: 0;
+      min-width: 15px;
+      height: 15px;
+      padding: 0 4px;
+      border-radius: 8px;
+      background: rgb(var(--warn-rgb));
+      color: #fff;
+      font-family: var(--font-body);
+      font-size: 10px;
+      font-weight: 700;
+      line-height: 15px;
+      text-align: center;
+      box-sizing: border-box;
+    }
+    .tab-badge[hidden] { display: none; }
     .sb-tab:hover { background: none; color: var(--text-muted); }
     .sb-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
     .sb-tab.active[data-sb-tab="sb-tab-stop"]      { color: var(--negative); border-bottom-color: var(--negative); }
@@ -487,7 +515,7 @@
     #mobile-sheet-body {
       flex: 1;
       overflow-y: auto;
-      padding: 4px 16px 16px;
+      padding: 0 16px 16px; /* no top padding: sticky bars must reach the scrollport edge */
       display: flex;
       flex-direction: column;
       gap: 14px;
@@ -500,7 +528,7 @@
       display: none;
       flex-shrink: 0;
       border-bottom: 1px solid var(--border);
-      padding: 0 14px;
+      padding: 0 8px;
       gap: 0;
       overflow-x: auto;
       scrollbar-width: none;
@@ -509,8 +537,8 @@
     #mobile-tabs::-webkit-scrollbar { display: none; }
 
     .m-tab {
-      padding: 12px 14px 11px;
-      font-size: 14px;
+      padding: 12px 10px 11px;
+      font-size: 13.5px;
       font-weight: 600;
       font-family: var(--font-body);
       color: var(--text-dim);
@@ -526,22 +554,23 @@
 
     .m-tab:hover { color: var(--text-muted); }
     .m-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
-    .m-tab.active[data-tab="m-tab-stop"]   { color: var(--negative); border-bottom-color: var(--negative); }
-    .m-tab.active[data-tab="m-tab-trip"]   { color: var(--accent);   border-bottom-color: var(--accent); }
+    .m-tab.active[data-tab="m-tab-stop"],
+    .m-tab.active[data-tab="m-tab-departures"] { color: var(--negative); border-bottom-color: var(--negative); }
+    .m-tab[hidden] { display: none; }
     .m-tab.active[data-tab="m-tab-route"]  { color: var(--accent);   border-bottom-color: var(--accent); }
     .m-tab.active[data-tab="m-tab-nearby"] { color: var(--accent2);  border-bottom-color: var(--accent2); }
     .m-tab.active[data-tab="m-tab-alerts"] { color: rgb(var(--warn-rgb)); border-bottom-color: rgb(var(--warn-rgb)); }
     .m-tab.active[data-tab="m-tab-more"]   { color: var(--accent3);  border-bottom-color: var(--accent3); }
 
     .tab-panel { display: none; }
-    .tab-panel.active { display: flex; flex-direction: column; gap: 12px; }
+    .tab-panel.active { display: flex; flex-direction: column; gap: 12px; padding-top: 4px; }
 
     /* ===== TAB-SCOPED ACCENT =====
        Every element that colors itself via var(--accent)/var(--accent-rgb) —
        buttons, spinners, checkboxes, focus rings, badges — picks up the
        showcase color of whichever tab it lives in. Trip/route panels keep
        the default blue --accent, so no override needed there. */
-    #sb-tab-stop, #m-tab-stop {
+    #sb-tab-stop, #m-tab-stop, #m-tab-departures {
       --accent: var(--negative);
       --accent-rgb: var(--negative-rgb);
     }
@@ -905,6 +934,26 @@
       0%       { --fade-top: 0px;  --fade-bot: 28px; }
       5%, 95%  { --fade-top: 28px; --fade-bot: 28px; }
       100%     { --fade-top: 28px; --fade-bot: 0px; }
+    }
+    /* Phone: keep the day/filter controls pinned while the departures scroll beneath them */
+    .dep-sticky {
+      position: sticky;
+      top: 0;
+      z-index: 6;
+      background: var(--surface);
+      padding-top: 4px;
+      margin-bottom: 4px;
+      border-bottom: 1px solid var(--border);
+    }
+    .dep-sticky .dep-window-label { margin-bottom: 6px; }
+
+    /* Phone: the sheet body is the only scroller — no inner scroll box per board */
+    #m-departuresGrid, #m-multiDeparturesGrid {
+      max-height: none;
+      overflow: visible;
+      -webkit-mask-image: none;
+      mask-image: none;
+      animation: none;
     }
     .departures-grid::-webkit-scrollbar { width: 4px; }
     .departures-grid::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
@@ -1394,6 +1443,11 @@
       touch-action: manipulation;
     }
     .alert-item:last-child { margin-bottom: 0; }
+    /* One side bar per route colour (max 3) in place of the single warn bar. */
+    .alert-item.has-bars { position: relative; border-left-width: 0; padding-left: calc(8px + var(--bars) * 4px); }
+    .alert-item-bars { position: absolute; left: 0; top: 0; bottom: 0; display: flex; gap: 1px; }
+    .alert-item-bars span { width: 3px; border-radius: 3px; }
+    .alert-item-bars span:first-child { border-top-left-radius: var(--card-radius); border-bottom-left-radius: var(--card-radius); }
     .alert-item-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
     .alert-item-title { font-size: 13px; font-weight: 600; color: var(--text); line-height: 1.35; }
     .alert-item-meta {
@@ -1402,7 +1456,16 @@
     }
     .alert-item-body { display: none; font-size: 12.5px; color: var(--text-muted); margin-top: 7px; line-height: 1.45; white-space: pre-wrap; }
     .alert-item.expanded .alert-item-body { display: block; }
-    .alert-item-routes { font-size: 10.5px; color: var(--text-dim); font-family: var(--font-mono); margin-top: 6px; }
+    .alert-item-routes { font-size: 10.5px; color: var(--text-dim); font-family: var(--font-mono); margin-top: 6px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+    .alert-route-chip {
+      padding: 1px 6px;
+      border-radius: 5px;
+      font-weight: 700;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+    }
+    .alert-route-chip.colored { border-color: transparent; }
 
     .rt-alert-badge {
       display: inline-flex; align-items: center; gap: 3px;
@@ -1531,6 +1594,11 @@
       line-height: 1;
     }
     .dep-filter-badge[hidden] { display: none; }
+    /* Phone: Filter is a funnel icon sharing the header line with the window button */
+    .dep-header-actions .dep-filter-row { margin-bottom: 0; }
+    .dep-filter-icon-btn { position: relative; padding: 5px 9px; }
+    .dep-filter-icon-btn svg { width: 15px; height: 15px; display: block; }
+    .dep-filter-icon-btn .dep-filter-badge { position: absolute; top: -6px; right: -6px; }
 
     .dep-filter-popover {
       width: 280px;
@@ -1590,6 +1658,40 @@
     .dep-filter-clear:hover { text-decoration: underline; }
 
     /* Route trips */
+    .route-header { display: none; }
+    .route-header-top {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+    .route-header-badge {
+      flex: none;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 700;
+      background: var(--accent);
+      color: #fff;
+    }
+    .route-header-name {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text);
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+    .route-header-meta {
+      font-size: 12.5px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      margin-top: 4px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
     .route-trips-section {
       display: none;
       flex-direction: column;
@@ -1746,6 +1848,7 @@
     }
 
     @media (max-width: 400px) {
+      .m-tab { padding-left: 8px; padding-right: 8px; font-size: 13px; }
       .route-trips-grid { grid-template-columns: 1fr; }
     }
 
@@ -2152,10 +2255,10 @@
         </div>
         <div id="sidebar-tabs">
           <button class="sb-tab active" data-sb-tab="sb-tab-stop">Stops</button>
-          <button class="sb-tab" data-sb-tab="sb-tab-triproute">Trips &amp; routes</button>
-          <button class="sb-tab" data-sb-tab="sb-tab-discover">Discover</button>
-          <button class="sb-tab" data-sb-tab="sb-tab-alerts">Alerts</button>
-          <button class="sb-tab" data-sb-tab="sb-tab-more">More</button>
+          <button class="sb-tab" data-sb-tab="sb-tab-triproute">Routes</button>
+          <button class="sb-tab" data-sb-tab="sb-tab-discover">Nearby</button>
+          <button class="sb-tab sb-tab-icon tab-end" data-sb-tab="sb-tab-alerts" id="sbAlertsTab" aria-label="Alerts" title="Alerts"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg><span class="tab-badge" id="sbAlertsBadge" hidden></span></button>
+          <button class="sb-tab sb-tab-icon" data-sb-tab="sb-tab-more" aria-label="More" title="More"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></button>
         </div>
         <div id="sidebar-body">
 
@@ -2293,14 +2396,6 @@
 
       <div class="sidebar-section" id="sb-tab-triproute">
         <div class="panel">
-          <div class="panel-heading">Trip lookup</div>
-          <div class="input-group">
-            <input type="text" id="tripIdInput" placeholder="Trip ID, e.g. 40928123" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Trip ID" />
-            <button class="primary" onclick="handleLoadTrip('tripIdInput')">Load trip</button>
-          </div>
-        </div>
-
-        <div class="panel">
           <div class="panel-heading">Route lookup</div>
 
           <div class="field-block stop-search-wrap">
@@ -2318,6 +2413,22 @@
           </div>
         </div>
 
+        <div class="panel">
+          <div class="panel-heading">Trip lookup</div>
+          <div class="input-group">
+            <input type="text" id="tripIdInput" placeholder="Trip ID, e.g. 40928123" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Trip ID" />
+            <button class="primary" onclick="handleLoadTrip('tripIdInput')">Load trip</button>
+          </div>
+        </div>
+
+        <div id="routeHeader" class="route-header">
+          <div class="route-header-top">
+            <span class="route-header-badge" id="routeBadgeDisplay"></span>
+            <div class="route-header-name" id="routeNameDisplay"></div>
+          </div>
+          <div class="route-header-meta" id="routeMetaDisplay"></div>
+        </div>
+
         <div id="routeTripsSection" class="route-trips-section">
           <div class="route-trips-section-header">
             <div class="section-title">Trips</div>
@@ -2331,16 +2442,23 @@
       <div class="sidebar-section" id="sb-tab-discover">
         <div class="panel">
           <div class="panel-heading">Nearby stops</div>
-          <div class="input-group" role="group" aria-label="Coordinates">
+          <div class="field-block stop-search-wrap">
+            <label class="input-row-label" for="nearbyStopSearchInput">Name or stop number</label>
+            <div class="stop-search-field">
+              <input type="text" id="nearbyStopSearchInput" placeholder="e.g. Main St or 1867" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Find stops near a stop, by name, ID or code" />
+              <button type="button" class="stop-search-clear" aria-label="Clear search" hidden>&times;</button>
+            </div>
+            <div class="stop-search-results" id="nearbyStopSearchResults"></div>
+          </div>
+          <button class="primary" style="width:100%" onclick="useMyLocation('latInput','lonInput',true)">Find nearest stops</button>
+          <button class="pick-mode-btn tab-accent-btn" id="pickModeBtn" onclick="setPickMode(!pickModeActive)">Pick a point on the map</button>
+          <button class="secondary tab-accent-btn show-loc-btn" style="width:100%" onclick="showUserLocation()">Show my location on map</button>
+          <div class="input-row-label" id="findNearestLabel" style="margin-top:6px">Or enter coordinates</div>
+          <div class="input-group" role="group" aria-labelledby="findNearestLabel">
             <input type="text" id="latInput" inputmode="decimal" placeholder="Latitude" aria-label="Latitude" />
             <input type="text" id="lonInput" inputmode="decimal" placeholder="Longitude" aria-label="Longitude" />
           </div>
-          <div class="input-group">
-            <button class="secondary tab-accent-btn" style="flex:1" onclick="handleFindNearest('latInput','lonInput')">Search nearby</button>
-            <button class="secondary tab-accent-btn" style="flex:1" onclick="useMyLocation('latInput','lonInput',true)">Use my location</button>
-          </div>
-          <button class="secondary tab-accent-btn show-loc-btn" style="width:100%" onclick="showUserLocation()">Show my location on map</button>
-          <button class="pick-mode-btn tab-accent-btn" id="pickModeBtn" onclick="setPickMode(!pickModeActive)">Pick a point on the map</button>
+          <button class="secondary tab-accent-btn" style="width:100%" onclick="handleFindNearest('latInput','lonInput')">Search nearby</button>
         </div>
 
         <div id="nearestStopsInfo"></div>
@@ -2399,12 +2517,12 @@
     </div>
 
     <div id="mobile-tabs">
-      <button class="m-tab active" data-tab="m-tab-stop">Stop</button>
-      <button class="m-tab" data-tab="m-tab-trip">Trip</button>
-      <button class="m-tab" data-tab="m-tab-route">Route</button>
+      <button class="m-tab active" data-tab="m-tab-stop">Stops</button>
+      <button class="m-tab" data-tab="m-tab-departures" id="mDeparturesTab" hidden>Departures</button>
+      <button class="m-tab" data-tab="m-tab-route">Routes</button>
       <button class="m-tab" data-tab="m-tab-nearby">Nearby</button>
-      <button class="m-tab" data-tab="m-tab-alerts">Alerts</button>
-      <button class="m-tab" data-tab="m-tab-more">More</button>
+      <button class="m-tab m-tab-icon tab-end" data-tab="m-tab-alerts" aria-label="Alerts" title="Alerts"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg><span class="tab-badge" id="mAlertsBadge" hidden></span></button>
+      <button class="m-tab m-tab-icon" data-tab="m-tab-more" aria-label="More" title="More"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></button>
     </div>
 
     <div id="mobile-sheet-body">
@@ -2455,7 +2573,10 @@
             <button class="secondary" onclick="document.getElementById('m-dateInput').value=todayStr()">Today</button>
           </div>
         </div>
+      </div>
 
+      <!-- DEPARTURES TAB: split from Stops so the board scrolls with the sheet instead of inside it -->
+      <div class="tab-panel" id="m-tab-departures">
         <div id="m-stopLoading" class="departures-grid" style="display:none">
           <div class="skel-dep-card"><div class="skel-row-top"><div class="skel-block skel-route-pill"></div></div><div class="skel-row-time"><div class="skel-block skel-time-big"></div><div class="skel-block skel-eta-pill"></div></div><div class="skel-block skel-headsign-line"></div><div class="skel-row-footer"><div class="skel-block skel-trip-line"></div></div></div>
           <div class="skel-dep-card"><div class="skel-row-top"><div class="skel-block skel-route-pill"></div></div><div class="skel-row-time"><div class="skel-block skel-time-big"></div><div class="skel-block skel-eta-pill"></div></div><div class="skel-block skel-headsign-line"></div><div class="skel-row-footer"><div class="skel-block skel-trip-line"></div></div></div>
@@ -2469,19 +2590,23 @@
         </div>
 
         <div id="m-departuresSection" style="display:none">
-          <div class="departures-section-header">
-            <div class="section-title">Departures</div>
-            <button class="show-all-deps-btn" id="m-showAllDepsBtn" onclick="cycleDepView('m')" title="Tap to change the time window">Showing next 3h</button>
-          </div>
-          <div class="dep-filter-row settings-popover-wrap">
-            <button type="button" class="dep-filter-btn" id="m-depFilterBtn" aria-haspopup="true" aria-expanded="false">Filter <span class="dep-filter-badge" id="m-depFilterBadge" hidden>0</span></button>
-            <div class="settings-popover dep-filter-popover" id="m-depFilterPopover" hidden>
-              <div class="settings-popover-title">Filter by route / destination</div>
-              <div class="dep-filter-tree" id="m-depFilterTree"></div>
-              <button type="button" class="dep-filter-clear" id="m-depFilterClearBtn" onclick="onDepFilterClear('m')">Clear filters</button>
+          <div class="dep-sticky">
+            <div class="departures-section-header">
+              <div class="section-title">Departures</div>
+              <div class="dep-header-actions">
+                <div class="dep-filter-row settings-popover-wrap">
+                  <button type="button" class="dep-filter-btn dep-filter-icon-btn" id="m-depFilterBtn" aria-haspopup="true" aria-expanded="false" aria-label="Filter by route or destination" title="Filter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18l-7 8.5V19l-4 2v-7.5z"/></svg><span class="dep-filter-badge" id="m-depFilterBadge" hidden>0</span></button>
+                  <div class="settings-popover dep-filter-popover" id="m-depFilterPopover" hidden>
+                    <div class="settings-popover-title">Filter by route / destination</div>
+                    <div class="dep-filter-tree" id="m-depFilterTree"></div>
+                    <button type="button" class="dep-filter-clear" id="m-depFilterClearBtn" onclick="onDepFilterClear('m')">Clear filters</button>
+                  </div>
+                </div>
+                <button class="show-all-deps-btn" id="m-showAllDepsBtn" onclick="cycleDepView('m')" title="Tap to change the time window">Showing next 3h</button>
+              </div>
             </div>
+            <div class="dep-window-label" id="m-depWindowLabel"></div>
           </div>
-          <div class="dep-window-label" id="m-depWindowLabel"></div>
           <div class="departures-grid" id="m-departuresGrid"></div>
         </div>
 
@@ -2497,19 +2622,23 @@
         </div>
 
         <div id="m-multiDeparturesSection" style="display:none">
-          <div class="departures-section-header">
-            <div class="section-title">Combined departures</div>
-            <button class="show-all-deps-btn" id="m-showAllMultiDepsBtn" onclick="cycleMultiDepView('m')" title="Tap to change the time window">Showing next 3h</button>
-          </div>
-          <div class="dep-filter-row settings-popover-wrap">
-            <button type="button" class="dep-filter-btn" id="m-multiDepFilterBtn" aria-haspopup="true" aria-expanded="false">Filter <span class="dep-filter-badge" id="m-multiDepFilterBadge" hidden>0</span></button>
-            <div class="settings-popover dep-filter-popover" id="m-multiDepFilterPopover" hidden>
-              <div class="settings-popover-title">Filter by route / destination</div>
-              <div class="dep-filter-tree" id="m-multiDepFilterTree"></div>
-              <button type="button" class="dep-filter-clear" id="m-multiDepFilterClearBtn" onclick="onMultiDepFilterClear('m')">Clear filters</button>
+          <div class="dep-sticky">
+            <div class="departures-section-header">
+              <div class="section-title">Combined departures</div>
+              <div class="dep-header-actions">
+                <div class="dep-filter-row settings-popover-wrap">
+                  <button type="button" class="dep-filter-btn dep-filter-icon-btn" id="m-multiDepFilterBtn" aria-haspopup="true" aria-expanded="false" aria-label="Filter by route or destination" title="Filter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18l-7 8.5V19l-4 2v-7.5z"/></svg><span class="dep-filter-badge" id="m-multiDepFilterBadge" hidden>0</span></button>
+                  <div class="settings-popover dep-filter-popover" id="m-multiDepFilterPopover" hidden>
+                    <div class="settings-popover-title">Filter by route / destination</div>
+                    <div class="dep-filter-tree" id="m-multiDepFilterTree"></div>
+                    <button type="button" class="dep-filter-clear" id="m-multiDepFilterClearBtn" onclick="onMultiDepFilterClear('m')">Clear filters</button>
+                  </div>
+                </div>
+                <button class="show-all-deps-btn" id="m-showAllMultiDepsBtn" onclick="cycleMultiDepView('m')" title="Tap to change the time window">Showing next 3h</button>
+              </div>
             </div>
+            <div class="dep-window-label" id="m-multiDepWindowLabel"></div>
           </div>
-          <div class="dep-window-label" id="m-multiDepWindowLabel"></div>
           <div class="departures-grid" id="m-multiDeparturesGrid"></div>
         </div>
 
@@ -2538,18 +2667,7 @@
         </div>
       </div>
 
-      <!-- TRIP TAB -->
-      <div class="tab-panel" id="m-tab-trip">
-        <div class="field-block">
-          <label class="input-row-label" for="m-tripIdInput">Trip</label>
-          <div class="input-group">
-            <input type="text" id="m-tripIdInput" placeholder="Trip ID" autocapitalize="off" autocorrect="off" spellcheck="false" />
-            <button class="primary" onclick="handleLoadTrip('m-tripIdInput')">Load trip</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- ROUTE TAB -->
+      <!-- ROUTE TAB (also holds trip lookup) -->
       <div class="tab-panel" id="m-tab-route">
         <div class="field-block stop-search-wrap">
           <label class="input-row-label" for="m-routeSearchInput">Search by number or name</label>
@@ -2565,6 +2683,22 @@
           </div>
         </div>
 
+        <div class="field-block">
+          <label class="input-row-label" for="m-tripIdInput">Or go to a trip ID</label>
+          <div class="input-group">
+            <input type="text" id="m-tripIdInput" placeholder="Trip ID" autocapitalize="off" autocorrect="off" spellcheck="false" />
+            <button class="primary" onclick="handleLoadTrip('m-tripIdInput')">Load trip</button>
+          </div>
+        </div>
+
+        <div id="m-routeHeader" class="route-header">
+          <div class="route-header-top">
+            <span class="route-header-badge" id="m-routeBadgeDisplay"></span>
+            <div class="route-header-name" id="m-routeNameDisplay"></div>
+          </div>
+          <div class="route-header-meta" id="m-routeMetaDisplay"></div>
+        </div>
+
         <div id="m-routeTripsSection" class="route-trips-section">
           <div class="route-trips-section-header">
             <div class="section-title">Trips</div>
@@ -2577,19 +2711,27 @@
 
       <!-- NEARBY TAB -->
       <div class="tab-panel" id="m-tab-nearby">
+        <div class="field-block stop-search-wrap">
+          <label class="input-row-label" for="m-nearbyStopSearchInput">Name or stop number</label>
+          <div class="stop-search-field">
+            <input type="text" id="m-nearbyStopSearchInput" placeholder="e.g. Main St or 1867" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Find stops near a stop, by name, ID or code" />
+            <button type="button" class="stop-search-clear" aria-label="Clear search" hidden>&times;</button>
+          </div>
+          <div class="stop-search-results" id="m-nearbyStopSearchResults"></div>
+        </div>
         <div class="field-block">
-          <div class="input-row-label" id="m-findNearestLabel">Coordinates</div>
+          <button class="primary" style="width:100%" onclick="useMyLocation('m-latInput','m-lonInput',true)">Find nearest stops</button>
+          <button class="secondary tab-accent-btn show-loc-btn" style="width:100%;margin-top:5px" onclick="showUserLocation()">Show my location on map</button>
+        </div>
+        <div id="m-nearestStopsInfo"></div>
+        <div class="field-block">
+          <div class="input-row-label" id="m-findNearestLabel">Or enter coordinates</div>
           <div class="input-group" style="flex-direction:column" role="group" aria-labelledby="m-findNearestLabel">
             <input type="text" id="m-latInput" inputmode="decimal" placeholder="Latitude" aria-label="Latitude" />
             <input type="text" id="m-lonInput" inputmode="decimal" placeholder="Longitude" aria-label="Longitude" />
           </div>
-          <div class="input-group" style="margin-top:5px">
-            <button class="secondary tab-accent-btn" style="flex:1" onclick="handleFindNearest('m-latInput','m-lonInput')">Search nearby</button>
-            <button class="secondary tab-accent-btn" style="flex:1" onclick="useMyLocation('m-latInput','m-lonInput',true)">Use my location</button>
-          </div>
-          <button class="secondary tab-accent-btn show-loc-btn" style="width:100%;margin-top:5px" onclick="showUserLocation()">Show my location on map</button>
+          <button class="secondary tab-accent-btn" style="width:100%;margin-top:5px" onclick="handleFindNearest('m-latInput','m-lonInput')">Search nearby</button>
         </div>
-        <div id="m-nearestStopsInfo"></div>
       </div>
 
       <!-- ALERTS TAB -->
@@ -2668,7 +2810,7 @@
       {
         dTarget: '#sidebar-tabs', mTarget: '#mobile-tabs',
         title: 'Get around',
-        desc: 'Switch between looking up stops, trips & routes, discovering nearby stops, and extra features.'
+        desc: 'Switch between stops, routes and nearby stops. The bell shows service alerts and the \u22EF menu holds extra features.'
       },
       {
         dTab: 'sb-tab-stop', mTab: 'm-tab-stop',
@@ -2683,7 +2825,7 @@
         desc: 'By default a name search merges every stop sharing that exact name — like both sides of an intersection — into one combined departure board, and dropping a pin or using your location merges every stop within the nearby radius of that point. Open this menu to turn that off, merge reversed cross-streets, adjust the radius, or stop truncating duplicate trips.'
       },
       {
-        dTab: 'sb-tab-triproute', mTab: 'm-tab-trip',
+        dTab: 'sb-tab-triproute', mTab: 'm-tab-route',
         dTarget: '#tripIdInput', mTarget: '#m-tripIdInput',
         title: 'Trip lookup',
         desc: 'Look up any trip directly by its ID to see its full stop list and live position.'
@@ -2698,7 +2840,7 @@
         dTab: 'sb-tab-discover', mTab: 'm-tab-nearby',
         dTarget: '#sb-tab-discover .panel', mTarget: '#m-tab-nearby .field-block',
         title: 'Discover nearby stops',
-        desc: 'Search near a coordinate, use your location, or click the map to find the stops closest to you.'
+        desc: 'Search a stop by name, ID or code to see what\u2019s around it, find the stops closest to you, click the map to pick a point, or enter coordinates. This only lists stops \u2014 tap one to load its departures.'
       },
       {
         dTarget: '#themeToggleBtn', mTarget: '#mThemeToggleBtn',
@@ -3754,7 +3896,7 @@
       startRTPolling(tripId);
 
       // On mobile: switch to stop tab to show live vehicle info, expand sheet
-      switchTab('m-tab-stop');
+      switchTab('m-tab-departures');
       if (isMobile()) expandSheet();
     }
 
@@ -4122,8 +4264,45 @@
 
     let currentRouteTrips = [];
 
+    const ROUTE_TYPE_NAMES = { 0: 'Light rail', 1: 'Subway', 2: 'Rail', 3: 'Bus', 4: 'Ferry', 5: 'Cable tram', 6: 'Aerial lift', 7: 'Funicular', 11: 'Trolleybus', 12: 'Monorail' };
+    let routeInfoRequestId = 0;
+
+    function loadRouteInfo(routeId) {
+      const requestId = ++routeInfoRequestId;
+      hideEls(['routeHeader','m-routeHeader']);
+      apiFetch(`/api/routeinfo/${encodeURIComponent(routeId)}`)
+        .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+        .then(info => { if (requestId === routeInfoRequestId) renderRouteInfo(info); })
+        .catch(() => { if (requestId === routeInfoRequestId) hideEls(['routeHeader','m-routeHeader']); });
+    }
+
+    function renderRouteInfo(info) {
+      const hex = c => /^[0-9a-fA-F]{6}$/.test(c || '') ? '#' + c : '';
+      const bg = hex(info.route_color), fg = hex(info.route_text_color) || (bg ? readableTextColor(bg) : '');
+      const meta = [];
+      if (ROUTE_TYPE_NAMES[info.route_type]) meta.push(escapeHtml(ROUTE_TYPE_NAMES[info.route_type]));
+      meta.push('ID ' + escapeHtml(info.route_id));
+      if (info.agency_id) meta.push(escapeHtml(info.agency_id));
+      let html = meta.join(' · ');
+      if (info.route_desc) html += '\n' + escapeHtml(info.route_desc);
+      if (/^https?:\/\//i.test(info.route_url || '')) html += `\n<a href="${escapeHtml(info.route_url)}" target="_blank" rel="noopener">${escapeHtml(info.route_url)}</a>`;
+
+      ['','m-'].forEach(p => {
+        const header = document.getElementById(p + 'routeHeader');
+        if (!header) return;
+        const badge = document.getElementById(p + 'routeBadgeDisplay');
+        badge.textContent = info.route_short_name || info.route_id;
+        badge.style.background = bg;
+        badge.style.color = fg;
+        document.getElementById(p + 'routeNameDisplay').textContent = info.route_long_name || '';
+        document.getElementById(p + 'routeMetaDisplay').innerHTML = html;
+        header.style.display = 'block';
+      });
+    }
+
     function loadRouteTrips(routeId, dateVal) {
       const [year,month,day] = (dateVal || todayStr()).split('-');
+      loadRouteInfo(routeId);
       ['','m-'].forEach(p => {
         const section = document.getElementById(p + 'routeTripsSection');
         const grid    = document.getElementById(p + 'routeTripsGrid');
@@ -4190,6 +4369,7 @@
       date = date || todayStr();
       clearMultiStopDisplay();
       hideEls(['stopHeader','m-stopHeader']);
+      if (isMobile()) switchTab('m-tab-departures'); // the skeleton lives in that tab
       withMinSpinner(['stopLoading','m-stopLoading'], 'flex', () =>
         apiFetch(`/api/stop/${stopId}/${date}`).then(r => r.json())
       )
@@ -4271,6 +4451,7 @@
       if (isRefresh) { run(); return; }
       clearSingleStopDisplay();
       hideEls(['multiStopHeader', 'm-multiStopHeader']);
+      if (isMobile()) switchTab('m-tab-departures');
       withMinSpinner(['multiStopLoading', 'm-multiStopLoading'], 'flex', run);
     }
 
@@ -4314,6 +4495,7 @@
       if (isRefresh) { run(); return; }
       clearSingleStopDisplay();
       hideEls(['multiStopHeader', 'm-multiStopHeader']);
+      if (isMobile()) switchTab('m-tab-departures');
       withMinSpinner(['multiStopLoading', 'm-multiStopLoading'], 'flex', run);
     }
 
@@ -4770,6 +4952,25 @@
       }
     }
 
+    // Nearby-tab stop search: same fuzzy box, but picking a result only lists
+    // the stops around it (no departures), like the other nearby entry points.
+    function selectNearbyFromStopSearch(match, results) {
+      hideStopSearchResults(results);
+      if (results._input) results._input.blur();
+      const lat = parseFloat(match.lat), lon = parseFloat(match.lon);
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) { showToast('That stop has no coordinates.'); return; }
+      ['nearbyStopSearchInput', 'm-nearbyStopSearchInput'].forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.value = match.stop_name || '';
+        const clearBtn = el.parentElement ? el.parentElement.querySelector('.stop-search-clear') : null;
+        if (clearBtn) clearBtn.hidden = !el.value;
+      });
+      ['latInput', 'm-latInput'].forEach(id => { const el = document.getElementById(id); if (el) el.value = lat; });
+      ['lonInput', 'm-lonInput'].forEach(id => { const el = document.getElementById(id); if (el) el.value = lon; });
+      findNearestStops(lat, lon, 'Near ' + (match.stop_name || 'stop'));
+    }
+
     // ===== ROUTE NUMBER/NAME SEARCH =====
     let routeSearchRequestId = 0;
 
@@ -5000,6 +5201,7 @@
       if (isRefresh) { run(); return; }
       clearSingleStopDisplay();
       hideEls(['multiStopHeader', 'm-multiStopHeader']);
+      if (isMobile()) switchTab('m-tab-departures');
       withMinSpinner(['multiStopLoading', 'm-multiStopLoading'], 'flex', run);
     }
 
@@ -5120,7 +5322,7 @@
       const bounds = L.latLngBounds(stops.map(s => [s.lat, s.lon]));
       map.fitBounds(bounds.pad(0.2));
 
-      switchTab('m-tab-stop');
+      switchTab('m-tab-departures');
       if (isMobile()) expandSheet();
     }
 
@@ -5282,7 +5484,7 @@
       map.setView([data.lat,data.lon],15);
 
       // On mobile: expand sheet and switch to stop tab
-      switchTab('m-tab-stop');
+      switchTab('m-tab-departures');
       if (isMobile()) expandSheet();
     }
 
@@ -5684,9 +5886,10 @@
 
     // ===== MOBILE TABS =====
     function switchTab(tabId) {
+      if (tabId === 'm-tab-departures') document.getElementById('mDeparturesTab')?.removeAttribute('hidden');
       document.querySelectorAll('.m-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tabId));
       document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === tabId));
-      const sbTabId = { 'm-tab-stop': 'sb-tab-stop', 'm-tab-trip': 'sb-tab-triproute', 'm-tab-route': 'sb-tab-triproute', 'm-tab-nearby': 'sb-tab-discover', 'm-tab-more': 'sb-tab-more' }[tabId];
+      const sbTabId = { 'm-tab-stop': 'sb-tab-stop', 'm-tab-departures': 'sb-tab-stop', 'm-tab-route': 'sb-tab-triproute', 'm-tab-nearby': 'sb-tab-discover', 'm-tab-more': 'sb-tab-more' }[tabId];
       if (sbTabId) switchSidebarTab(sbTabId);
     }
 
@@ -5727,6 +5930,8 @@
     document.getElementById('m-dateInput').value = todayStr();
     initStopSearch('stopSearchInput', 'stopSearchResults');
     initStopSearch('m-stopSearchInput', 'm-stopSearchResults');
+    initStopSearch('nearbyStopSearchInput', 'nearbyStopSearchResults', selectNearbyFromStopSearch);
+    initStopSearch('m-nearbyStopSearchInput', 'm-nearbyStopSearchResults', selectNearbyFromStopSearch);
     initRouteSearch('routeSearchInput', 'routeSearchResults', 'dateInput');
     initRouteSearch('m-routeSearchInput', 'm-routeSearchResults', 'm-dateInput');
 
@@ -5745,27 +5950,72 @@
       const ids = ((a.alert && a.alert.informed_entity) || []).map(e => e.route_id).filter(Boolean);
       return [...new Set(ids)];
     }
+    // route_id -> /api/routeinfo result, or null when the route has no info.
+    const alertRouteInfo = new Map();
+    function alertRouteChip(id) {
+      const info = alertRouteInfo.get(id);
+      const label = (info && info.route_short_name) || id;
+      const hex = c => /^[0-9a-fA-F]{6}$/.test(c || '') ? '#' + c : '';
+      const bg = info ? hex(info.route_color) : '';
+      if (!bg) return '<span class="alert-route-chip">' + escapeHtml(label) + '</span>';
+      const fg = hex(info.route_text_color) || readableTextColor(bg);
+      return '<span class="alert-route-chip colored" style="background:' + bg + ';color:' + fg + '">' + escapeHtml(label) + '</span>';
+    }
+    // Distinct route colours (max 3) for the alert's side bars; routes without one are skipped.
+    function alertRouteColors(ids) {
+      const out = [];
+      ids.forEach(id => {
+        const c = (alertRouteInfo.get(id) || {}).route_color;
+        if (/^[0-9a-fA-F]{6}$/.test(c || '') && !out.includes('#' + c)) out.push('#' + c);
+      });
+      return out.slice(0, 3);
+    }
+    function loadAlertRouteInfo() {
+      const missing = [...new Set(activeAlerts.flatMap(alertRouteIds))].filter(id => !alertRouteInfo.has(id));
+      if (!missing.length) return;
+      missing.forEach(id => alertRouteInfo.set(id, null)); // also marks as in-flight, so no refetch loop
+      Promise.all(missing.map(id =>
+        apiFetch('/api/routeinfo/' + encodeURIComponent(id))
+          .then(r => r.ok ? r.json() : null)
+          .then(info => { if (info) alertRouteInfo.set(id, info); })
+          .catch(() => {})
+      )).then(() => {
+        if (missing.some(id => alertRouteInfo.get(id))) renderAlerts();
+      });
+    }
     function prettyEnum(s) { return String(s || '').toLowerCase().replace(/_/g, ' '); }
     function renderAlerts() {
       [['alertsList', 'alertsCount'], ['m-alertsList', 'm-alertsCount']].forEach(([listId, countId]) => {
         const list = document.getElementById(listId), count = document.getElementById(countId);
         if (!list) return;
         if (count) count.textContent = activeAlerts.length ? String(activeAlerts.length) : '';
+        const badge = document.getElementById(listId === 'alertsList' ? 'sbAlertsBadge' : 'mAlertsBadge');
+        if (badge) {
+          badge.textContent = activeAlerts.length > 99 ? '99+' : String(activeAlerts.length);
+          badge.hidden = !activeAlerts.length;
+          if (badge.parentElement) badge.parentElement.setAttribute('aria-label', activeAlerts.length ? 'Alerts (' + activeAlerts.length + ')' : 'Alerts');
+        }
         if (!activeAlerts.length) { list.innerHTML = '<div class="alerts-list-empty">No active service alerts.</div>'; return; }
         list.innerHTML = activeAlerts.map(a => {
           const al = a.alert || {};
           const title = alertText(al.header_text) || prettyEnum(al.effect) || 'Service alert';
           const body = alertText(al.description_text);
           const routes = alertRouteIds(a);
-          return '<div class="alert-item"><div class="alert-item-header">' +
+          const colors = alertRouteColors(routes);
+          return (colors.length
+              ? '<div class="alert-item has-bars" style="--bars:' + colors.length + '"><div class="alert-item-bars">' +
+                colors.map(c => '<span style="background:' + c + '"></span>').join('') + '</div>'
+              : '<div class="alert-item">') +
+            '<div class="alert-item-header">' +
             '<div class="alert-item-title">' + escapeHtml(title) + '</div>' +
             '<div class="alert-item-meta">' + escapeHtml(prettyEnum(al.effect)) + '</div></div>' +
             (body ? '<div class="alert-item-body">' + escapeHtml(body) + '</div>' : '') +
-            (routes.length ? '<div class="alert-item-routes">Routes: ' + routes.map(escapeHtml).join(', ') + '</div>' : '') +
+            (routes.length ? '<div class="alert-item-routes">Routes: ' + routes.map(alertRouteChip).join('') + '</div>' : '') +
             '</div>';
         }).join('');
         list.querySelectorAll('.alert-item').forEach(el => el.addEventListener('click', () => el.classList.toggle('expanded')));
       });
+      loadAlertRouteInfo();
     }
     async function loadAlerts() {
       try {
