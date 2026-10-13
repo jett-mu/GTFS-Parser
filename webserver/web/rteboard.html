@@ -281,7 +281,7 @@
        .dep-time-actual / .dep-badge-slot hooks applyRTtoDepartures() uses. */
     .board-header {
       display: flex;
-      align-items: flex-start;
+      align-items: center;
       justify-content: space-between;
       gap: var(--space-4);
       padding: calc(var(--space-4) + var(--safe-top)) var(--space-5) var(--space-3);
@@ -300,20 +300,42 @@
       color: var(--text);
     }
     .board-sub {
+      display: flex;
+      flex-wrap: nowrap;
+      overflow: hidden;
+      align-items: center;
+      gap: 6px;
       font-size: 13.5px;
       color: var(--text-muted);
-      margin-top: 7px;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      margin-top: 9px;
+    }
+    .board-chip {
+      padding: 3px 9px;
+      border-radius: 999px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      font-size: 12.5px;
+      font-weight: 600;
+      line-height: 1.3;
+      color: var(--text-muted);
       white-space: nowrap;
     }
     .board-header-right {
       display: flex;
-      align-items: flex-start;
-      gap: var(--space-3);
+      align-items: center;
+      gap: var(--space-4);
       flex-shrink: 0;
     }
     .board-clock-wrap { text-align: right; }
+    .board-date {
+      margin-top: 5px;
+      font-size: 12.5px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
     .board-clock {
       font-family: var(--font-display);
       font-size: 30px;
@@ -358,13 +380,17 @@
     button.board-close:hover { background: var(--surface3); border-color: var(--border2); }
 
     /* ===== SETTINGS SIDEBAR (location + filter), collapsible ===== */
+    /* Flat icon at the left edge of the header, next to where the sidebar slides in from. */
     button.board-sb-toggle {
-      width: 40px; height: 40px; padding: 0; border-radius: 50%; flex-shrink: 0;
+      width: 40px; height: 40px; padding: 0; border-radius: var(--card-radius); flex-shrink: 0;
       display: flex; align-items: center; justify-content: center; position: relative;
-      background: var(--surface2); border: 1px solid var(--border); color: var(--text); cursor: pointer;
+      background: transparent; border: 0; color: var(--text-muted); cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      margin: -5px 0 0 -8px; /* centre on the title line, pull the icon to the page margin */
     }
-    button.board-sb-toggle:hover, button.board-sb-toggle.active { background: var(--surface3); border-color: var(--border2); }
-    button.board-sb-toggle svg { width: 20px; height: 20px; }
+    button.board-sb-toggle:hover { background: var(--surface2); color: var(--text); }
+    button.board-sb-toggle.active { background: var(--surface2); color: var(--accent); }
+    button.board-sb-toggle svg { width: 22px; height: 22px; }
     .dep-filter-badge {
       position: absolute; top: -4px; right: -4px;
       min-width: 17px; height: 17px; padding: 0 4px; border-radius: 9px;
@@ -385,9 +411,6 @@
     }
     .board-main.sb-init .board-sidebar { transition: none !important; }
 
-    .board-header { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: start; }
-    .board-header-center { display: flex; justify-content: center; }
-    .board-header-right { justify-self: end; }
     .board-sidebar-inner { gap: var(--space-3); }
     a.sb-back {
       display: block; padding: 9px 11px; font-size: 14px; font-weight: 600; text-decoration: none; color: var(--text);
@@ -415,9 +438,24 @@
       background: var(--accent); color: #fff; font-size: 11px; font-weight: 700; line-height: 18px; text-align: center;
     }
     .board-sidebar .sb-label { margin-top: var(--space-2); }
-    @media (max-width: 640px) {
-      .board-header { grid-template-columns: minmax(0, 1fr) auto auto; column-gap: var(--space-3); }
+    .sb-toggle {
+      display: flex; align-items: center; gap: 10px; padding: 10px 12px; cursor: pointer;
+      font-size: 14px; font-weight: 600; color: var(--text);
+      background: var(--surface2); border: 1px solid var(--border); border-radius: var(--card-radius);
     }
+    .sb-toggle input { width: 18px; height: 18px; margin: 0; flex-shrink: 0; accent-color: var(--accent); }
+
+    /* Small screen mode: header is just the sidebar button + clock. */
+    body.board-compact .board-title, body.board-compact .board-sub { display: none; }
+    body.board-compact .board-header { padding-top: calc(var(--space-2) + var(--safe-top)); padding-bottom: var(--space-2); }
+    body.board-compact button.board-sb-toggle { margin-top: 0; }
+    /* Clock and date sit on one line, right beside the sidebar button. */
+    body.board-compact .board-header { justify-content: flex-start; gap: var(--space-3); }
+    body.board-compact .board-header-left { flex: 0 0 auto; }
+    body.board-compact .board-header-right { flex: 1 1 auto; min-width: 0; }
+    body.board-compact .board-clock-wrap { display: flex; align-items: baseline; gap: var(--space-3); text-align: left; width: 100%; }
+    body.board-compact .board-date { margin: 0 0 0 auto; font-size: 18px; letter-spacing: 0.03em; }
+    @media (max-width: 640px) { body.board-compact .board-date { font-size: 14px; } }
     .board-sidebar-inner {
       width: var(--sb-w); height: 100%; overflow-y: auto; overscroll-behavior: contain;
       padding: var(--space-4) var(--space-4) calc(var(--space-5) + var(--safe-bottom));
@@ -686,7 +724,9 @@
     @media (max-width: 640px) {
       .board-header { padding-left: var(--space-4); padding-right: var(--space-4); }
       .board-title, .board-clock { font-size: 22px; }
-      .board-sub { font-size: 12.5px; white-space: normal; }
+      .board-sub { font-size: 12px; }
+      .board-chip { font-size: 11.5px; padding: 2px 8px; }
+      .board-date { font-size: 11px; }
       .board-header-right { gap: var(--space-2); }
       button.board-close { width: 44px; height: 44px; padding: 0; }
       input, select, textarea { font-size: 16px !important; }
@@ -884,20 +924,19 @@
   <main id="routeBoardOverlay" class="nearby-overlay board-overlay route-board-overlay" aria-label="Route board">
     <div class="board-header">
       <div class="board-header-left">
+        <button type="button" class="board-sb-toggle" id="sbToggle" aria-controls="boardSidebar" aria-expanded="true" aria-label="Toggle settings sidebar" title="Location &amp; filter">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h9M19 6h1M4 12h3M13 12h7M4 18h11"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>
+          <span class="dep-filter-badge" id="boardFilterBadge" hidden>0</span>
+        </button>
         <div class="board-header-text">
           <div class="board-title">Routes</div>
           <div class="board-sub" id="routeBoardOverlaySub"></div>
         </div>
       </div>
-      <div class="board-header-center">
-        <button type="button" class="board-sb-toggle" id="sbToggle" aria-controls="boardSidebar" aria-expanded="true" aria-label="Toggle settings sidebar" title="Location &amp; filter">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h9M19 6h1M4 12h3M13 12h7M4 18h11"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>
-          <span class="dep-filter-badge" id="boardFilterBadge" hidden>0</span>
-        </button>
-      </div>
       <div class="board-header-right">
         <div class="board-clock-wrap">
           <div class="board-clock" id="routeBoardClock"></div>
+          <div class="board-date" id="routeBoardDate"></div>
         </div>
       </div>
     </div>
@@ -944,6 +983,10 @@
               <button type="button" class="dep-filter-clear" id="boardFilterClear">Clear filters</button>
             </div>
           </details>
+          <label class="sb-toggle" for="smallScreenToggle">
+            <input type="checkbox" id="smallScreenToggle">
+            <span>Small screen mode</span>
+          </label>
         </div>
       </aside>
       <div class="nearby-overlay-body">
@@ -1129,8 +1172,21 @@
     function walkMinutes(km) {
       return Math.max(1, Math.ceil((km * 1000) / BOARD_WALK_M_PER_MIN));
     }
+    // Past this, "N min walk" is meaningless (e.g. the device location is in another
+    // city), so show the plain distance instead.
+    const BOARD_MAX_WALK_MIN = 90;
+    function fmtDistKm(km) {
+      return km < 10 ? `${km.toFixed(1)} km` : `${Math.round(km).toLocaleString()} km`;
+    }
     function fmtWalk(km) {
-      return km * 1000 < 60 ? 'right here' : `${walkMinutes(km)} min walk`;
+      if (km * 1000 < 60) return 'right here';
+      return walkMinutes(km) > BOARD_MAX_WALK_MIN ? `${fmtDistKm(km)} away` : `${walkMinutes(km)} min walk`;
+    }
+    // Header summary chips: stop count, plus the walk range when it's a sensible one.
+    function boardSubHTML(label, n, farthestKM) {
+      const walkable = walkMinutes(farthestKM) <= BOARD_MAX_WALK_MIN;
+      return `<span class="board-chip">${n} stop${n !== 1 ? 's' : ''}</span>`
+        + (walkable ? `<span class="board-chip">Up to ${walkMinutes(farthestKM)} min walk</span>` : '');
     }
 
     // ['3', 'min', ''] | ['Due', '', 'due'] | ['3:15 PM', '', 'later']
@@ -1190,6 +1246,8 @@
       const ampm = h >= 12 ? 'PM' : 'AM';
       h = h % 12 || 12;
       el.innerHTML = `${h}:${String(n.getMinutes()).padStart(2,'0')}<span class="board-clock-sec">:${String(n.getSeconds()).padStart(2,'0')} ${ampm}</span>`;
+      const dateEl = document.getElementById('routeBoardDate');
+      if (dateEl) dateEl.textContent = n.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
     }
 
     function setRouteBoardMessage(text) {
@@ -1251,7 +1309,7 @@
           [...st.selected.keys()].forEach(r => { if (!present.has(r)) st.selected.delete(r); });
           const n = stopDatas.length;
           const farthestKM = Math.max(0, ...stopDatas.map(s => s._distanceKM || 0));
-          sub.textContent = `${routeBoardLabel()} – ${n} stop${n !== 1 ? 's' : ''} within a ${walkMinutes(farthestKM)} min walk`;
+          sub.innerHTML = boardSubHTML(routeBoardLabel(), n, farthestKM);
           renderRouteBoardFilter();
           renderRouteBoardCards();
           refreshLocPanel();
@@ -1835,6 +1893,15 @@
       if (persist) lsSet(SB_KEY, collapsed);
     }
     function collapseSidebarOnMobile() { if (sbIsMobile()) setSidebarCollapsed(true, false); }
+    // Small screen mode: hides the title and the stops / walk summary. Shared by both boards.
+    (function initSmallScreenMode() {
+      const KEY = 'gtfs-board-small-screen';
+      const cb = document.getElementById('smallScreenToggle');
+      const apply = on => { document.body.classList.toggle('board-compact', on); if (cb) cb.checked = on; };
+      apply(lsGet(KEY, false) === true);
+      if (cb) cb.addEventListener('change', () => { apply(cb.checked); lsSet(KEY, cb.checked); });
+    })();
+
     (function initSidebar() {
       // Desktop remembers open/closed; phones start closed so the board is visible.
       setSidebarCollapsed(sbIsMobile() ? true : lsGet(SB_KEY, false) === true, false);
