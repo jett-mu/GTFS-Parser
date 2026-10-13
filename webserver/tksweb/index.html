@@ -1017,8 +1017,9 @@
       display: flex;
       align-items: center;
       gap: 4px;
-      flex-shrink: 0;
+      min-width: 0;
     }
+    .dep-badge-slot > .rt-delay-badge { flex-shrink: 0; }
 
     .dep-time-row {
       display: flex;
@@ -1092,6 +1093,20 @@
       line-height: 1.3;
       overflow-wrap: break-word;
       white-space: normal;
+    }
+
+    .dep-pd-note {
+      min-width: 0;
+      font-size: 10.5px;
+      font-weight: 600;
+      line-height: 1.2;
+      padding: 2px 7px;
+      border-radius: 999px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      background: rgba(var(--warn-rgb), 0.16);
+      color: rgb(var(--warn-rgb));
     }
 
     .dep-card-footer {
@@ -3071,6 +3086,34 @@
       return p[0]*3600 + p[1]*60 + (p[2]||0);
     }
 
+    // Pill for a departure card when boarding/alighting at this stop isn't the regular kind.
+    // pickup_type / drop_off_type: 0 regular, 1 none, 2 phone agency, 3 coordinate with driver.
+    // Visible text is kept short so the card doesn't grow; the title carries the full wording.
+    function pickupDropoffLabels(dep) {
+      const pu = dep.pickup_type | 0, dof = dep.drop_off_type | 0;
+      const short = [], full = [];
+      if (!pu && !dof) return { short, full };
+      const add = (s, f) => { short.push(s); full.push(f); };
+      if (pu === 1 && dof === 1) add('No pick-up/drop-off', 'No pickup or dropoff');
+      else if (pu === 1 && !dof) add('Drop-off only', 'Dropoff only');
+      else if (dof === 1 && !pu) add('Pick-up only', 'Pickup only');
+      else {
+        if (pu === 1) add('No pick-up', 'No pickup');
+        if (dof === 1) add('No drop-off', 'No dropoff');
+      }
+      if (pu === 2) add('Pick-up: call', 'Phone agency for pickup');
+      if (pu === 3) add('Pick-up: driver', 'Coordinate with driver for pickup');
+      if (dof === 2) add('Drop-off: call', 'Phone agency for dropoff');
+      if (dof === 3) add('Drop-off: driver', 'Coordinate with driver for dropoff');
+      return { short, full };
+    }
+
+    function pickupDropoffNote(dep) {
+      const { short, full } = pickupDropoffLabels(dep);
+      if (!short.length) return '';
+      return `<span class="dep-pd-note" title="${full.join('; ')}">${short.join(' · ')}</span>`;
+    }
+
     function fmtTime(t) {
       const p = t.split(':').map(Number);
       let h = p[0] % 24;
@@ -3949,10 +3992,14 @@
       drawRouteLine(latlngs, data.route_color, stopLatLngs, terminalLatLngs);
 
       const stopFill = readableTextColor(data.route_color);
+      // Stops that aren't regular pick-up/drop-off get a red fill instead of the usual white/black.
+      const irregularFill = '#FF0000';
       data.stops.forEach(stop => {
+        const pd = pickupDropoffLabels(stop);
+        const irregular = pd.short.length > 0;
         const m = L.circleMarker([stop.lat,stop.lng],{
           pane:'routeStops',
-          color:data.route_color,fillColor:stopFill,fillOpacity:1,radius:4.5,weight:2.5
+          color:data.route_color,fillColor:irregular ? irregularFill : stopFill,fillOpacity:1,radius:4.5,weight:2.5
         }).addTo(map);
         m.isTerminal = isTerminal(stop);
         const headerTextColor = readableTextColor(data.route_color);
@@ -3976,6 +4023,10 @@
                 <div class="stop-popup-card-label">Sequence</div>
                 <div class="stop-popup-card-val" style="color:var(--negative)">${stop.stop_sequence}</div>
               </div>
+              ${irregular ? `<div class="stop-popup-card wide">
+                <div class="stop-popup-card-label">Boarding</div>
+                <div class="stop-popup-card-val" style="color:rgb(var(--warn-rgb))">${pd.full.join('<br>')}</div>
+              </div>` : ''}
             </div>
             <button class="secondary stop-popup-btn" style="background:${data.route_color}; color:${headerTextColor}" onclick="handleStopMarkerClick('${stop.id}')">Show departures</button>
           </div>
@@ -4187,7 +4238,7 @@
           card.innerHTML = `
             <div class="dep-card-top">
               <div class="dep-route">${dot}${dep.route_id}</div>
-              <div class="dep-badge-slot"></div>
+              <div class="dep-badge-slot">${pickupDropoffNote(dep)}</div>
             </div>
             <div class="dep-time-row">
               <div class="dep-time"><span class="dep-time-sched">${fmtTime(dep.arrival_time)}</span><span class="dep-time-actual"></span></div>
@@ -5364,7 +5415,7 @@
           card.innerHTML = `
             <div class="dep-card-top">
               <div class="dep-route">${dot}${dep.route_id}</div>
-              <div class="dep-badge-slot"></div>
+              <div class="dep-badge-slot">${pickupDropoffNote(dep)}</div>
             </div>
             <div class="dep-time-row">
               <div class="dep-time"><span class="dep-time-sched">${fmtTime(dep.arrival_time)}</span><span class="dep-time-actual"></span></div>
