@@ -2307,7 +2307,7 @@
           <label class="input-row-label" for="dateInput">Date</label>
             <div class="date-row">
               <input type="date" id="dateInput" />
-              <button class="secondary" onclick="document.getElementById('dateInput').value=todayStr()">Today</button>
+              <button class="secondary" onclick="setDateToday('dateInput')">Today</button>
             </div>
           </div>
         </div>
@@ -2570,7 +2570,7 @@
           <label class="input-row-label" for="m-dateInput">Date</label>
           <div class="date-row">
             <input type="date" id="m-dateInput" />
-            <button class="secondary" onclick="document.getElementById('m-dateInput').value=todayStr()">Today</button>
+            <button class="secondary" onclick="setDateToday('m-dateInput')">Today</button>
           </div>
         </div>
       </div>
@@ -5494,6 +5494,14 @@
 
     // Sync date inputs
     document.getElementById('m-dateInput').value = todayStr();
+    // "Today" button: set the field and fire its change handler so the other
+    // date input stays in sync and the current view reloads, same as picking a date.
+    function setDateToday(id) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.value = todayStr();
+      el.dispatchEvent(new Event('change'));
+    }
     // Changing the date re-runs whatever view is showing (single stop, merged
     // by name, nearby, or around a point) rather than always reloading one stop.
     function onDateChanged(value) {
