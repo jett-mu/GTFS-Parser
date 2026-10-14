@@ -250,10 +250,61 @@
       white-space: nowrap;
     }
 
-    .theme-toggle-btn {
+    /* Theme switch: a pill track with a knob that slides to the active theme
+       and shows its icon (moon on a starry track / sun on a warm one). The
+       .btn-label stays for screen readers and names the theme it switches to. */
+    button.theme-switch {
+      position: relative;
       flex-shrink: 0;
-      padding: 8px 12px;
-      font-size: 12.5px;
+      width: 54px;
+      height: 28px;
+      padding: 0;
+      border-radius: 999px;
+      border: 1px solid var(--border2);
+      background-color: var(--surface3);
+      background-image:
+        radial-gradient(circle at 11px 8px,  var(--text-dim) 0 1px,   transparent 1.6px),
+        radial-gradient(circle at 19px 17px, var(--text-dim) 0 0.9px, transparent 1.4px),
+        radial-gradient(circle at 8px 19px,  var(--text-dim) 0 0.7px, transparent 1.2px);
+      transition: background-color 0.3s ease, border-color 0.3s ease;
+    }
+    button.theme-switch:hover { background-color: var(--surface3); border-color: var(--text-dim); }
+    :root[data-theme="light"] button.theme-switch,
+    :root[data-theme="light"] button.theme-switch:hover {
+      background-color: rgba(var(--accent3-rgb), 0.16);
+      background-image: none;
+      border-color: rgba(var(--accent3-rgb), 0.45);
+    }
+    .theme-switch-knob {
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--text);
+      color: var(--bg);
+      transform: translateX(26px);
+      transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1), background 0.3s ease, color 0.3s ease;
+    }
+    :root[data-theme="light"] .theme-switch-knob { transform: translateX(0); background: var(--accent3); color: #fff; }
+    button.theme-switch .ico-svg { width: 13px; height: 13px; transition: transform 0.45s cubic-bezier(0.34,1.56,0.64,1); }
+    button.theme-switch .ico-uni { width: auto; font-size: 12px; }
+    button.theme-switch .ico-sun { display: none; }
+    :root[data-theme="light"] .theme-switch .ico-sun { display: inline-flex; }
+    :root[data-theme="light"] .theme-switch .ico-moon { display: none; }
+    .theme-switch:hover .ico-sun .ico-svg { transform: rotate(45deg); }
+    .theme-switch:hover .ico-moon .ico-svg { transform: rotate(-20deg); }
+    .theme-switch .btn-label {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+      white-space: nowrap;
     }
 
     #sidebar-body {
@@ -749,6 +800,19 @@
       color: var(--text-muted);
     }
     button.secondary:hover { background: var(--surface3); color: var(--text); border-color: var(--border2); }
+
+    /* Icon + label buttons: an SVG icon on desktop, its unicode twin on phones
+       (swapped in the max-width: 640px block). Two-state buttons hold an
+       .ico-a / .ico-b pair and a state selector shows the right one. */
+    .btn-ico { display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
+    .btn-ico .ico-svg { width: 1.1em; height: 1.1em; flex-shrink: 0; display: block; }
+    .btn-ico .ico-uni { display: none; width: 1.1em; line-height: 1; text-align: center; flex-shrink: 0; }
+    .btn-ico .ico-pair { display: inline-flex; align-items: center; }
+    .btn-ico .ico-b { display: none; }
+    .pick-mode-btn.active .ico-a,
+    .show-loc-btn.on .ico-a { display: none; }
+    .pick-mode-btn.active .ico-b,
+    .show-loc-btn.on .ico-b { display: inline-flex; }
 
     .input-row-label {
       font-size: 13px;
@@ -1355,6 +1419,198 @@
       100% { box-shadow: 0 0 0 0 rgba(var(--accent2-rgb), 0); }
     }
 
+    /* ===== ACTION BUTTONS =====
+       .locate-hero: the solid "find nearest" button with a radar ping (Nearby).
+       .btn-tiles/.btn-tile: a row of big-icon tiles (map toggles, board links).
+       .go-form/.go-btn: an input with its submit arrow attached; the arrow fills
+       in once every input has a value. .today-btn: the date row's Today button.
+       Motion is turned off by the reduced-motion block. */
+    button.locate-hero {
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 12px;
+      width: 100%;
+      padding: 11px 14px;
+      background: var(--accent);
+      border-color: var(--accent);
+      color: var(--bg);
+      text-align: left;
+      transition: filter var(--transition), transform 0.18s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    button.locate-hero:hover { background: var(--accent); border-color: var(--accent); filter: brightness(1.07); }
+    .locate-hero .radar {
+      position: relative;
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--bg);
+      color: var(--accent);
+    }
+    .locate-hero .radar::before,
+    .locate-hero .radar::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      border: 2px solid var(--bg);
+      opacity: 0;
+      animation: radar-ping 2.6s cubic-bezier(0,0,0.2,1) infinite;
+      pointer-events: none;
+    }
+    .locate-hero .radar::after { animation-delay: 1.3s; }
+    @keyframes radar-ping {
+      0%   { transform: scale(1);   opacity: 0.55; }
+      100% { transform: scale(2.2); opacity: 0; }
+    }
+    .locate-hero .radar .ico-svg { width: 16px; height: 16px; transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1); }
+    .locate-hero:hover .radar .ico-svg { transform: translate(1px,-1px) rotate(-8deg); }
+    .locate-hero .radar .ico-uni { width: auto; font-size: 15px; }
+    .locate-hero .hero-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; line-height: 1.2; }
+    .locate-hero .btn-label { font-family: var(--font-display); font-size: 17px; font-weight: 500; letter-spacing: 0.01em; }
+    .locate-hero .hero-sub { font-size: 12px; font-weight: 500; opacity: 0.72; }
+    .locate-hero .hero-go { margin-left: auto; display: inline-flex; opacity: 0.8; transition: transform 0.2s ease, opacity 0.2s ease; }
+    .locate-hero .hero-go .ico-svg { width: 18px; height: 18px; }
+    .locate-hero:hover .hero-go { transform: translateX(3px); opacity: 1; }
+
+    .btn-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .btn-tiles > .btn-tile {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      width: 100%;
+      min-height: 78px;
+      padding: 10px 8px;
+      white-space: normal;
+      text-align: center;
+      line-height: 1.25;
+      transition: background var(--transition), border-color var(--transition), color var(--transition),
+                  transform 0.18s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    .btn-tiles > .btn-tile:active { transform: scale(0.97); }
+    .btn-tile .ico-svg { width: 22px; height: 22px; transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1); }
+    .btn-tile .ico-uni { width: auto; font-size: 20px; }
+    /* A lone tile (the mobile panel has no pick button) lays out as a row. */
+    .btn-tiles > .btn-tile:only-child { grid-column: 1 / -1; flex-direction: row; min-height: 0; gap: 8px; }
+    .btn-tiles > .btn-tile:only-child .ico-svg { width: 18px; height: 18px; }
+    .btn-tiles > .btn-tile:only-child .ico-uni { font-size: 16px; }
+
+    .pick-mode-btn.btn-tile:not(.active):hover .ico-a .ico-svg { transform: rotate(90deg); }
+    .show-loc-btn.btn-tile:not(.on):hover .ico-a .ico-svg { transform: scale(1.15); }
+    /* Pick mode armed: dashed outline breathing while it waits for a map tap. */
+    button.pick-mode-btn.btn-tile.active {
+      border-style: dashed;
+      animation: tile-wait 1.6s ease-in-out infinite;
+    }
+    @keyframes tile-wait {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(var(--negative-rgb), 0); }
+      50%      { box-shadow: 0 0 0 3px rgba(var(--negative-rgb), 0.2); }
+    }
+    /* Live location on: a pulsing "live" dot in the corner. */
+    button.show-loc-btn.btn-tile.on { border-color: var(--accent); color: var(--accent); }
+    .show-loc-btn.btn-tile.on::after {
+      content: '';
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--accent);
+      animation: loc-live 1.6s ease-out infinite;
+    }
+    @keyframes loc-live {
+      0%   { box-shadow: 0 0 0 0 rgba(var(--accent-rgb), 0.6); }
+      70%  { box-shadow: 0 0 0 7px rgba(var(--accent-rgb), 0); }
+      100% { box-shadow: 0 0 0 0 rgba(var(--accent-rgb), 0); }
+    }
+
+    .go-form { display: flex; gap: 6px; min-width: 0; }
+    .go-form.stacked { display: grid; grid-template-columns: 1fr auto; }
+    button.go-btn { flex-shrink: 0; width: 44px; padding: 0; }
+    .go-form.stacked button.go-btn { grid-column: 2; grid-row: 1 / span 2; width: 52px; }
+    .go-btn .ico-svg { transition: transform 0.2s ease; }
+    .go-btn:hover .ico-svg { transform: translateX(2px); }
+    /* Every input filled: the submit fills in to say it's ready. */
+    .go-form:not(:has(input:placeholder-shown)) button.go-btn {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: var(--bg);
+    }
+
+    /* Board links open another page: a small ↗ in the corner, icon lifts on hover. */
+    .board-link.btn-tile::after {
+      content: '\2197\FE0E';
+      position: absolute;
+      top: 6px;
+      right: 8px;
+      font-size: 12px;
+      line-height: 1;
+      opacity: 0.5;
+      transition: transform 0.2s ease, opacity 0.2s ease;
+    }
+    .board-link.btn-tile:hover::after { transform: translate(2px,-2px); opacity: 1; }
+    .board-link.btn-tile:hover .ico-svg { transform: translateY(-2px); }
+
+    /* Today joins the date field; it fills in while another date is showing,
+       so it reads as "jump back to today" (and goes quiet once you're there). */
+    .date-row.joined { gap: 0; }
+    .date-row.joined input[type="date"] { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+    .date-row.joined button.today-btn { border-top-left-radius: 0; border-bottom-left-radius: 0; margin-left: -1px; align-self: stretch; }
+    button.today-btn:not(.is-today) {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: var(--bg);
+    }
+    button.today-btn:not(.is-today):hover { filter: brightness(1.07); }
+    .today-btn .ico-svg { transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1); }
+    .today-btn:hover .ico-svg { transform: rotate(-50deg); }
+
+    /* Hover motion for the board toolbar icons. */
+    .dep-filter-btn svg, .dep-filter-clear .ico-svg,
+    .dep-expand-btn svg { transition: transform 0.45s cubic-bezier(0.34,1.56,0.64,1), fill 0.2s ease; }
+    .dep-filter-btn:hover svg { transform: translateY(2px); }
+    .dep-filter-clear:hover .ico-svg { transform: rotate(90deg); }
+    .dep-expand-btn:hover .ico-expand { transform: scale(1.18); }
+    .dep-expand-btn:hover .ico-collapse { transform: scale(0.82); }
+
+    /* Filter with routes/destinations applied: tinted pill, filled funnel,
+       and the count badge pops in. */
+    .dep-filter-btn:has(.dep-filter-badge:not([hidden])) {
+      background: rgba(var(--accent-rgb), 0.12);
+      border-color: rgba(var(--accent-rgb), 0.45);
+      color: var(--accent);
+    }
+    .dep-filter-btn:has(.dep-filter-badge:not([hidden])) svg { fill: currentColor; }
+    .dep-filter-badge { animation: badge-pop 0.35s cubic-bezier(0.34,1.56,0.64,1); }
+    @keyframes badge-pop { from { transform: scale(0.3); } to { transform: scale(1); } }
+
+    /* Full-sidebar departures: the expand button is lit while it's on. */
+    .dep-expanded .dep-expand-btn {
+      background: rgba(var(--accent-rgb), 0.12);
+      border-color: rgba(var(--accent-rgb), 0.45);
+      color: var(--accent);
+    }
+
+    /* Gear turns on hover and stays turned + tinted while its popover is open. */
+    .gear-ico { display: inline-block; transition: transform 0.5s cubic-bezier(0.34,1.56,0.64,1); }
+    .gear-btn:hover .gear-ico { transform: rotate(60deg); }
+    .gear-btn.active .gear-ico { transform: rotate(120deg); }
+    .gear-btn.active {
+      background: rgba(var(--accent-rgb), 0.12);
+      border-color: rgba(var(--accent-rgb), 0.45);
+      color: var(--accent);
+    }
+
     /* Live vehicle panel */
     .rt-panel {
       background: var(--surface2);
@@ -1564,25 +1820,55 @@
 
     .departures-section-header {
       display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
       align-items: center;
       justify-content: space-between;
       margin-bottom: 7px;
     }
     .departures-section-header .section-title { margin-bottom: 0; }
 
-    .show-all-deps-btn {
-      font-size: 12px;
-      font-weight: 500;
-      padding: 3px 10px;
+    /* Time-window segmented control (3h / Next 4 / All): equal-width segments
+       with a thumb that slides under the active one (driven by data-mode). */
+    .seg {
+      position: relative;
+      display: inline-grid;
+      grid-template-columns: repeat(3, 1fr);
+      flex-shrink: 0;
+      padding: 2px;
       border-radius: 20px;
       background: var(--surface2);
       border: 1px solid var(--border);
-      color: var(--text-muted);
-      cursor: pointer;
-      transition: border-color var(--transition), color var(--transition), background var(--transition);
-      white-space: nowrap;
     }
-    .show-all-deps-btn:hover { border-color: var(--border2); color: var(--text); background: var(--surface3); }
+    .seg-thumb {
+      position: absolute;
+      top: 2px;
+      bottom: 2px;
+      left: 2px;
+      width: calc((100% - 4px) / 3);
+      border-radius: 20px;
+      background: rgba(var(--accent-rgb), 0.15);
+      box-shadow: inset 0 0 0 1px rgba(var(--accent-rgb), 0.45);
+      transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    .seg[data-mode="n4"] .seg-thumb  { transform: translateX(100%); }
+    .seg[data-mode="all"] .seg-thumb { transform: translateX(200%); }
+    .seg > button {
+      position: relative;
+      z-index: 1;
+      padding: 3px 9px;
+      border: 0;
+      border-radius: 20px;
+      background: none;
+      color: var(--text-muted);
+      font-size: 12px;
+      font-weight: 500;
+      transition: color var(--transition);
+    }
+    .seg > button:hover { background: none; color: var(--text); }
+    /* Color only, no bolding: segments share the widest label's width, so a
+       bolder "Next 4" would widen the control and wrap it under the title. */
+    .seg > button[aria-pressed="true"] { color: var(--accent); }
 
     .dep-header-actions { display: flex; align-items: center; gap: 6px; }
     .dep-expand-btn {
@@ -1656,15 +1942,147 @@
     .dep-filter-icon-btn .dep-filter-badge { position: absolute; top: -6px; right: -6px; }
 
     .dep-filter-popover {
-      width: 280px;
-      max-height: 340px;
+      width: 290px;
+      max-height: min(460px, 70vh);
       overflow-y: auto;
+      padding-top: 0;
+      gap: 0;
     }
+    /* Title + Clear all, pinned while the route list scrolls */
+    .dep-filter-header {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding-top: var(--space-3);
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+    .dep-filter-header .settings-popover-title { border-bottom: none; margin-bottom: 0; }
+    .dep-filter-popover:not(.has-filters) .dep-filter-clear { visibility: hidden; }
+    /* Sections: Time, Pick-up / drop-off, Route / destination */
+    .dep-filter-section { padding: 8px 0 10px; }
+    .dep-filter-section + .dep-filter-section { border-top: 1px solid var(--border); }
+    .dep-filter-section-routes { padding-bottom: 2px; }
+    .dep-filter-section-head { display: flex; align-items: center; gap: 6px; min-height: 22px; margin-bottom: 6px; }
+    .dep-filter-section-head .dep-filter-subhead { padding: 0; }
+    .dep-filter-count {
+      min-width: 16px;
+      height: 16px;
+      padding: 0 5px;
+      border-radius: 8px;
+      background: var(--accent);
+      color: var(--surface);
+      font-size: 10px;
+      font-weight: 700;
+      line-height: 16px;
+      text-align: center;
+    }
+    .dep-filter-count[hidden] { display: none; }
+    button.dep-filter-section-clear {
+      margin-left: auto;
+      padding: 0;
+      border: none;
+      background: none;
+      color: var(--accent);
+      font-size: 11.5px;
+      font-weight: 600;
+    }
+    button.dep-filter-section-clear:hover { background: none; text-decoration: underline; }
+    button.dep-filter-section-clear[hidden] { display: none; }
+    /* Pick-up / drop-off rule chips */
+    .dep-pd-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .dep-pd-chips[hidden], .dep-pd-empty[hidden] { display: none; }
+    button.dep-pd-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      font-size: 12px;
+      font-weight: 500;
+    }
+    button.dep-pd-chip:hover { background: var(--surface3); border-color: var(--border2); color: var(--text); }
+    button.dep-pd-chip[aria-pressed="true"] {
+      background: rgba(var(--accent-rgb), 0.14);
+      border-color: rgba(var(--accent-rgb), 0.5);
+      color: var(--accent);
+    }
+    .dep-pd-check { display: none; font-size: 11px; }
+    .dep-pd-chip[aria-pressed="true"] .dep-pd-check { display: inline; }
+    .dep-pd-hides { font-size: 10.5px; color: var(--text-dim); font-weight: 500; }
+    .dep-pd-hides:empty { display: none; }
+    .dep-pd-chip[aria-pressed="true"] .dep-pd-hides { color: inherit; opacity: 0.75; }
+    .dep-pd-empty { font-size: 12px; color: var(--text-dim); line-height: 1.4; }
     .dep-filter-tree {
       display: flex;
       flex-direction: column;
       gap: 2px;
     }
+    /* After / Before time range, above the route tree */
+    .dep-filter-subhead {
+      font-size: 10.5px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-dim);
+    }
+    .dep-time-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding-bottom: 4px; }
+    .dep-time-field { display: flex; flex-direction: column; gap: 3px; min-width: 0; font-size: 12px; color: var(--text-muted); }
+    .dep-time-input { position: relative; display: flex; }
+    .dep-time-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+    button.dep-time-now {
+      padding: 1px 8px;
+      border-radius: 20px;
+      background: rgba(var(--accent-rgb), 0.12);
+      border: 1px solid rgba(var(--accent-rgb), 0.35);
+      color: var(--accent);
+      font-size: 11px;
+      font-weight: 600;
+      line-height: 1.4;
+    }
+    button.dep-time-now:hover { background: rgba(var(--accent-rgb), 0.2); border-color: rgba(var(--accent-rgb), 0.5); }
+    .dep-time-input input[type="time"] {
+      flex: 1;
+      min-width: 0;
+      padding: 5px 24px 5px 7px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--card-radius);
+      color: var(--text);
+      font-family: var(--font-body);
+      font-size: 12.5px;
+    }
+    .dep-time-input input[type="time"]:focus { border-color: var(--border2); background: var(--surface3); }
+    /* A set bound reads as active, like a checked route. */
+    .dep-time-input:has(.dep-time-clear:not([hidden])) input[type="time"] {
+      border-color: rgba(var(--accent-rgb), 0.5);
+      background: rgba(var(--accent-rgb), 0.08);
+    }
+    .dep-time-clear {
+      position: absolute;
+      top: 50%;
+      right: 3px;
+      transform: translateY(-50%);
+      width: 18px;
+      height: 18px;
+      padding: 0;
+      border: none;
+      border-radius: 50%;
+      background: none;
+      color: var(--text-muted);
+      font-size: 14px;
+      line-height: 1;
+    }
+    .dep-time-clear:hover { background: var(--surface3); color: var(--text); }
+    .dep-time-clear:active { transform: translateY(-50%) scale(0.9); }
+    .dep-time-clear[hidden] { display: none; }
     .dep-filter-route { padding: 2px 0; }
     .dep-filter-route-row,
     .dep-filter-headsign-row {
@@ -1697,20 +2115,19 @@
       color: var(--text-muted);
       padding: 6px 0;
     }
-    .dep-filter-clear {
-      width: 100%;
-      margin-top: 6px;
-      padding-top: 6px;
-      border-top: 1px solid var(--border);
+    button.dep-filter-clear {
+      flex-shrink: 0;
+      gap: 4px;
+      margin-bottom: 4px;
+      padding: 2px 4px;
+      border: none;
       background: none;
-      border-left: none; border-right: none; border-bottom: none;
       color: var(--accent);
       font-size: 12px;
       font-weight: 600;
-      cursor: pointer;
-      text-align: center;
     }
-    .dep-filter-clear:hover { text-decoration: underline; }
+    button.dep-filter-clear:hover { background: none; text-decoration: underline; }
+    .dep-filter-clear .ico-svg { width: 12px; height: 12px; }
 
     /* Route trips */
     .route-header { display: none; }
@@ -1868,10 +2285,12 @@
       #mobile-sheet, .nearby-overlay { padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px); }
 
       button { padding: 11px 14px; }
+      .btn-ico .ico-svg { display: none; }
+      .btn-ico .ico-uni { display: inline-block; }
       input[type="text"], input[type="date"], select { padding: 11px 12px; }
       .stop-search-item { padding: 11px 12px; }
       .pagination-btn { padding: 10px 14px; }
-      .show-all-deps-btn { padding: 8px 12px; }
+      .seg > button { padding: 7px 11px; }
 
       .nearby-overlay-esc { display: none; }
 
@@ -1892,8 +2311,13 @@
       .toggle-row input[type="number"].radius-input { width: 64px; padding: 8px; }
       .dep-filter-route-row, .dep-filter-headsign-row { padding: 11px 0; gap: 12px; font-size: 14px; }
       .dep-filter-route-row input, .dep-filter-headsign-row input { width: 22px; height: 22px; }
+      .dep-time-input input[type="time"] { padding: 9px 34px 9px 10px; }
+      .dep-time-clear { width: 30px; height: 30px; font-size: 18px; }
+      button.dep-time-now { padding: 4px 11px; font-size: 12px; }
       .dep-filter-headsigns { margin-left: 10px; }
-      .dep-filter-clear { padding: 14px 0 8px; font-size: 14px; }
+      button.dep-filter-clear { padding: 8px 4px; font-size: 14px; }
+      button.dep-pd-chip { padding: 9px 13px; font-size: 13.5px; }
+      button.dep-filter-section-clear { padding: 6px 0; font-size: 13px; }
       .leaflet-control-zoom a { width: 44px !important; height: 44px !important; line-height: 44px !important; }
     }
 
@@ -2060,7 +2484,10 @@
 
     /* Links to the standalone board pages (styled like .secondary.tab-accent-btn buttons) */
     a.board-link {
-      display: block;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
       text-align: center;
       text-decoration: none;
       width: 100%;
@@ -2289,7 +2716,7 @@
               <h1>GTFS Parser</h1>
             </div>
           </div>
-          <button class="secondary theme-toggle-btn" id="themeToggleBtn" onclick="toggleTheme()">Light theme</button>
+          <button class="theme-switch btn-ico" id="themeToggleBtn" title="Switch theme" onclick="toggleTheme()"><span class="theme-switch-knob" aria-hidden="true"><span class="ico-pair ico-sun"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg><span class="ico-uni" aria-hidden="true">&#x2600;&#xFE0E;</span></span><span class="ico-pair ico-moon"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z"/></svg><span class="ico-uni" aria-hidden="true">&#x263E;&#xFE0E;</span></span></span><span class="btn-label">Light theme</span></button>
         </div>
         <div id="sidebar-tabs">
           <span class="sb-tab-indicator" id="sbTabIndicator" aria-hidden="true"></span>
@@ -2305,7 +2732,7 @@
         <div class="panel">
           <div class="panel-heading-row settings-popover-wrap">
             <div class="panel-heading">Find a stop</div>
-            <button type="button" class="gear-btn" id="stopSettingsBtn" aria-label="Stop search settings" aria-haspopup="true" aria-expanded="false" title="Stop search settings">&#9881;&#xFE0E;</button>
+            <button type="button" class="gear-btn" id="stopSettingsBtn" aria-label="Stop search settings" aria-haspopup="true" aria-expanded="false" title="Stop search settings"><span class="gear-ico" aria-hidden="true">&#9881;&#xFE0E;</span></button>
             <div class="settings-popover" id="stopSettingsPopover" hidden>
               <div class="settings-popover-title">Search settings</div>
               <label class="toggle-row" for="searchMultipleStopsToggle" title="When on, a name search combines every stop sharing that exact name into one board instead of loading a single stop">
@@ -2344,9 +2771,9 @@
 
           <div class="field-block">
           <label class="input-row-label" for="dateInput">Date</label>
-            <div class="date-row">
+            <div class="date-row joined">
               <input type="date" id="dateInput" />
-              <button class="secondary" onclick="setDateToday('dateInput')">Today</button>
+              <button class="secondary today-btn is-today btn-ico" data-for="dateInput" title="Jump back to today" onclick="setDateToday('dateInput')"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg><span class="ico-uni" aria-hidden="true">&#x21BA;&#xFE0E;</span><span class="btn-label">Today</span></button>
             </div>
           </div>
         </div>
@@ -2366,14 +2793,13 @@
         <div id="departuresSection" style="display:none">
           <div class="departures-section-header">
             <div class="section-title">Departures</div>
-            <div class="dep-header-actions"><button class="show-all-deps-btn" id="showAllDepsBtn" onclick="cycleDepView('d')" title="Click to change the time window">Showing next 3h</button><button type="button" class="dep-expand-btn" title="Fill sidebar" aria-label="Fill sidebar" aria-pressed="false" onclick="toggleDepExpand('departuresSection')"><svg class="ico-expand" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg><svg class="ico-collapse" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"/></svg></button></div>
+            <div class="dep-header-actions"><div class="seg" id="showAllDepsBtn" data-mode="3h" role="group" aria-label="Time window"><span class="seg-thumb" aria-hidden="true"></span><button type="button" data-mode="3h" aria-pressed="true" title="Next 3 hours" onclick="setDepWindow('dep','d','3h')">3h</button><button type="button" data-mode="n4" aria-pressed="false" title="Next 4 departures" onclick="setDepWindow('dep','d','n4')">Next 4</button><button type="button" data-mode="all" aria-pressed="false" title="All departures that day" onclick="setDepWindow('dep','d','all')">All</button></div><button type="button" class="dep-expand-btn" title="Fill sidebar" aria-label="Fill sidebar" aria-pressed="false" onclick="toggleDepExpand('departuresSection')"><svg class="ico-expand" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg><svg class="ico-collapse" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"/></svg></button></div>
           </div>
           <div class="dep-filter-row settings-popover-wrap">
-            <button type="button" class="dep-filter-btn" id="depFilterBtn" aria-haspopup="true" aria-expanded="false">Filter <span class="dep-filter-badge" id="depFilterBadge" hidden>0</span></button>
+            <button type="button" class="dep-filter-btn btn-ico" id="depFilterBtn" aria-haspopup="true" aria-expanded="false"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18l-7 8.5V19l-4 2v-7.5z"/></svg><span class="ico-uni" aria-hidden="true">&#x23F7;&#xFE0E;</span><span class="btn-label">Filter</span> <span class="dep-filter-badge" id="depFilterBadge" hidden>0</span></button>
             <div class="settings-popover dep-filter-popover" id="depFilterPopover" hidden>
-              <div class="settings-popover-title">Filter by route / destination</div>
+              <div class="dep-filter-header"><div class="settings-popover-title">Filter departures</div><button type="button" class="dep-filter-clear btn-ico" id="depFilterClearBtn" onclick="onDepFilterClear('d')"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg><span class="ico-uni" aria-hidden="true">&#x2715;&#xFE0E;</span><span class="btn-label">Clear all</span></button></div>
               <div class="dep-filter-tree" id="depFilterTree"></div>
-              <button type="button" class="dep-filter-clear" id="depFilterClearBtn" onclick="onDepFilterClear('d')">Clear filters</button>
             </div>
           </div>
           <div class="dep-window-label" id="depWindowLabel"></div>
@@ -2394,14 +2820,13 @@
         <div id="multiDeparturesSection" style="display:none">
           <div class="departures-section-header">
             <div class="section-title">Combined departures</div>
-            <div class="dep-header-actions"><button class="show-all-deps-btn" id="showAllMultiDepsBtn" onclick="cycleMultiDepView('d')" title="Click to change the time window">Showing next 3h</button><button type="button" class="dep-expand-btn" title="Fill sidebar" aria-label="Fill sidebar" aria-pressed="false" onclick="toggleDepExpand('multiDeparturesSection')"><svg class="ico-expand" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg><svg class="ico-collapse" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"/></svg></button></div>
+            <div class="dep-header-actions"><div class="seg" id="showAllMultiDepsBtn" data-mode="3h" role="group" aria-label="Time window"><span class="seg-thumb" aria-hidden="true"></span><button type="button" data-mode="3h" aria-pressed="true" title="Next 3 hours" onclick="setDepWindow('multi','d','3h')">3h</button><button type="button" data-mode="n4" aria-pressed="false" title="Next 4 departures" onclick="setDepWindow('multi','d','n4')">Next 4</button><button type="button" data-mode="all" aria-pressed="false" title="All departures that day" onclick="setDepWindow('multi','d','all')">All</button></div><button type="button" class="dep-expand-btn" title="Fill sidebar" aria-label="Fill sidebar" aria-pressed="false" onclick="toggleDepExpand('multiDeparturesSection')"><svg class="ico-expand" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg><svg class="ico-collapse" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"/></svg></button></div>
           </div>
           <div class="dep-filter-row settings-popover-wrap">
-            <button type="button" class="dep-filter-btn" id="multiDepFilterBtn" aria-haspopup="true" aria-expanded="false">Filter <span class="dep-filter-badge" id="multiDepFilterBadge" hidden>0</span></button>
+            <button type="button" class="dep-filter-btn btn-ico" id="multiDepFilterBtn" aria-haspopup="true" aria-expanded="false"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18l-7 8.5V19l-4 2v-7.5z"/></svg><span class="ico-uni" aria-hidden="true">&#x23F7;&#xFE0E;</span><span class="btn-label">Filter</span> <span class="dep-filter-badge" id="multiDepFilterBadge" hidden>0</span></button>
             <div class="settings-popover dep-filter-popover" id="multiDepFilterPopover" hidden>
-              <div class="settings-popover-title">Filter by route / destination</div>
+              <div class="dep-filter-header"><div class="settings-popover-title">Filter departures</div><button type="button" class="dep-filter-clear btn-ico" id="multiDepFilterClearBtn" onclick="onMultiDepFilterClear('d')"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg><span class="ico-uni" aria-hidden="true">&#x2715;&#xFE0E;</span><span class="btn-label">Clear all</span></button></div>
               <div class="dep-filter-tree" id="multiDepFilterTree"></div>
-              <button type="button" class="dep-filter-clear" id="multiDepFilterClearBtn" onclick="onMultiDepFilterClear('d')">Clear filters</button>
             </div>
           </div>
           <div class="dep-window-label" id="multiDepWindowLabel"></div>
@@ -2445,18 +2870,18 @@
 
           <div class="field-block">
             <label class="input-row-label" for="routeIdInput">Or by route ID</label>
-            <div class="input-group">
+            <div class="go-form">
               <input type="text" id="routeIdInput" placeholder="Route ID, e.g. 512" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Route ID" />
-              <button class="primary" onclick="handleLoadRoute('routeIdInput','dateInput')">Search route</button>
+              <button class="secondary tab-accent-btn go-btn btn-ico" aria-label="Search route" title="Search route" onclick="handleLoadRoute('routeIdInput','dateInput')"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg><span class="ico-uni" aria-hidden="true">&#x2192;&#xFE0E;</span></button>
             </div>
           </div>
         </div>
 
         <div class="panel">
           <div class="panel-heading">Trip lookup</div>
-          <div class="input-group">
+          <div class="go-form">
             <input type="text" id="tripIdInput" placeholder="Trip ID, e.g. 40928123" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Trip ID" />
-            <button class="primary" onclick="handleLoadTrip('tripIdInput')">Load trip</button>
+            <button class="secondary tab-accent-btn go-btn btn-ico" aria-label="Load trip" title="Load trip" onclick="handleLoadTrip('tripIdInput')"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg><span class="ico-uni" aria-hidden="true">&#x2192;&#xFE0E;</span></button>
           </div>
         </div>
 
@@ -2489,15 +2914,17 @@
             </div>
             <div class="stop-search-results" id="nearbyStopSearchResults"></div>
           </div>
-          <button class="primary" style="width:100%" onclick="useMyLocation('latInput','lonInput',true)">Find nearest stops</button>
-          <button class="pick-mode-btn tab-accent-btn" id="pickModeBtn" onclick="setPickMode(!pickModeActive)">Pick a point on the map</button>
-          <button class="secondary tab-accent-btn show-loc-btn" style="width:100%" onclick="showUserLocation()">Show my location on map</button>
+          <button class="locate-hero btn-ico" onclick="useMyLocation('latInput','lonInput',true)"><span class="radar" aria-hidden="true"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg><span class="ico-uni">&#x27A4;&#xFE0E;</span></span><span class="hero-text"><span class="btn-label">Find nearest stops</span><span class="hero-sub">Uses your location</span></span><span class="hero-go" aria-hidden="true"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg><span class="ico-uni">&#x2192;&#xFE0E;</span></span></button>
+          <div class="btn-tiles">
+            <button class="pick-mode-btn tab-accent-btn btn-tile btn-ico" id="pickModeBtn" onclick="setPickMode(!pickModeActive)"><span class="ico-pair ico-a"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M22 12h-4M6 12H2M12 6V2M12 22v-4"/></svg><span class="ico-uni" aria-hidden="true">&#x2295;&#xFE0E;</span></span><span class="ico-pair ico-b"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg><span class="ico-uni" aria-hidden="true">&#x2715;&#xFE0E;</span></span><span class="btn-label">Pick a point on the map</span></button>
+            <button class="secondary tab-accent-btn show-loc-btn btn-tile btn-ico" onclick="showUserLocation()"><span class="ico-pair ico-a"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg><span class="ico-uni" aria-hidden="true">&#x25C9;&#xFE0E;</span></span><span class="ico-pair ico-b"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg><span class="ico-uni" aria-hidden="true">&#x2715;&#xFE0E;</span></span><span class="btn-label">Show my location on map</span></button>
+          </div>
           <div class="input-row-label" id="findNearestLabel" style="margin-top:6px">Or enter coordinates</div>
-          <div class="input-group" role="group" aria-labelledby="findNearestLabel">
+          <form class="go-form" role="group" aria-labelledby="findNearestLabel" onsubmit="event.preventDefault(); handleFindNearest('latInput','lonInput')">
             <input type="text" id="latInput" inputmode="decimal" placeholder="Latitude" aria-label="Latitude" />
             <input type="text" id="lonInput" inputmode="decimal" placeholder="Longitude" aria-label="Longitude" />
-          </div>
-          <button class="secondary tab-accent-btn" style="width:100%" onclick="handleFindNearest('latInput','lonInput')">Search nearby</button>
+            <button type="submit" class="secondary tab-accent-btn go-btn btn-ico" aria-label="Search nearby" title="Search nearby"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg><span class="ico-uni" aria-hidden="true">&#x2192;&#xFE0E;</span></button>
+          </form>
         </div>
 
         <div id="nearestStopsInfo"></div>
@@ -2522,8 +2949,10 @@
         </div>
         <div class="panel">
           <div class="panel-heading">Extra features</div>
-          <a class="secondary tab-accent-btn board-link" href="/depbd">Departure board</a>
-          <a class="secondary tab-accent-btn board-link" href="/rtebd" style="margin-top:5px">Route board</a>
+          <div class="btn-tiles">
+            <a class="secondary tab-accent-btn board-link btn-tile btn-ico" href="/depbd"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span class="ico-uni" aria-hidden="true">&#x25A6;&#xFE0E;</span><span class="btn-label">Departure board</span></a>
+            <a class="secondary tab-accent-btn board-link btn-tile btn-ico" href="/rtebd"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg><span class="ico-uni" aria-hidden="true">&#x2261;&#xFE0E;</span><span class="btn-label">Route board</span></a>
+          </div>
         </div>
       </div>
         </div>
@@ -2558,7 +2987,7 @@
         <div id="sheet-peek-title">GTFS Parser</div>
         <div id="sheet-peek-sub">Tap to search stops &amp; trips</div>
       </div>
-      <button class="secondary theme-toggle-btn" id="mThemeToggleBtn" onclick="event.stopPropagation(); toggleTheme()">Light theme</button>
+      <button class="theme-switch btn-ico" id="mThemeToggleBtn" title="Switch theme" onclick="event.stopPropagation(); toggleTheme()"><span class="theme-switch-knob" aria-hidden="true"><span class="ico-pair ico-sun"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg><span class="ico-uni" aria-hidden="true">&#x2600;&#xFE0E;</span></span><span class="ico-pair ico-moon"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z"/></svg><span class="ico-uni" aria-hidden="true">&#x263E;&#xFE0E;</span></span></span><span class="btn-label">Light theme</span></button>
     </div>
 
     <div id="mobile-tabs">
@@ -2576,7 +3005,7 @@
       <div class="tab-panel active" id="m-tab-stop">
         <div class="panel-heading-row settings-popover-wrap">
           <div class="panel-heading">Find a stop</div>
-          <button type="button" class="gear-btn" id="m-stopSettingsBtn" aria-label="Stop search settings" aria-haspopup="true" aria-expanded="false" title="Stop search settings">&#9881;&#xFE0E;</button>
+          <button type="button" class="gear-btn" id="m-stopSettingsBtn" aria-label="Stop search settings" aria-haspopup="true" aria-expanded="false" title="Stop search settings"><span class="gear-ico" aria-hidden="true">&#9881;&#xFE0E;</span></button>
           <div class="settings-popover" id="m-stopSettingsPopover" hidden>
             <div class="settings-popover-title">Search settings</div>
             <label class="toggle-row" for="m-searchMultipleStopsToggle" title="When on, a name search combines every stop sharing that exact name into one board instead of loading a single stop">
@@ -2613,9 +3042,9 @@
         </div>
         <div class="field-block">
           <label class="input-row-label" for="m-dateInput">Date</label>
-          <div class="date-row">
+          <div class="date-row joined">
             <input type="date" id="m-dateInput" />
-            <button class="secondary" onclick="setDateToday('m-dateInput')">Today</button>
+            <button class="secondary today-btn is-today btn-ico" data-for="m-dateInput" title="Jump back to today" onclick="setDateToday('m-dateInput')"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg><span class="ico-uni" aria-hidden="true">&#x21BA;&#xFE0E;</span><span class="btn-label">Today</span></button>
           </div>
         </div>
       </div>
@@ -2640,14 +3069,13 @@
               <div class="section-title">Departures</div>
               <div class="dep-header-actions">
                 <div class="dep-filter-row settings-popover-wrap">
-                  <button type="button" class="dep-filter-btn dep-filter-icon-btn" id="m-depFilterBtn" aria-haspopup="true" aria-expanded="false" aria-label="Filter by route or destination" title="Filter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18l-7 8.5V19l-4 2v-7.5z"/></svg><span class="dep-filter-badge" id="m-depFilterBadge" hidden>0</span></button>
+                  <button type="button" class="dep-filter-btn dep-filter-icon-btn" id="m-depFilterBtn" aria-haspopup="true" aria-expanded="false" aria-label="Filter by time, route or destination" title="Filter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18l-7 8.5V19l-4 2v-7.5z"/></svg><span class="dep-filter-badge" id="m-depFilterBadge" hidden>0</span></button>
                   <div class="settings-popover dep-filter-popover" id="m-depFilterPopover" hidden>
-                    <div class="settings-popover-title">Filter by route / destination</div>
+                    <div class="dep-filter-header"><div class="settings-popover-title">Filter departures</div><button type="button" class="dep-filter-clear btn-ico" id="m-depFilterClearBtn" onclick="onDepFilterClear('m')"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg><span class="ico-uni" aria-hidden="true">&#x2715;&#xFE0E;</span><span class="btn-label">Clear all</span></button></div>
                     <div class="dep-filter-tree" id="m-depFilterTree"></div>
-                    <button type="button" class="dep-filter-clear" id="m-depFilterClearBtn" onclick="onDepFilterClear('m')">Clear filters</button>
                   </div>
                 </div>
-                <button class="show-all-deps-btn" id="m-showAllDepsBtn" onclick="cycleDepView('m')" title="Tap to change the time window">Showing next 3h</button>
+                <div class="seg" id="m-showAllDepsBtn" data-mode="3h" role="group" aria-label="Time window"><span class="seg-thumb" aria-hidden="true"></span><button type="button" data-mode="3h" aria-pressed="true" title="Next 3 hours" onclick="setDepWindow('dep','m','3h')">3h</button><button type="button" data-mode="n4" aria-pressed="false" title="Next 4 departures" onclick="setDepWindow('dep','m','n4')">Next 4</button><button type="button" data-mode="all" aria-pressed="false" title="All departures that day" onclick="setDepWindow('dep','m','all')">All</button></div>
               </div>
             </div>
             <div class="dep-window-label" id="m-depWindowLabel"></div>
@@ -2672,14 +3100,13 @@
               <div class="section-title">Combined departures</div>
               <div class="dep-header-actions">
                 <div class="dep-filter-row settings-popover-wrap">
-                  <button type="button" class="dep-filter-btn dep-filter-icon-btn" id="m-multiDepFilterBtn" aria-haspopup="true" aria-expanded="false" aria-label="Filter by route or destination" title="Filter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18l-7 8.5V19l-4 2v-7.5z"/></svg><span class="dep-filter-badge" id="m-multiDepFilterBadge" hidden>0</span></button>
+                  <button type="button" class="dep-filter-btn dep-filter-icon-btn" id="m-multiDepFilterBtn" aria-haspopup="true" aria-expanded="false" aria-label="Filter by time, route or destination" title="Filter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18l-7 8.5V19l-4 2v-7.5z"/></svg><span class="dep-filter-badge" id="m-multiDepFilterBadge" hidden>0</span></button>
                   <div class="settings-popover dep-filter-popover" id="m-multiDepFilterPopover" hidden>
-                    <div class="settings-popover-title">Filter by route / destination</div>
+                    <div class="dep-filter-header"><div class="settings-popover-title">Filter departures</div><button type="button" class="dep-filter-clear btn-ico" id="m-multiDepFilterClearBtn" onclick="onMultiDepFilterClear('m')"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg><span class="ico-uni" aria-hidden="true">&#x2715;&#xFE0E;</span><span class="btn-label">Clear all</span></button></div>
                     <div class="dep-filter-tree" id="m-multiDepFilterTree"></div>
-                    <button type="button" class="dep-filter-clear" id="m-multiDepFilterClearBtn" onclick="onMultiDepFilterClear('m')">Clear filters</button>
                   </div>
                 </div>
-                <button class="show-all-deps-btn" id="m-showAllMultiDepsBtn" onclick="cycleMultiDepView('m')" title="Tap to change the time window">Showing next 3h</button>
+                <div class="seg" id="m-showAllMultiDepsBtn" data-mode="3h" role="group" aria-label="Time window"><span class="seg-thumb" aria-hidden="true"></span><button type="button" data-mode="3h" aria-pressed="true" title="Next 3 hours" onclick="setDepWindow('multi','m','3h')">3h</button><button type="button" data-mode="n4" aria-pressed="false" title="Next 4 departures" onclick="setDepWindow('multi','m','n4')">Next 4</button><button type="button" data-mode="all" aria-pressed="false" title="All departures that day" onclick="setDepWindow('multi','m','all')">All</button></div>
               </div>
             </div>
             <div class="dep-window-label" id="m-multiDepWindowLabel"></div>
@@ -2722,17 +3149,17 @@
 
         <div class="field-block">
           <label class="input-row-label" for="m-routeIdInput">Or by route ID</label>
-          <div class="input-group">
+          <div class="go-form">
             <input type="text" id="m-routeIdInput" placeholder="Route ID" autocapitalize="off" autocorrect="off" spellcheck="false" />
-            <button class="primary" onclick="handleLoadRoute('m-routeIdInput','m-dateInput')">Search route</button>
+            <button class="secondary tab-accent-btn go-btn btn-ico" aria-label="Search route" title="Search route" onclick="handleLoadRoute('m-routeIdInput','m-dateInput')"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg><span class="ico-uni" aria-hidden="true">&#x2192;&#xFE0E;</span></button>
           </div>
         </div>
 
         <div class="field-block">
           <label class="input-row-label" for="m-tripIdInput">Or go to a trip ID</label>
-          <div class="input-group">
+          <div class="go-form">
             <input type="text" id="m-tripIdInput" placeholder="Trip ID" autocapitalize="off" autocorrect="off" spellcheck="false" />
-            <button class="primary" onclick="handleLoadTrip('m-tripIdInput')">Load trip</button>
+            <button class="secondary tab-accent-btn go-btn btn-ico" aria-label="Load trip" title="Load trip" onclick="handleLoadTrip('m-tripIdInput')"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg><span class="ico-uni" aria-hidden="true">&#x2192;&#xFE0E;</span></button>
           </div>
         </div>
 
@@ -2765,17 +3192,19 @@
           <div class="stop-search-results" id="m-nearbyStopSearchResults"></div>
         </div>
         <div class="field-block">
-          <button class="primary" style="width:100%" onclick="useMyLocation('m-latInput','m-lonInput',true)">Find nearest stops</button>
-          <button class="secondary tab-accent-btn show-loc-btn" style="width:100%;margin-top:5px" onclick="showUserLocation()">Show my location on map</button>
+          <button class="locate-hero btn-ico" onclick="useMyLocation('m-latInput','m-lonInput',true)"><span class="radar" aria-hidden="true"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg><span class="ico-uni">&#x27A4;&#xFE0E;</span></span><span class="hero-text"><span class="btn-label">Find nearest stops</span><span class="hero-sub">Uses your location</span></span><span class="hero-go" aria-hidden="true"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg><span class="ico-uni">&#x2192;&#xFE0E;</span></span></button>
+          <div class="btn-tiles">
+            <button class="secondary tab-accent-btn show-loc-btn btn-tile btn-ico" onclick="showUserLocation()"><span class="ico-pair ico-a"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg><span class="ico-uni" aria-hidden="true">&#x25C9;&#xFE0E;</span></span><span class="ico-pair ico-b"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg><span class="ico-uni" aria-hidden="true">&#x2715;&#xFE0E;</span></span><span class="btn-label">Show my location on map</span></button>
+          </div>
         </div>
         <div id="m-nearestStopsInfo"></div>
         <div class="field-block">
           <div class="input-row-label" id="m-findNearestLabel">Or enter coordinates</div>
-          <div class="input-group" style="flex-direction:column" role="group" aria-labelledby="m-findNearestLabel">
+          <form class="go-form stacked" role="group" aria-labelledby="m-findNearestLabel" onsubmit="event.preventDefault(); handleFindNearest('m-latInput','m-lonInput')">
             <input type="text" id="m-latInput" inputmode="decimal" placeholder="Latitude" aria-label="Latitude" />
             <input type="text" id="m-lonInput" inputmode="decimal" placeholder="Longitude" aria-label="Longitude" />
-          </div>
-          <button class="secondary tab-accent-btn" style="width:100%;margin-top:5px" onclick="handleFindNearest('m-latInput','m-lonInput')">Search nearby</button>
+            <button type="submit" class="secondary tab-accent-btn go-btn btn-ico" aria-label="Search nearby" title="Search nearby"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg><span class="ico-uni" aria-hidden="true">&#x2192;&#xFE0E;</span></button>
+          </form>
         </div>
       </div>
 
@@ -2797,8 +3226,10 @@
           <div class="feed-status-dates" data-feed-dates></div>
         </div>
         <div class="field-block">
-          <a class="secondary tab-accent-btn board-link" href="/depbd">Departure board</a>
-          <a class="secondary tab-accent-btn board-link" href="/rtebd" style="margin-top:5px">Route board</a>
+          <div class="btn-tiles">
+            <a class="secondary tab-accent-btn board-link btn-tile btn-ico" href="/depbd"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span class="ico-uni" aria-hidden="true">&#x25A6;&#xFE0E;</span><span class="btn-label">Departure board</span></a>
+            <a class="secondary tab-accent-btn board-link btn-tile btn-ico" href="/rtebd"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg><span class="ico-uni" aria-hidden="true">&#x2261;&#xFE0E;</span><span class="btn-label">Route board</span></a>
+          </div>
         </div>
       </div>
 
@@ -3107,19 +3538,22 @@
       return best ?? 0;
     }
 
-    function filterNext3h(departures) {
-      const now = nowInSeconds(), cutoff = now + 3*3600;
+    // Scheduled time plus any realtime delay, in service-day seconds.
+    function depEffTime(d) {
+      return parseTime(d.arrival_time) + getRTDelaySeconds(d.trip_id, d.arrival_time);
+    }
+
+    // `from` is the window start in service-day seconds: now, or the filter's "After" time.
+    function filterNext3h(departures, from = nowInSeconds()) {
+      const cutoff = from + 3*3600;
       return departures.filter(d => {
-        const t = parseTime(d.arrival_time) + getRTDelaySeconds(d.trip_id, d.arrival_time);
-        return t >= now && t <= cutoff;
+        const t = depEffTime(d);
+        return t >= from && t <= cutoff;
       });
     }
 
-    function filterNext4(departures) {
-      const now = nowInSeconds();
-      return departures
-        .filter(d => parseTime(d.arrival_time) + getRTDelaySeconds(d.trip_id, d.arrival_time) >= now)
-        .slice(0, 4);
+    function filterNext4(departures, from = nowInSeconds()) {
+      return departures.filter(d => depEffTime(d) >= from).slice(0, 4);
     }
 
     // ===== ROUTE / HEADSIGN HIERARCHY FILTER =====
@@ -3135,26 +3569,196 @@
     // 'ALL' means every headsign of that route passes; a Set means only
     // those specific headsigns pass. An empty map means no filter is active
     // (everything passes).
+    //
+    // st.after / st.before are an optional time-of-day range (service-day
+    // seconds, null = unset). They clamp every window, and "After" also
+    // replaces "now" as the start of the 3h / Next 4 windows.
+    //
+    // st.pd is a Set of PD_FILTERS keys (pick-up / drop-off rules); each one
+    // active hides the departures its test rejects.
+    //
+    // Loading another stop resets the routes (they differ per stop) but keeps
+    // the times and pick-up / drop-off rules.
     const depFilterState = {};
     function getDepFilterState(key) {
-      return depFilterState[key] || (depFilterState[key] = { selected: new Map() });
+      return depFilterState[key] || (depFilterState[key] = { selected: new Map(), after: null, before: null, pd: new Set() });
     }
     function resetDepFilterState(key) {
       getDepFilterState(key).selected = new Map();
     }
+    // "Clear all": routes, times and pick-up / drop-off rules.
+    function clearDepFilterState(key) {
+      const st = getDepFilterState(key);
+      st.selected = new Map();
+      st.after = st.before = null;
+      st.pd = new Set();
+    }
+    // pickup_type / drop_off_type: 0 regular, 1 none, 2 phone agency, 3 coordinate with driver.
+    const PD_FILTERS = [
+      { key: 'board',  label: 'Can board',     title: "Hide trips you can't board at this stop",
+        test: d => (d.pickup_type | 0) !== 1 },
+      { key: 'alight', label: 'Can get off',   title: "Hide trips that don't let you off at this stop",
+        test: d => (d.drop_off_type | 0) !== 1 },
+      { key: 'noCall', label: 'No call-ahead', title: 'Hide trips that need a phone call or a word with the driver here',
+        test: d => (d.pickup_type | 0) < 2 && (d.drop_off_type | 0) < 2 },
+    ];
+    // A "Before" at or earlier than "After" means the next morning (22:00 → 02:00).
+    function depTimeBounds(key) {
+      const { after, before } = getDepFilterState(key);
+      return { after, before: (after !== null && before !== null && before <= after) ? before + 86400 : before };
+    }
+    function depWindowStart(key) {
+      return depTimeBounds(key).after ?? nowInSeconds();
+    }
+    // Active filters per section, for the section headers and the Filter badge.
+    function depFilterCounts(key) {
+      const st = getDepFilterState(key);
+      let route = 0;
+      st.selected.forEach(v => { route += v === 'ALL' ? 1 : v.size; });
+      return { time: (st.after !== null) + (st.before !== null), pd: st.pd.size, route };
+    }
     function depFilterActiveCount(key) {
-      let n = 0;
-      getDepFilterState(key).selected.forEach(v => { n += v === 'ALL' ? 1 : v.size; });
-      return n;
+      const c = depFilterCounts(key);
+      return c.time + c.pd + c.route;
     }
     function applyDepFilter(departures, key) {
       const st = getDepFilterState(key);
-      if (st.selected.size === 0) return departures;
+      const { after, before } = depTimeBounds(key);
+      const pdTests = PD_FILTERS.filter(f => st.pd.has(f.key)).map(f => f.test);
+      if (st.selected.size === 0 && after === null && before === null && !pdTests.length) return departures;
       return departures.filter(d => {
-        const v = st.selected.get(d.route_id);
-        if (!v) return false;
-        return v === 'ALL' || v.has(d.trip_headsign);
+        if (st.selected.size) {
+          const v = st.selected.get(d.route_id);
+          if (!v || (v !== 'ALL' && !v.has(d.trip_headsign))) return false;
+        }
+        if (!pdTests.every(test => test(d))) return false;
+        if (after === null && before === null) return true;
+        const t = depEffTime(d);
+        return (after === null || t >= after) && (before === null || t <= before);
       });
+    }
+    // Service-day seconds → "5:30 PM" for labels, and → "17:30" for <input type="time">.
+    function fmtClock(sec) {
+      const h = Math.floor(sec / 3600) % 24, m = String(Math.floor(sec % 3600 / 60)).padStart(2, '0');
+      return `${h % 12 || 12}:${m} ${h >= 12 ? 'PM' : 'AM'}`;
+    }
+    function hhmm(sec) {
+      return `${String(Math.floor(sec / 3600) % 24).padStart(2, '0')}:${String(Math.floor(sec % 3600 / 60)).padStart(2, '0')}`;
+    }
+    // The line under a departures header, for window `mode` ('3h' | 'n4' | 'all') showing n departures.
+    function depWindowLabel(mode, n, key) {
+      const { after, before } = depTimeBounds(key);
+      const deps = `${n} departure${n !== 1 ? 's' : ''}`;
+      const until = before !== null ? ` · before ${fmtClock(before)}` : '';
+      if (mode === 'all') {
+        if (after !== null && before !== null) return `${deps} from ${fmtClock(after)} to ${fmtClock(before)}`;
+        if (after !== null) return `${deps} after ${fmtClock(after)}`;
+        return before !== null ? `${deps} before ${fmtClock(before)}` : `${deps} total`;
+      }
+      if (mode === 'n4') return (after !== null ? `Next 4 departures after ${fmtClock(after)}` : 'Next 4 departures') + until;
+      if (!n) return (after !== null ? `No departures in the 3 hours from ${fmtClock(after)}` : 'No departures in the next 3 hours') + until;
+      return (after !== null ? `3 hours from ${fmtClock(after)}` : 'Next 3 hours') + ` – ${deps}` + until;
+    }
+    // The Time and Pick-up / drop-off sections plus the Route / destination
+    // heading, built once above each popover's route tree. Later calls re-point
+    // it at the current view (args) and refresh values, counts and Clear links.
+    function syncDepFilterSections(tree, args) {
+      const [departures, , badgeId, key] = args;
+      let box = tree.previousElementSibling;
+      if (!box || !box.classList.contains('dep-filter-sections')) {
+        const head = (id, title) => `
+          <div class="dep-filter-section-head">
+            <span class="dep-filter-subhead">${title}</span>
+            <span class="dep-filter-count" data-count="${id}" hidden></span>
+            <button type="button" class="dep-filter-section-clear" data-clear="${id}" hidden>Clear</button>
+          </div>`;
+        box = document.createElement('div');
+        box.className = 'dep-filter-sections';
+        box.innerHTML = `
+          <section class="dep-filter-section">
+            ${head('time', 'Time')}
+            <div class="dep-time-fields">
+              ${['after', 'before'].map(b => `
+                <label class="dep-time-field">
+                  <span class="dep-time-head">
+                    <span>${b === 'after' ? 'After' : 'Before'}</span>
+                    <button type="button" class="dep-time-now" data-bound="${b}" aria-label="Set ${b} time to now">Now</button>
+                  </span>
+                  <span class="dep-time-input">
+                    <input type="time" data-bound="${b}">
+                    <button type="button" class="dep-time-clear" data-bound="${b}" aria-label="Clear ${b} time" hidden>&times;</button>
+                  </span>
+                </label>`).join('')}
+            </div>
+          </section>
+          <section class="dep-filter-section">
+            ${head('pd', 'Pick-up / drop-off')}
+            <div class="dep-pd-chips">
+              ${PD_FILTERS.map(f => `<button type="button" class="dep-pd-chip" data-pd="${f.key}" aria-pressed="false" title="${f.title}"><span class="dep-pd-check" aria-hidden="true">&#x2713;&#xFE0E;</span>${f.label}<span class="dep-pd-hides"></span></button>`).join('')}
+            </div>
+            <div class="dep-pd-empty" hidden>Every departure here has regular pick-up and drop-off.</div>
+          </section>
+          <section class="dep-filter-section dep-filter-section-routes">
+            ${head('route', 'Route / destination')}
+          </section>`;
+        tree.before(box);
+
+        // Every change: update state, re-render this panel, then the departures view.
+        const commit = mutate => {
+          const [, , , k, onChange] = box._args;
+          mutate(getDepFilterState(k));
+          renderDepFilterPanel(...box._args);
+          onChange();
+        };
+        box.querySelectorAll('.dep-time-input input').forEach(inp =>
+          inp.addEventListener('change', () => commit(st => { st[inp.dataset.bound] = inp.value ? parseTime(inp.value) : null; })));
+        box.querySelectorAll('.dep-time-clear').forEach(btn =>
+          btn.addEventListener('click', e => { e.preventDefault(); commit(st => { st[btn.dataset.bound] = null; }); }));
+        box.querySelectorAll('.dep-time-now').forEach(btn =>
+          btn.addEventListener('click', e => { e.preventDefault(); commit(st => { st[btn.dataset.bound] = Math.floor(nowInSeconds() / 60) * 60; }); }));
+        box.querySelectorAll('.dep-pd-chip').forEach(btn =>
+          btn.addEventListener('click', () => commit(st => { st.pd.has(btn.dataset.pd) ? st.pd.delete(btn.dataset.pd) : st.pd.add(btn.dataset.pd); })));
+        box.querySelectorAll('.dep-filter-section-clear').forEach(btn =>
+          btn.addEventListener('click', () => commit(st => {
+            if (btn.dataset.clear === 'time') st.after = st.before = null;
+            else if (btn.dataset.clear === 'pd') st.pd = new Set();
+            else st.selected = new Map();
+          })));
+      }
+      box._args = args;
+      const st = getDepFilterState(key);
+
+      box.querySelectorAll('.dep-time-input input').forEach(inp => {
+        const v = st[inp.dataset.bound];
+        const want = v === null ? '' : hhmm(v);
+        if (inp.value !== want) inp.value = want;
+      });
+      box.querySelectorAll('.dep-time-clear').forEach(btn => { btn.hidden = st[btn.dataset.bound] === null; });
+
+      // Chips say how many of this stop's departures they'd hide; a chip that
+      // would hide nothing is disabled, and if none would, a note replaces them.
+      let anyHides = false;
+      box.querySelectorAll('.dep-pd-chip').forEach(btn => {
+        const f = PD_FILTERS.find(x => x.key === btn.dataset.pd);
+        const hides = departures.filter(d => !f.test(d)).length;
+        const on = st.pd.has(f.key);
+        anyHides = anyHides || hides > 0 || on;
+        btn.setAttribute('aria-pressed', on);
+        btn.disabled = !hides && !on;
+        btn.querySelector('.dep-pd-hides').textContent = hides ? `hides ${hides}` : '';
+      });
+      box.querySelector('.dep-pd-chips').hidden = !anyHides;
+      box.querySelector('.dep-pd-empty').hidden = anyHides;
+
+      const counts = depFilterCounts(key);
+      box.querySelectorAll('.dep-filter-count').forEach(el => {
+        const n = counts[el.dataset.count];
+        el.textContent = n;
+        el.hidden = !n;
+      });
+      box.querySelectorAll('.dep-filter-section-clear').forEach(btn => { btn.hidden = !counts[btn.dataset.clear]; });
+      tree.closest('.dep-filter-popover')?.classList.toggle('has-filters', counts.time + counts.pd + counts.route > 0);
+      updateDepFilterBadge(badgeId, key);
     }
     function buildRouteHeadsignTree(departures) {
       const map = new Map();
@@ -3202,6 +3806,8 @@
         `;
       }).join('') : `<div class="dep-filter-empty">No departures to filter.</div>`;
 
+      syncDepFilterSections(tree, [departures, treeId, badgeId, key, onChange]);
+
       tree.querySelectorAll('.dep-filter-route-cb').forEach(cb => {
         const r = routes.find(x => x.routeId === cb.dataset.route);
         const sel = st.selected.get(cb.dataset.route);
@@ -3227,8 +3833,6 @@
           onChange();
         });
       });
-
-      updateDepFilterBadge(badgeId, key);
     }
 
     function clearNearestStopMarkers() {
@@ -3258,14 +3862,18 @@
       toastTimeoutId = setTimeout(() => el.classList.remove('visible'), 3000);
     }
 
+    // Sets a button's text without wiping its icon (see .btn-ico).
+    function setBtnLabel(btn, text) {
+      if (!btn) return;
+      const l = btn.querySelector('.btn-label');
+      if (l) l.textContent = text; else btn.textContent = text;
+    }
+
     // ===== THEME =====
     function syncThemeToggleLabel() {
       const isLight = document.documentElement.getAttribute('data-theme') === 'light';
       const label = isLight ? 'Dark theme' : 'Light theme';
-      ['themeToggleBtn','mThemeToggleBtn'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.textContent = label;
-      });
+      ['themeToggleBtn','mThemeToggleBtn'].forEach(id => setBtnLabel(document.getElementById(id), label));
     }
 
     function toggleTheme() {
@@ -3791,8 +4399,8 @@
 
       // Desktop pick button
       if (desktopBtn) {
-        if (on) { desktopBtn.classList.add('active'); desktopBtn.textContent = 'Cancel'; }
-        else    { desktopBtn.classList.remove('active'); desktopBtn.textContent = 'Pick a point on the map'; }
+        if (on) { desktopBtn.classList.add('active'); setBtnLabel(desktopBtn, 'Cancel'); }
+        else    { desktopBtn.classList.remove('active'); setBtnLabel(desktopBtn, 'Pick a point on the map'); }
       }
 
       // Mobile pick button — red highlight + X icon when active
@@ -4158,23 +4766,18 @@
         if (!sec) return;
         if (showAll) {
           renderDepartureCards(base, stopId, p);
-          if (btn) btn.textContent = `Showing all ${base.length}`;
-          if (label) label.textContent = `${base.length} departure${base.length!==1?'s':''} total`;
+          setSegMode(btn, 'all');
+          if (label) label.textContent = depWindowLabel('all', base.length, 'dep-' + prefix);
         } else if (showN4) {
-          const next4 = filterNext4(base);
+          const next4 = filterNext4(base, depWindowStart('dep-' + prefix));
           renderDepartureCards(next4, stopId, p);
-          if (btn) btn.textContent = 'Showing next 4';
-          if (label) label.textContent = 'Next 4 departures';
+          setSegMode(btn, 'n4');
+          if (label) label.textContent = depWindowLabel('n4', next4.length, 'dep-' + prefix);
         } else {
-          const filtered = filterNext3h(base);
+          const filtered = filterNext3h(base, depWindowStart('dep-' + prefix));
           renderDepartureCards(filtered, stopId, p);
-          if (filtered.length === 0) {
-            if (btn) btn.textContent = 'Showing next 3h';
-            if (label) label.textContent = 'No departures in the next 3 hours';
-          } else {
-            if (btn) btn.textContent = 'Showing next 3h';
-            if (label) label.textContent = `Next 3 hours – ${filtered.length} departure${filtered.length!==1?'s':''}`;
-          }
+          setSegMode(btn, '3h');
+          if (label) label.textContent = depWindowLabel('3h', filtered.length, 'dep-' + prefix);
         }
         sec.style.display = 'block';
       });
@@ -4182,33 +4785,29 @@
 
     function onDepFilterClear(prefix) {
       const p = prefix === 'd' ? '' : 'm-';
-      resetDepFilterState('dep-' + prefix);
+      clearDepFilterState('dep-' + prefix);
       renderDepFilterPanel(allDepartures, p + 'depFilterTree', p + 'depFilterBadge', 'dep-' + prefix, () => { if (currentStopId) updateDeparturesView(currentStopId); });
       if (currentStopId) updateDeparturesView(currentStopId);
     }
 
-    function cycleDepView(prefix) {
-      // The button names the window currently showing; clicking cycles
-      // 3h →︎ next 4 →︎ all. When the 3h window is empty there's no point in
-      // a "next 4" step in between, so skip straight to
-      // the all-departures state instead of following the normal 3-way cycle.
-      const empty3h = filterNext3h(applyDepFilter(allDepartures, 'dep-' + prefix)).length === 0;
-      if (prefix === 'd') {
-        if (!showingAllDeps_d && !showingNext4_d) {
-          if (empty3h) { showingAllDeps_d=true; showingNext4_d=false; }
-          else { showingNext4_d=true; showingAllDeps_d=false; }
-        }
-        else if (showingNext4_d && !showingAllDeps_d) { showingNext4_d=false; showingAllDeps_d=true; }
-        else { showingAllDeps_d=false; showingNext4_d=false; }
+    // Time-window segmented control (3h / Next 4 / All) on each departures header.
+    // The container keeps the old button id; data-mode drives the sliding thumb.
+    function setSegMode(seg, mode) {
+      if (!seg) return;
+      seg.dataset.mode = mode;
+      seg.querySelectorAll('button[data-mode]').forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === mode));
+    }
+    function setDepWindow(kind, prefix, mode) {
+      const all = mode === 'all', n4 = mode === 'n4';
+      if (kind === 'dep') {
+        if (prefix === 'd') { showingAllDeps_d = all; showingNext4_d = n4; }
+        else                { showingAllDeps_m = all; showingNext4_m = n4; }
+        if (currentStopId) updateDeparturesView(currentStopId);
       } else {
-        if (!showingAllDeps_m && !showingNext4_m) {
-          if (empty3h) { showingAllDeps_m=true; showingNext4_m=false; }
-          else { showingNext4_m=true; showingAllDeps_m=false; }
-        }
-        else if (showingNext4_m && !showingAllDeps_m) { showingNext4_m=false; showingAllDeps_m=true; }
-        else { showingAllDeps_m=false; showingNext4_m=false; }
+        if (prefix === 'd') { showingAllMultiDeps_d = all; showingNext4MultiDeps_d = n4; }
+        else                { showingAllMultiDeps_m = all; showingNext4MultiDeps_m = n4; }
+        if (currentMultiStopName) updateMultiDeparturesView();
       }
-      if (currentStopId) updateDeparturesView(currentStopId);
     }
 
     // ===== ROUTE =====
@@ -5334,23 +5933,18 @@
         if (!sec) return;
         if (showAll) {
           renderMultiDepartureCards(base, p);
-          if (btn) btn.textContent = `Showing all ${base.length}`;
-          if (label) label.textContent = `${base.length} departure${base.length !== 1 ? 's' : ''} total, across all matching stops`;
+          setSegMode(btn, 'all');
+          if (label) label.textContent = depWindowLabel('all', base.length, 'multi-' + prefix);
         } else if (showN4) {
-          const next4 = filterNext4(base);
+          const next4 = filterNext4(base, depWindowStart('multi-' + prefix));
           renderMultiDepartureCards(next4, p);
-          if (btn) btn.textContent = 'Showing next 4';
-          if (label) label.textContent = 'Next 4 departures, across all matching stops';
+          setSegMode(btn, 'n4');
+          if (label) label.textContent = depWindowLabel('n4', next4.length, 'multi-' + prefix);
         } else {
-          const filtered = filterNext3h(base);
+          const filtered = filterNext3h(base, depWindowStart('multi-' + prefix));
           renderMultiDepartureCards(filtered, p);
-          if (filtered.length === 0) {
-            if (btn) btn.textContent = 'Showing next 3h';
-            if (label) label.textContent = 'No departures in the next 3 hours';
-          } else {
-            if (btn) btn.textContent = 'Showing next 3h';
-            if (label) label.textContent = `Next 3 hours – ${filtered.length} departure${filtered.length !== 1 ? 's' : ''}, across all matching stops`;
-          }
+          setSegMode(btn, '3h');
+          if (label) label.textContent = depWindowLabel('3h', filtered.length, 'multi-' + prefix);
         }
         sec.style.display = 'block';
       });
@@ -5360,29 +5954,9 @@
 
     function onMultiDepFilterClear(prefix) {
       const p = prefix === 'd' ? '' : 'm-';
-      resetDepFilterState('multi-' + prefix);
+      clearDepFilterState('multi-' + prefix);
       renderDepFilterPanel(allMultiDepartures, p + 'multiDepFilterTree', p + 'multiDepFilterBadge', 'multi-' + prefix, updateMultiDeparturesView);
       updateMultiDeparturesView();
-    }
-
-    function cycleMultiDepView(prefix) {
-      const empty3h = filterNext3h(applyDepFilter(allMultiDepartures, 'multi-' + prefix)).length === 0;
-      if (prefix === 'd') {
-        if (!showingAllMultiDeps_d && !showingNext4MultiDeps_d) {
-          if (empty3h) { showingAllMultiDeps_d = true; showingNext4MultiDeps_d = false; }
-          else { showingNext4MultiDeps_d = true; showingAllMultiDeps_d = false; }
-        }
-        else if (showingNext4MultiDeps_d && !showingAllMultiDeps_d) { showingNext4MultiDeps_d = false; showingAllMultiDeps_d = true; }
-        else { showingAllMultiDeps_d = false; showingNext4MultiDeps_d = false; }
-      } else {
-        if (!showingAllMultiDeps_m && !showingNext4MultiDeps_m) {
-          if (empty3h) { showingAllMultiDeps_m = true; showingNext4MultiDeps_m = false; }
-          else { showingNext4MultiDeps_m = true; showingAllMultiDeps_m = false; }
-        }
-        else if (showingNext4MultiDeps_m && !showingAllMultiDeps_m) { showingNext4MultiDeps_m = false; showingAllMultiDeps_m = true; }
-        else { showingAllMultiDeps_m = false; showingNext4MultiDeps_m = false; }
-      }
-      if (currentMultiStopName) updateMultiDeparturesView();
     }
 
     function startMultiDepsRefresh() {
@@ -5458,9 +6032,17 @@
       el.value = todayStr();
       el.dispatchEvent(new Event('change'));
     }
+    // Today buttons fill in (see .today-btn) while their field shows another date.
+    function syncTodayBtns() {
+      const t = todayStr();
+      document.querySelectorAll('.today-btn').forEach(b => {
+        b.classList.toggle('is-today', document.getElementById(b.dataset.for)?.value === t);
+      });
+    }
     // Changing the date re-runs whatever view is showing (single stop, merged
     // by name, nearby, or around a point) rather than always reloading one stop.
     function onDateChanged(value) {
+      syncTodayBtns();
       if (reloadCurrentStopView(value, false)) return;
       const v = (document.getElementById('stopIdInput')?.value || document.getElementById('m-stopIdInput')?.value || '').trim();
       if (v) loadStop(v, value);
@@ -5559,7 +6141,8 @@
     let userLocWatchId = null;
     function setShowLocButtons(on) {
       document.querySelectorAll('.show-loc-btn').forEach(b => {
-        b.textContent = on ? 'Stop showing my location' : 'Show my location on map';
+        b.classList.toggle('on', on);
+        setBtnLabel(b, on ? 'Stop showing my location' : 'Show my location on map');
       });
     }
 
