@@ -658,6 +658,13 @@
     .board-miss { display: none; color: var(--negative); font-weight: 600; }
     .board-row-missed { opacity: 0.45; }
     .board-row-missed .board-miss { display: inline; }
+    /* Walk times are opt-in: without them the walk suffix, walk chip and the "can't make it" dimming are all off. */
+    body:not(.board-show-walk) .board-walk,
+    body:not(.board-show-walk) .rb-walk,
+    body:not(.board-show-walk) .board-chip-walk,
+    body:not(.board-show-walk) .board-miss { display: none; }
+    body:not(.board-show-walk) .board-row-missed,
+    body:not(.board-show-walk) .rb-row-missed { opacity: 1; }
 
     .board-leave-wrap {
       grid-area: leave;
@@ -720,6 +727,10 @@
       text-transform: uppercase;
     }
     .board-row .rt-live-only { display: none; }
+    /* "Hide time and delay": rows under an hour keep only the countdown; 1h+ rows (class .later) keep the big clock time. Delay is hidden everywhere. */
+    body.board-hide-clock .board-leave:not(.later) + .board-sched,
+    body.board-hide-clock .rb-leave:not(.later) ~ .rb-sched,
+    body.board-hide-clock .dep-badge-slot .rt-delay-badge { display: none; }
     .dep-pd-note {
       min-width: 0;
       max-width: 100%;
@@ -731,7 +742,10 @@
       text-overflow: ellipsis;
       color: rgb(var(--warn-rgb));
     }
+    .dep-pd-note.dep-pd-dropoff-only { color: var(--negative); } /* can't board here */
+    .dep-pd-note.dep-pd-pickup-only { color: var(--positive); } /* can't alight here */
     .board-row .dep-pd-note { font-size: 11px; }
+    .board-stop .dep-pd-note, .rb-stop .dep-pd-note { margin-left: 8px; }
     .rb-row .dep-pd-note { font-size: 10.5px; }
 
     @media (max-width: 640px) {
@@ -828,7 +842,7 @@
     .rb-row {
       display: flex;
       flex-direction: column;
-      justify-content: center;
+      justify-content: flex-start; /* top-align so the stop name / big time line up across rows */
       gap: 4px;
       min-width: 0;
     }
@@ -848,7 +862,7 @@
       color: var(--text);
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
-    .rb-row-primary .rb-stop { font-size: 13.5px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .rb-row-primary .rb-stop { font-size: 13.5px; color: var(--text-muted); }
     .rb-row-primary .rb-leave { font-family: var(--font-display); font-size: 30px; font-weight: 700; line-height: 1; color: var(--text); font-variant-numeric: tabular-nums; }
     .rb-row-primary .rb-leave.due { color: var(--accent3); }
     .rb-row-primary .rb-leave.later { font-size: 22px; }
@@ -866,13 +880,16 @@
       color: var(--text-muted);
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
-    .rb-row-secondary .rb-stop { font-size: 11.5px; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .rb-row-secondary .rb-stop { font-size: 11.5px; color: var(--text-dim); }
     .rb-row-secondary .rb-leave { font-family: var(--font-display); font-size: 18px; font-weight: 700; line-height: 1; color: var(--text-muted); font-variant-numeric: tabular-nums; }
     .rb-row-secondary .rb-leave.due { color: var(--accent3); }
     .rb-row-secondary .rb-sched { font-size: 10.5px; color: var(--text-dim); }
     .rb-row-secondary .rb-leave-unit { font-size: 11px; }
 
     .rb-walk { color: var(--text-dim); }
+    /* Stop names always wrap in full (never truncated). Two lines are reserved so the big time
+       stays aligned across rows for the usual one- or two-line name; a longer name just grows. */
+    .rb-stop { line-height: 1.25; min-height: 2.5em; overflow-wrap: anywhere; }
     /* Entrances: new cards rise in, new rows / RT badges fade in. Moves of
        existing cards/rows are FLIP-animated from JS (see flipAnimate). */
     @keyframes rb-card-in { from { opacity: 0; transform: translateY(10px) scale(0.98); } to { opacity: 1; transform: none; } }
@@ -882,7 +899,9 @@
     .rb-row { transition: opacity 0.3s ease; }
     .rb-row .rb-leave { transition: color 0.3s ease; }
     .rb-row-missed { opacity: 0.45; }
-    .rb-row .dep-badge-slot { font-size: 11px; }
+    /* 1h+ rows already show the (delay-adjusted) clock as the main figure; the delay badge below says how late. */
+    .rb-leave.later ~ .rb-sched { display: none; }
+    .rb-row .dep-badge-slot { font-size: 11px; min-height: 14px; }
     .rb-row .dep-badge-slot:empty { visibility: hidden; }
     .rb-row .rt-delay-badge { background: none; padding: 0; border-radius: 0; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
     .rb-row .rt-live-only { display: none; }
@@ -1000,6 +1019,18 @@
             <input type="checkbox" id="smallScreenToggle">
             <span>Small screen mode</span>
           </label>
+          <label class="sb-toggle" for="showWalkToggle">
+            <input type="checkbox" id="showWalkToggle">
+            <span>Show walk times</span>
+          </label>
+          <label class="sb-toggle" for="hideClockToggle">
+            <input type="checkbox" id="hideClockToggle">
+            <span>Hide time and delay</span>
+          </label>
+          <label class="sb-toggle" for="lightThemeToggle">
+            <input type="checkbox" id="lightThemeToggle">
+            <span>Light theme</span>
+          </label>
         </div>
       </aside>
       <div class="nearby-overlay-body">
@@ -1033,7 +1064,8 @@
       if (pu === 3) add('Pick-up: driver', 'Coordinate with driver for pickup');
       if (dof === 2) add('Drop-off: call', 'Phone agency for dropoff');
       if (dof === 3) add('Drop-off: driver', 'Coordinate with driver for dropoff');
-      return `<span class="dep-pd-note" title="${escapeHtml(full.join('; '))}">${escapeHtml(short.join(' · '))}</span>`;
+      const cls = (pu === 1 && !dof) ? ' dep-pd-dropoff-only' : (dof === 1 && !pu) ? ' dep-pd-pickup-only' : '';
+      return `<span class="dep-pd-note${cls}" title="${escapeHtml(full.join('; '))}">${escapeHtml(short.join(' · '))}</span>`;
     }
 
     function readableTextColor(hex) {
@@ -1237,7 +1269,7 @@
     function boardSubHTML(label, n, farthestKM) {
       const walkable = walkMinutes(farthestKM) <= BOARD_MAX_WALK_MIN;
       return `<span class="board-chip">${n} stop${n !== 1 ? 's' : ''}</span>`
-        + (walkable ? `<span class="board-chip">Up to ${walkMinutes(farthestKM)} min walk</span>` : '');
+        + (walkable ? `<span class="board-chip board-chip-walk">Up to ${walkMinutes(farthestKM)} min walk</span>` : '');
     }
 
     // ['3', 'min', ''] | ['Due', '', 'due'] | ['3:15 PM', '', 'later']
@@ -1415,12 +1447,12 @@
         <div class="dep-card rb-row ${primary ? 'rb-row-primary' : 'rb-row-secondary'}"
              data-trip-id="${escapeHtml(dep.trip_id)}" data-arrival="${escapeHtml(dep.arrival_time)}" data-stop-id="${escapeHtml(dep._stopId || '')}" data-walk-sec="${walkSec}">
           <div class="rb-row-main">
-            <div class="rb-stop">${stopText}</div>
+            <div class="rb-stop">${stopText}${pickupDropoffNote(dep)}</div>
           </div>
           <div class="rb-leave-wrap">
             <div class="rb-leave"></div>
             <div class="rb-sched"><span class="dep-time-sched">${fmtClockShort(parseTime(dep.arrival_time))}</span><span class="dep-time-actual"></span></div>
-            <div class="dep-badge-slot">${pickupDropoffNote(dep)}</div>
+            <div class="dep-badge-slot"></div>
           </div>
         </div>
       `;
@@ -1951,6 +1983,37 @@
       const apply = on => { document.body.classList.toggle('board-compact', on); if (cb) cb.checked = on; };
       apply(lsGet(KEY, false) === true);
       if (cb) cb.addEventListener('change', () => { apply(cb.checked); lsSet(KEY, cb.checked); });
+    })();
+
+    // Show walk times: off by default. Shared by both boards.
+    (function initShowWalk() {
+      const KEY = 'gtfs-board-show-walk';
+      const cb = document.getElementById('showWalkToggle');
+      const apply = on => { document.body.classList.toggle('board-show-walk', on); if (cb) cb.checked = on; };
+      apply(lsGet(KEY, false) === true);
+      if (cb) cb.addEventListener('change', () => { apply(cb.checked); lsSet(KEY, cb.checked); });
+    })();
+
+    // Hide time and delay: rows under an hour show only the countdown. Shared by both boards.
+    (function initHideClock() {
+      const KEY = 'gtfs-board-hide-clock';
+      const cb = document.getElementById('hideClockToggle');
+      const apply = on => { document.body.classList.toggle('board-hide-clock', on); if (cb) cb.checked = on; };
+      apply(lsGet(KEY, false) === true);
+      if (cb) cb.addEventListener('change', () => { apply(cb.checked); lsSet(KEY, cb.checked); });
+    })();
+
+    // Light/dark theme: shares the 'gtfs-theme' key (plain string) with the main page.
+    (function initThemeToggle() {
+      const cb = document.getElementById('lightThemeToggle');
+      if (!cb) return;
+      const root = document.documentElement;
+      cb.checked = root.getAttribute('data-theme') === 'light';
+      cb.addEventListener('change', () => {
+        const theme = cb.checked ? 'light' : 'dark';
+        root.setAttribute('data-theme', theme);
+        try { localStorage.setItem('gtfs-theme', theme); } catch (e) {}
+      });
     })();
 
     (function initSidebar() {
