@@ -1980,10 +1980,83 @@
     /* GTFS feed state card (More tab) */
     .feed-status-row { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 500; }
     .feed-status-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--text-dim); flex: none; }
-    .feed-status-dot.in_use { background: #2fb344; }
-    .feed-status-dot.upcoming { background: #e0a100; }
-    .feed-status-dot.expired { background: #d63939; }
-    .feed-status-dates { white-space: pre-line; margin-top: 6px; font-size: 12px; color: var(--text-dim); font-family: var(--font-mono); line-height: 1.6; }
+    .feed-status-dot.in_use { background: var(--positive); }
+    .feed-status-dot.upcoming { background: var(--accent3); }
+    .feed-status-dot.expired { background: var(--negative); }
+    .feed-status-dates { white-space: pre-line; font-size: 11px; color: var(--text-dim); font-family: var(--font-mono); line-height: 1.6; }
+    .feed-status-dates:empty { display: none; }
+
+    /* Feed validity timeline, drawn like a strip map: terminus at start/end, month segments,
+       elapsed part in the status colour and a flagged "today" stop. --feed-c is the status colour. */
+    .feed-timeline { --feed-c: var(--neutral); }
+    .feed-timeline.in_use { --feed-c: var(--positive); }
+    .feed-timeline.upcoming { --feed-c: var(--accent3); }
+    .feed-timeline.expired { --feed-c: var(--negative); }
+    .feed-timeline:empty { display: none; }
+    .feed-tl-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--feed-c);
+      border-radius: var(--card-radius);
+      box-shadow: var(--shadow-1);
+      padding: var(--space-3) var(--space-3) 10px;
+    }
+    .feed-tl-head { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--space-3); }
+    .feed-tl-big { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+    .feed-tl-num { font-family: var(--font-display); font-size: 30px; font-weight: 600; line-height: 1; color: var(--text); font-variant-numeric: tabular-nums; }
+    .feed-tl-card.soon .feed-tl-num { color: var(--accent3); }
+    .feed-timeline.expired .feed-tl-num { color: var(--negative); }
+    .feed-tl-unit, .feed-tl-k {
+      font-family: var(--font-display); font-size: 11px; font-weight: 500;
+      text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim);
+    }
+    .feed-tl-side { font-family: var(--font-display); font-size: 15px; font-weight: 600; color: var(--text); white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .feed-tl-side .feed-tl-of { color: var(--text-dim); font-weight: 500; }
+
+    .feed-tl-line { position: relative; height: 14px; margin: 34px 7px 0; }
+    .feed-tl-rail, .feed-tl-fill { position: absolute; left: 0; top: 4px; height: 6px; }
+    .feed-tl-rail { right: 0; background: var(--border2); }
+    .feed-tl-fill { background: var(--feed-c); }
+    /* Month boundaries: a notch cut through the line in the card colour */
+    .feed-tl-cut { position: absolute; top: 2px; width: 2px; height: 10px; margin-left: -1px; background: var(--surface); }
+    .feed-tl-term {
+      position: absolute; top: 0; width: 14px; height: 14px; margin-left: -7px;
+      border-radius: 50%; background: var(--surface); border: 3px solid var(--border2);
+    }
+    .feed-tl-term.on { border-color: var(--feed-c); }
+    .feed-tl-now {
+      position: absolute; top: -2px; width: 18px; height: 18px; margin-left: -9px;
+      border-radius: 50%; background: var(--text); border: 4px solid var(--surface);
+      box-shadow: 0 0 0 1.5px var(--text);
+    }
+    .feed-tl-now::before {
+      content: ''; position: absolute; left: 50%; bottom: calc(100% + 8px); margin-left: -4px;
+      border: 4px solid transparent; border-top-color: var(--text); border-bottom: 0;
+    }
+    .feed-tl-flag {
+      position: absolute; bottom: calc(100% + 12px); left: 50%; transform: translateX(-50%);
+      padding: 2px 6px; border-radius: 2px; white-space: nowrap;
+      background: var(--text); color: var(--surface);
+      font-family: var(--font-display); font-size: 10px; font-weight: 600; line-height: 1.3;
+      text-transform: uppercase; letter-spacing: 0.08em;
+    }
+    .feed-tl-flag.al-l { left: -5px; transform: none; }
+    .feed-tl-flag.al-r { left: auto; right: -5px; transform: none; }
+
+    .feed-tl-months { position: relative; height: 14px; margin: 5px 7px 0; }
+    .feed-tl-months span {
+      position: absolute; transform: translateX(-50%); white-space: nowrap;
+      font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-dim);
+    }
+    .feed-tl-months span.cur { color: var(--text); font-weight: 600; }
+    .feed-tl-ends {
+      display: flex; justify-content: space-between; gap: var(--space-2);
+      margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border);
+    }
+    .feed-tl-ends > div { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+    .feed-tl-ends > div:last-child { text-align: right; }
+    .feed-tl-ends .feed-tl-k { font-size: 10px; }
+    .feed-tl-date { font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); }
 
     /* Links to the standalone board pages (styled like .secondary.tab-accent-btn buttons) */
     a.board-link {
@@ -2444,6 +2517,7 @@
         <div class="panel">
           <div class="panel-heading">GTFS feed</div>
           <div class="feed-status-row"><span class="feed-status-dot" data-feed-dot></span><span data-feed-label>Loading…</span></div>
+          <div class="feed-timeline" data-feed-timeline></div>
           <div class="feed-status-dates" data-feed-dates></div>
         </div>
         <div class="panel">
@@ -2719,6 +2793,7 @@
         <div class="field-block">
           <div class="panel-heading">GTFS feed</div>
           <div class="feed-status-row"><span class="feed-status-dot" data-feed-dot></span><span data-feed-label>Loading…</span></div>
+          <div class="feed-timeline" data-feed-timeline></div>
           <div class="feed-status-dates" data-feed-dates></div>
         </div>
         <div class="field-block">
@@ -5823,15 +5898,86 @@
         no_feed_end_date: 'No feed end date', no_feed_start_date: 'No feed start date', no_result: 'Feed state unknown'
       };
       const fmt = d => d ? `${d.year}-${String(d.month).padStart(2, '0')}-${String(d.day).padStart(2, '0')}` : '—';
-      const set = (cls, label, dates) => {
+      const set = (cls, label, dates, timeline) => {
         document.querySelectorAll('[data-feed-dot]').forEach(el => { el.className = 'feed-status-dot ' + cls; });
         document.querySelectorAll('[data-feed-label]').forEach(el => { el.textContent = label; });
         document.querySelectorAll('[data-feed-dates]').forEach(el => { el.textContent = dates; });
+        document.querySelectorAll('[data-feed-timeline]').forEach(el => { el.className = 'feed-timeline ' + cls; el.innerHTML = timeline || ''; });
+      };
+      const DAY = 86400000;
+      const utc = d => Date.UTC(d.year, d.month - 1, d.day);
+      const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      const days = n => `${n} day${n === 1 ? '' : 's'}`;
+      // Strip-map style start -> end line: elapsed part filled, month segments, a flagged marker for the checked date.
+      const buildTimeline = d => {
+        if (!d.start_date || !d.end_date || !d.checked_date) return '';
+        const a = utc(d.start_date), b = utc(d.end_date), t = utc(d.checked_date);
+        if (!(b > a)) return '';
+        const pct = x => Math.max(0, Math.min(100, (x - a) / (b - a) * 100));
+        const total = Math.round((b - a) / DAY) + 1;
+        const cur = pct(t);
+
+        // Month boundaries inside the feed; on long feeds only every `step`-th month gets a notch/label.
+        const bounds = [];
+        const first = new Date(a);
+        for (let y = first.getUTCFullYear(), m = first.getUTCMonth() + 1; ; m++) {
+          if (m > 11) { m = 0; y++; }
+          const ms = Date.UTC(y, m, 1);
+          if (ms >= b) break;
+          bounds.push({ ms, m });
+        }
+        const step = Math.max(1, Math.ceil(bounds.length / 8));
+        const shown = bounds.filter((_, i) => (i + 1) % step === 0);
+        const cuts = shown.map(x => `<i class="feed-tl-cut" style="left:${pct(x.ms)}%"></i>`).join('');
+        // Label each segment at its midpoint, skipping slivers too narrow for the text.
+        const edges = [{ ms: a, m: first.getUTCMonth() }, ...shown, { ms: b }];
+        let months = '';
+        for (let i = 0; i < edges.length - 1; i++) {
+          const p0 = pct(edges[i].ms), p1 = pct(edges[i + 1].ms);
+          if (p1 - p0 < 9) continue;
+          const isCur = t >= edges[i].ms && t < edges[i + 1].ms;
+          months += `<span class="${isCur ? 'cur' : ''}" style="left:${(p0 + p1) / 2}%">${MON[edges[i].m]}</span>`;
+        }
+
+        let num, unit, side, label, soon = false;
+        if (t < a) {
+          num = Math.round((a - t) / DAY); unit = num === 1 ? 'day to start' : 'days to start';
+          side = `${total}<span class="feed-tl-of"> days</span>`;
+          label = `Starts in ${days(num)}`;
+        } else if (t > b) {
+          num = Math.round((t - b) / DAY); unit = num === 1 ? 'day since expiry' : 'days since expiry';
+          side = `${total}<span class="feed-tl-of"> days</span>`;
+          label = `Expired ${days(num)} ago`;
+        } else {
+          const day = Math.round((t - a) / DAY) + 1;
+          num = Math.round((b - t) / DAY); unit = num === 1 ? 'day left' : 'days left';
+          soon = num <= 14;
+          side = `<span class="feed-tl-k">Day</span> ${day}<span class="feed-tl-of"> / ${total}</span>`;
+          label = `Day ${day} of ${total}, ${days(num)} left`;
+        }
+        const flagAlign = cur < 12 ? ' al-l' : cur > 88 ? ' al-r' : '';
+
+        return `<div class="feed-tl-card${soon ? ' soon' : ''}">`
+          + `<div class="feed-tl-head"><div class="feed-tl-big"><span class="feed-tl-num">${num}</span><span class="feed-tl-unit">${unit}</span></div>`
+          + `<div class="feed-tl-side">${side}</div></div>`
+          + `<div class="feed-tl-line" role="img" aria-label="Feed valid ${fmt(d.start_date)} to ${fmt(d.end_date)}. ${label}.">`
+          + `<div class="feed-tl-rail"></div><div class="feed-tl-fill" style="width:${cur}%"></div>${cuts}`
+          + `<span class="feed-tl-term${t >= a ? ' on' : ''}" style="left:0"></span>`
+          + `<span class="feed-tl-term${t > b ? ' on' : ''}" style="left:100%"></span>`
+          + `<div class="feed-tl-now" style="left:${cur}%"><span class="feed-tl-flag${flagAlign}">Today</span></div></div>`
+          + (months ? `<div class="feed-tl-months" aria-hidden="true">${months}</div>` : '')
+          + `<div class="feed-tl-ends"><div><span class="feed-tl-k">From</span><span class="feed-tl-date">${fmt(d.start_date)}</span></div>`
+          + `<div><span class="feed-tl-k">Until</span><span class="feed-tl-date">${fmt(d.end_date)}</span></div></div>`
+          + `</div>`;
       };
       fetch('/api/feedstatus')
         .then(r => r.json().then(d => { if (!r.ok) throw new Error(d.error || r.status); return d; }))
-        .then(d => set(d.status, labels[d.status] || labels.no_result,
-          `Valid ${fmt(d.start_date)} → ${fmt(d.end_date)}\nChecked ${fmt(d.checked_date)}`))
+        .then(d => {
+          const tl = buildTimeline(d);
+          // The timeline already prints the start/end dates, so only repeat them as text when it can't be drawn.
+          set(d.status, labels[d.status] || labels.no_result,
+            (tl ? '' : `Valid ${fmt(d.start_date)} → ${fmt(d.end_date)}\n`) + `Checked ${fmt(d.checked_date)}`, tl);
+        })
         .catch(() => set('', 'Feed state unavailable', ''));
     }
 
