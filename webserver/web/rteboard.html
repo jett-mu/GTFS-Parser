@@ -443,6 +443,8 @@
       font-size: 14px; font-weight: 600; color: var(--text);
       background: var(--surface2); border: 1px solid var(--border); border-radius: var(--card-radius);
     }
+    .sb-toggle.sb-select { justify-content: space-between; cursor: default; }
+    .sb-toggle select { font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 4px 6px; }
     .sb-toggle input { width: 18px; height: 18px; margin: 0; flex-shrink: 0; accent-color: var(--accent); }
 
     /* Small screen mode: header is just the sidebar button + clock. */
@@ -887,9 +889,18 @@
     .rb-row-secondary .rb-leave-unit { font-size: 11px; }
 
     .rb-walk { color: var(--text-dim); }
-    /* Stop names always wrap in full (never truncated). Two lines are reserved so the big time
-       stays aligned across rows for the usual one- or two-line name; a longer name just grows. */
-    .rb-stop { line-height: 1.25; min-height: 2.5em; overflow-wrap: anywhere; }
+    /* Stop names stay on one line; a name wider than its column scrolls left in a continuous loop
+       (rbFitStops adds a second copy so it wraps around seamlessly). Reduced motion wraps instead. */
+    .rb-stop { line-height: 1.25; white-space: nowrap; overflow: hidden; }
+    .rb-stop-inner { display: inline-block; }
+    .rb-stop-dup { padding-left: 2.5em; }
+    .rb-stop.rb-scroll .rb-stop-inner { animation: rb-stop-pan var(--rb-dur, 5s) linear infinite; }
+    @keyframes rb-stop-pan { from { transform: translateX(0); } to { transform: translateX(var(--rb-shift, 0)); } }
+    @media (prefers-reduced-motion: reduce) {
+      .rb-stop { white-space: normal; overflow-wrap: anywhere; }
+      .rb-stop.rb-scroll .rb-stop-inner { animation: none; }
+      .rb-stop-dup { display: none; }
+    }
     /* Entrances: new cards rise in, new rows / RT badges fade in. Moves of
        existing cards/rows are FLIP-animated from JS (see flipAnimate). */
     @keyframes rb-card-in { from { opacity: 0; transform: translateY(10px) scale(0.98); } to { opacity: 1; transform: none; } }
@@ -901,12 +912,30 @@
     .rb-row-missed { opacity: 0.45; }
     /* 1h+ rows already show the (delay-adjusted) clock as the main figure; the delay badge below says how late. */
     .rb-leave.later ~ .rb-sched { display: none; }
-    .rb-row .dep-badge-slot { font-size: 11px; min-height: 14px; }
+    /* Full-width so the note/delay always drops under the time instead of squeezing in beside a short one. */
+    .rb-row .dep-badge-slot { font-size: 11px; min-height: 14px; flex: 0 0 100%; }
     .rb-row .dep-badge-slot:empty { visibility: hidden; }
     .rb-row .rt-delay-badge { background: none; padding: 0; border-radius: 0; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
     .rb-row .rt-live-only { display: none; }
 
+    /* Desktop: rows are transparent (display: contents) so every stop name sits in a header row
+       above the times and can span all the consecutive departures that share that stop (rbGroupStops).
+       A pick-up/drop-off note is per trip, so grouped rows show it under the time instead. */
+    @media (min-width: 641px) {
+      .rb-deps { display: grid; column-gap: var(--space-3); row-gap: 4px; align-items: start; align-content: start; }
+      .rb-row { display: contents; }
+      .rb-row-main { grid-row: 1; }
+      .rb-leave-wrap { grid-row: 2; align-self: end; } /* bottom-align so notes/delays share one baseline */
+      .rb-row ~ .rb-row .rb-leave-wrap { border-left: 1px solid var(--border); padding-left: var(--space-3); }
+      .rb-row-missed > * { opacity: 0.45; }
+      .rb-row.rb-enter > * { animation: rb-fade-in 0.45s ease backwards; }
+      .rb-row .dep-pd-slot { display: none; }
+      .rb-row.rb-grouped .dep-pd-slot { display: inline; }
+      .rb-row.rb-grouped .rb-stop .dep-pd-note { display: none; }
+    }
+
     @media (max-width: 640px) {
+      .rb-row .dep-pd-slot { display: none; }
       .rb-grid { grid-template-columns: 1fr; }
       .rb-deps { flex-direction: column; gap: var(--space-2); }
       .rb-row + .rb-row { border-left: none; padding-left: 0; border-top: 1px solid var(--border); padding-top: var(--space-2); }
@@ -1015,6 +1044,10 @@
               <button type="button" class="dep-filter-clear" id="boardFilterClear">Clear filters</button>
             </div>
           </details>
+          <label class="sb-toggle sb-select" for="autoSwipeSelect">
+            <span>Automatic swipe</span>
+            <select id="autoSwipeSelect" aria-label="Automatic swipe timer"></select>
+          </label>
           <label class="sb-toggle" for="smallScreenToggle">
             <input type="checkbox" id="smallScreenToggle">
             <span>Small screen mode</span>
@@ -1207,7 +1240,16 @@
     // ===== ROUTE BOARD =====
 
     const RB_ROWS_PER_CARD = 3;
-    const RB_ROTATE_MS = 5000;
+    const RB_SWIPE_KEY = 'gtfs-board-auto-swipe-sec';
+    const RB_SWIPE_DEFAULT_SEC = 7;
+    const RB_SWIPE_CHOICES = [3, 5, 7, 10, 15, 20, 30]; // 0 = off
+    let rbSwipeTimer = null;
+    // (Re)starts the auto-swipe timer. 0 turns it off.
+    function setRbAutoSwipe(sec) {
+      clearInterval(rbSwipeTimer);
+      rbSwipeTimer = null;
+      if (sec > 0) rbSwipeTimer = setInterval(() => { if (document.hidden) return; rbRotateIdx++; applyRouteBoardRotation(); }, sec * 1000);
+    }
     let rbRotateIdx = 0;
     let routeBoardRefreshId = null, routeBoardRtId = null, routeBoardClockId = null;
     let routeBoardLat = null, routeBoardLon = null;
@@ -1223,7 +1265,8 @@
       routeBoardRefreshId = setInterval(loadRouteBoardLocation, BOARD_REFRESH_MS);
       routeBoardRtId      = setInterval(renderRouteBoardCards, BOARD_RT_MS);
       routeBoardClockId   = setInterval(tickRouteBoardClock, 1000);
-      setInterval(() => { if (document.hidden) return; rbRotateIdx++; applyRouteBoardRotation(); }, RB_ROTATE_MS);
+      const saved = Number(lsGet(RB_SWIPE_KEY, RB_SWIPE_DEFAULT_SEC));
+      setRbAutoSwipe(saved === 0 || RB_SWIPE_CHOICES.includes(saved) ? saved : RB_SWIPE_DEFAULT_SEC);
     }
 
 
@@ -1430,12 +1473,12 @@
         <div class="dep-card rb-row ${primary ? 'rb-row-primary' : 'rb-row-secondary'}"
              data-trip-id="${escapeHtml(dep.trip_id)}" data-arrival="${escapeHtml(dep.arrival_time)}" data-stop-id="${escapeHtml(dep._stopId || '')}" data-walk-sec="${walkSec}">
           <div class="rb-row-main">
-            <div class="rb-stop">${stopText}${pickupDropoffNote(dep)}</div>
+            <div class="rb-stop"><span class="rb-stop-inner"><span class="rb-stop-txt">${stopText}${pickupDropoffNote(dep)}</span></span></div>
           </div>
           <div class="rb-leave-wrap">
             <div class="rb-leave"></div>
             <div class="rb-sched"><span class="dep-time-sched">${fmtClockShort(parseTime(dep.arrival_time))}</span><span class="dep-time-actual"></span></div>
-            <div class="dep-badge-slot"></div>
+            <div class="dep-badge-slot"><span class="dep-pd-slot">${pickupDropoffNote(dep)}</span></div>
           </div>
         </div>
       `;
@@ -1485,7 +1528,11 @@
           row.dataset.arrival = fresh.dataset.arrival;
           row.dataset.walkSec = fresh.dataset.walkSec;
           const stop = row.querySelector('.rb-stop'), freshStop = fresh.querySelector('.rb-stop');
-          if (stop.innerHTML !== freshStop.innerHTML) stop.innerHTML = freshStop.innerHTML;
+          const txt = stop.querySelector('.rb-stop-txt'), freshTxt = freshStop.querySelector('.rb-stop-txt');
+          if (txt.innerHTML !== freshTxt.innerHTML) {
+            txt.innerHTML = freshTxt.innerHTML;
+            stop.querySelector('.rb-stop-dup')?.remove(); // stale copy; rbFitStops re-adds it
+          }
           const sched = row.querySelector('.dep-time-sched'), freshSched = fresh.querySelector('.dep-time-sched');
           if (sched.textContent !== freshSched.textContent) sched.textContent = freshSched.textContent;
         }
@@ -1672,7 +1719,70 @@
       card.addEventListener('touchcancel', () => release(true), { passive: true });
     }
 
+    // Pan any stop name that is wider than its column. Only touches a row when its state changes,
+    // so a running animation isn't restarted on every tick.
+    function rbFitStops(root) {
+      const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+      root.querySelectorAll('.rb-stop').forEach(el => {
+        const inner = el.firstElementChild, txt = inner && inner.firstElementChild;
+        if (!txt) return;
+        let dup = inner.querySelector('.rb-stop-dup');
+        const fits = txt.getBoundingClientRect().width <= el.clientWidth + 1;
+        if (reduce || fits) {
+          dup?.remove();
+          el.classList.remove('rb-scroll');
+          return;
+        }
+        if (!dup) {
+          dup = document.createElement('span');
+          dup.className = 'rb-stop-dup';
+          dup.setAttribute('aria-hidden', 'true');
+          dup.innerHTML = txt.innerHTML;
+          inner.appendChild(dup);
+        }
+        // One loop = the distance from the first copy's start to the second's.
+        const loop = Math.round(dup.getBoundingClientRect().left - txt.getBoundingClientRect().left);
+        el.style.setProperty('--rb-shift', -loop + 'px');
+        el.style.setProperty('--rb-dur', Math.max(3, loop / 50) + 's');
+        el.classList.add('rb-scroll');
+      });
+    }
+
+    // Desktop grid layout: one stop-name header per run of consecutive departures at the same stop,
+    // spanning those columns. On phones rows stack, so each keeps its own label.
+    function rbGroupStops(root) {
+      const stacked = window.matchMedia && matchMedia('(max-width: 640px)').matches;
+      root.querySelectorAll('.rb-deps').forEach(box => {
+        const rows = [...box.children].filter(r => r.classList.contains('rb-row'));
+        rows.forEach(r => { r.classList.remove('rb-grouped'); });
+        const mains = rows.map(r => r.querySelector('.rb-row-main'));
+        const leaves = rows.map(r => r.querySelector('.rb-leave-wrap'));
+        if (stacked) {
+          box.style.gridTemplateColumns = '';
+          mains.forEach(m => { m.style.gridColumn = ''; m.style.display = ''; });
+          leaves.forEach(l => { l.style.gridColumn = ''; });
+          return;
+        }
+        box.style.gridTemplateColumns = rows.map((_, i) => i === 0 ? 'minmax(0, 1.6fr)' : 'minmax(0, 1fr)').join(' ');
+        let i = 0;
+        while (i < rows.length) {
+          let j = i + 1;
+          while (j < rows.length && rows[j].dataset.stopId === rows[i].dataset.stopId) j++;
+          mains[i].style.display = '';
+          mains[i].style.gridColumn = `${i + 1} / span ${j - i}`;
+          for (let k = i + 1; k < j; k++) mains[k].style.display = 'none';
+          for (let k = i; k < j; k++) {
+            leaves[k].style.gridColumn = String(k + 1);
+            if (j - i > 1) rows[k].classList.add('rb-grouped');
+          }
+          i = j;
+        }
+      });
+    }
+
     function updateRouteBoardETAs(grid) {
+      rbGroupStops(grid);
+      rbFitStops(grid);
       const now = nowInSeconds();
       grid.querySelectorAll('.rb-row').forEach(row => {
         const el = row.querySelector('.rb-leave');
@@ -1966,6 +2076,16 @@
       const apply = on => { document.body.classList.toggle('board-compact', on); if (cb) cb.checked = on; };
       apply(lsGet(KEY, false) === true);
       if (cb) cb.addEventListener('change', () => { apply(cb.checked); lsSet(KEY, cb.checked); });
+    })();
+
+    // Automatic swipe: seconds between panel rotations on the route cards (0 = off, default 7).
+    (function initAutoSwipe() {
+      const sel = document.getElementById('autoSwipeSelect');
+      if (!sel) return;
+      sel.innerHTML = [0, ...RB_SWIPE_CHOICES].map(n => `<option value="${n}">${n ? n + ' s' : 'Off'}</option>`).join('');
+      const saved = Number(lsGet(RB_SWIPE_KEY, RB_SWIPE_DEFAULT_SEC));
+      sel.value = String(saved === 0 || RB_SWIPE_CHOICES.includes(saved) ? saved : RB_SWIPE_DEFAULT_SEC);
+      sel.addEventListener('change', () => { const n = Number(sel.value); lsSet(RB_SWIPE_KEY, n); setRbAutoSwipe(n); });
     })();
 
     // Show walk times: off by default. Shared by both boards.
