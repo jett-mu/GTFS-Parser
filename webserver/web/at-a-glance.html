@@ -36,11 +36,15 @@
   </script>
   <link rel="stylesheet" href="/vendor/fonts/fonts.css">
   <style>
-    :root {
+    /* Fonts per theme (the theme blocks below override); also on [data-theme] so the
+       setup's theme previews get their own theme's fonts. */
+    :root, [data-theme] {
       --font-display: 'Oswald', sans-serif;
       --font-body: 'Inter', sans-serif;
       --font-mono: 'IBM Plex Mono', monospace;
       --font-board: 'Saira', sans-serif;
+    }
+    :root {
       --safe-top: env(safe-area-inset-top, 0px);
       --safe-bottom: env(safe-area-inset-bottom, 0px);
       --safe-left: env(safe-area-inset-left, 0px);
@@ -54,7 +58,7 @@
     }
 
     /* ===== Ink (dark, default) — same palette as the other boards ===== */
-    :root, :root[data-theme="dark"] {
+    :root, [data-theme="dark"] {
       --bg: #15140f;
       --surface: #1d1c15;
       --surface2: #24231a;
@@ -79,7 +83,7 @@
     }
 
     /* ===== Paper (light) ===== */
-    :root[data-theme="light"] {
+    [data-theme="light"] {
       --bg: #FAFAF7;
       --surface: #ffffff;
       --surface2: #f4f1ea;
@@ -104,7 +108,7 @@
     }
 
     /* ===== Midnight — true black for OLED phones and always-on screens ===== */
-    :root[data-theme="midnight"] {
+    [data-theme="midnight"] {
       --bg: #000000;
       --surface: #0b0b0b;
       --surface2: #151515;
@@ -129,7 +133,7 @@
     }
 
     /* ===== Signal — amber LED departure sign ===== */
-    :root[data-theme="signal"] {
+    [data-theme="signal"] {
       --bg: #0a0805;
       --surface: #110d07;
       --surface2: #1a140b;
@@ -150,6 +154,86 @@
       --overlay: rgba(0,0,0,0.7);
       --shadow: none;
       --lift: 2px 2px 0 rgba(255,181,71,0.22);
+      color-scheme: dark;
+    }
+
+    /* ===== Ticket — cream ticket stock, red ink (card shape: see "Theme shapes") ===== */
+    [data-theme="ticket"] {
+      --font-board: 'Oswald', sans-serif;
+      --bg: #D8CFBA;
+      --surface: #FBF5E6;
+      --surface2: #F3EAD3;
+      --surface3: #E8DCBE;
+      --border: rgba(74,52,28,0.18);
+      --border2: rgba(74,52,28,0.36);
+      --text: #2B2117;
+      --text-muted: rgba(43,33,23,0.72);
+      --text-dim: rgba(43,33,23,0.52);
+      --accent: #B0322A;
+      --accent-rgb: 176,50,42;
+      --positive: #2F7B4F;
+      --positive-rgb: 47,123,79;
+      --negative: #B0322A;
+      --negative-rgb: 176,50,42;
+      --warn-rgb: 160,104,0;
+      --ontime-rgb: 28,116,100;
+      --overlay: rgba(43,33,23,0.35);
+      --shadow: none;
+      --lift: 2px 2px 0 rgba(74,52,28,0.2);
+      color-scheme: light;
+    }
+
+    /* ===== Receipt — thermal paper, all monospace ===== */
+    [data-theme="receipt"] {
+      --font-display: 'IBM Plex Mono', monospace;
+      --font-body: 'IBM Plex Mono', monospace;
+      --font-board: 'IBM Plex Mono', monospace;
+      --bg: #CDD0D4;
+      --surface: #FFFFFF;
+      --surface2: #F3F3F1;
+      --surface3: #E6E6E3;
+      --border: rgba(20,20,20,0.16);
+      --border2: rgba(20,20,20,0.4);
+      --text: #1B1B1B;
+      --text-muted: rgba(27,27,27,0.7);
+      --text-dim: rgba(27,27,27,0.5);
+      --accent: #1B1B1B;
+      --accent-rgb: 27,27,27;
+      --positive: #2B7049;
+      --positive-rgb: 43,112,73;
+      --negative: #B3261E;
+      --negative-rgb: 179,38,30;
+      --warn-rgb: 150,96,0;
+      --ontime-rgb: 27,27,27;
+      --overlay: rgba(20,20,20,0.35);
+      --shadow: none;
+      --lift: 2px 2px 0 rgba(20,20,20,0.18);
+      color-scheme: light;
+    }
+
+    /* ===== Platform — station departure sign: navy, white, sign yellow ===== */
+    [data-theme="platform"] {
+      --font-display: 'Inter', sans-serif;
+      --bg: #0A1325;
+      --surface: #111F3B;
+      --surface2: #182A4D;
+      --surface3: #22375F;
+      --border: rgba(255,255,255,0.12);
+      --border2: rgba(255,255,255,0.26);
+      --text: #FFFFFF;
+      --text-muted: rgba(255,255,255,0.74);
+      --text-dim: rgba(255,255,255,0.5);
+      --accent: #FFC72C;
+      --accent-rgb: 255,199,44;
+      --positive: #4CC38A;
+      --positive-rgb: 76,195,138;
+      --negative: #FF6B5A;
+      --negative-rgb: 255,107,90;
+      --warn-rgb: 255,166,77;
+      --ontime-rgb: 76,195,138;
+      --overlay: rgba(0,0,0,0.6);
+      --shadow: none;
+      --lift: 2px 2px 0 rgba(0,0,0,0.5);
       color-scheme: dark;
     }
 
@@ -476,12 +560,14 @@
       z-index: 0;
     }
     .card-map .map-msg { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--text-dim); font-size: 0.85rem; }
-    :root:not([data-theme="light"]) .leaflet-tile-pane {
+    :root:is([data-theme="dark"], [data-theme="midnight"], [data-theme="platform"]) .leaflet-tile-pane {
       filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9);
     }
     :root[data-theme="signal"] .leaflet-tile-pane {
       filter: invert(1) hue-rotate(180deg) sepia(0.7) brightness(0.75) contrast(0.95);
     }
+    :root[data-theme="ticket"] .leaflet-tile-pane { filter: sepia(0.45) saturate(0.8); }
+    :root[data-theme="receipt"] .leaflet-tile-pane { filter: grayscale(1) contrast(1.05); }
     .leaflet-container { background: var(--surface2); font-family: var(--font-body); }
     .leaflet-control-attribution { font-size: 9px !important; background: var(--surface) !important; color: var(--text-dim) !important; }
     .leaflet-control-attribution a { color: var(--text-muted) !important; }
@@ -747,6 +833,180 @@
     }
     .toast.show { opacity: 1; visibility: visible; transform: translate(-50%, 0); transition-delay: 0s; }
 
+    /* Theme picker: each preview carries its own data-theme, so it renders in that theme's colours */
+    .themes { display: grid; grid-template-columns: repeat(auto-fill, minmax(116px, 1fr)); gap: 8px; }
+    .theme-tile {
+      display: flex; flex-direction: column; gap: 6px;
+      padding: 5px 5px 7px;
+      border: 1px solid var(--border2);
+      border-radius: 6px;
+      background: var(--surface);
+      text-align: left;
+      font-size: 13px;
+      font-weight: 600;
+      transition: border-color var(--t-fast) ease, box-shadow var(--t-fast) ease, transform var(--t-fast) var(--ease-out);
+    }
+    .theme-tile > span:last-child { padding: 0 3px; }
+    @media (hover: hover) { .theme-tile:hover { transform: translateY(-2px); border-color: var(--text-muted); } }
+    .theme-tile:active { transform: scale(0.97); }
+    .theme-tile[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+    .tt-prev { display: flex; height: 54px; border-radius: 3px; overflow: hidden; }
+    .tt-half { flex: 1; min-width: 0; display: flex; padding: 9px 7px; background: var(--bg); color: var(--text); }
+    .tt-prev.auto .tt-half { padding: 9px 4px; }
+    .tt-prev.auto .tt-num { display: none; }
+    .tt-card {
+      flex: 1; min-width: 0;
+      display: flex; align-items: center; gap: 6px;
+      padding: 0 7px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 2px;
+    }
+    .tt-pill { width: 16px; height: 11px; border-radius: 2px; background: var(--accent); flex-shrink: 0; }
+    .tt-lines { flex: 1; min-width: 0; display: grid; gap: 4px; }
+    .tt-lines i { height: 3px; border-radius: 2px; background: var(--text); opacity: 0.75; }
+    .tt-lines i + i { width: 60%; opacity: 0.35; }
+    .tt-num { font: 700 17px/1 var(--font-board); color: var(--text); }
+    .tt-half[data-theme="signal"] .tt-num { text-shadow: 0 0 6px rgba(var(--accent-rgb), 0.6); }
+    .tt-half[data-theme="ticket"] .tt-card { border: 1px dashed var(--border2); border-radius: 4px; }
+    .tt-half[data-theme="receipt"] .tt-card { border: 0; border-radius: 0; }
+    .tt-half[data-theme="receipt"] .tt-pill { background: none; box-shadow: inset 0 0 0 1.5px var(--text); border-radius: 0; }
+    .tt-half[data-theme="platform"] .tt-card { border: 0; border-radius: 0; border-top: 3px solid var(--accent); }
+    .tt-half[data-theme="platform"] .tt-pill { border-radius: 6px; }
+    .tt-half[data-theme="platform"] .tt-num { color: var(--accent); }
+
+    /* ===== Theme shapes: what a theme changes beyond its colours ===== */
+
+    /* Ticket: punched notches + perforation under the header, torn-off bottom edge,
+       a faint security pattern, and delays stamped on in ink. drop-shadow (not
+       box-shadow) so the shadow follows the torn edge. */
+    :root[data-theme="ticket"] .card {
+      position: relative;
+      border: 0;
+      border-radius: 8px 8px 0 0;
+      margin-bottom: 8px;
+      background-image: repeating-linear-gradient(-45deg, rgba(var(--accent-rgb), 0.035) 0 1px, transparent 1px 7px);
+      filter: drop-shadow(0 1px 0 rgba(74,52,28,0.25)) drop-shadow(0 8px 10px rgba(74,52,28,0.14));
+    }
+    :root[data-theme="ticket"] .card::after {
+      content: '';
+      position: absolute;
+      left: 0; right: 0; top: 100%;
+      height: 7px;
+      background: conic-gradient(from -45deg at 50% 100%, var(--surface) 90deg, transparent 0) 0 0 / 14px 7px repeat-x;
+    }
+    :root[data-theme="ticket"] .card > header {
+      position: relative;
+      margin: -1rem -1rem 0;
+      padding: 1rem 1rem 0.9rem;
+      background: repeating-linear-gradient(90deg, var(--border2) 0 6px, transparent 6px 12px) left bottom / 100% 2px no-repeat;
+    }
+    :root[data-theme="ticket"] .card > header::before,
+    :root[data-theme="ticket"] .card > header::after {
+      content: '';
+      position: absolute;
+      bottom: -11px;
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      background: var(--bg);
+      box-shadow: inset 0 2px 3px rgba(74,52,28,0.3);
+    }
+    :root[data-theme="ticket"] .card > header::before { left: -11px; clip-path: inset(0 0 0 50%); }
+    :root[data-theme="ticket"] .card > header::after { right: -11px; clip-path: inset(0 50% 0 0); }
+    :root[data-theme="ticket"] .card-title::before {
+      content: 'Admit one · Bus';
+      display: block;
+      margin-bottom: 0.4rem;
+      font: 600 0.62rem/1 var(--font-mono);
+      letter-spacing: 0.28em;
+      color: var(--accent);
+    }
+    :root[data-theme="ticket"] .route-pill { border-radius: 2px; }
+    :root[data-theme="ticket"] .route-pill:not(.sm) {
+      outline: 1.5px dashed color-mix(in srgb, currentColor 50%, transparent);
+      outline-offset: -4px;
+    }
+    :root[data-theme="ticket"] .badge:not(.b-sched) {
+      background: transparent;
+      border: 1.5px solid currentColor;
+      border-radius: 2px;
+      padding: 0.08rem 0.35rem;
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      transform: rotate(-2deg);
+    }
+    :root[data-theme="ticket"] .dep,
+    :root[data-theme="ticket"] .then { border-top-style: dashed; border-top-color: var(--border2); }
+
+    /* Receipt: torn zigzag top and bottom, centred header, black-only print */
+    :root[data-theme="receipt"] .card {
+      position: relative;
+      border: 0;
+      border-radius: 0;
+      margin: 7px 0;
+      filter: drop-shadow(0 6px 8px rgba(0,0,0,0.12));
+    }
+    :root[data-theme="receipt"] .card::before,
+    :root[data-theme="receipt"] .card::after {
+      content: '';
+      position: absolute;
+      left: 0; right: 0;
+      height: 6px;
+    }
+    :root[data-theme="receipt"] .card::before { bottom: 100%; background: conic-gradient(from 135deg at 50% 0, var(--surface) 90deg, transparent 0) 0 0 / 12px 6px repeat-x; }
+    :root[data-theme="receipt"] .card::after { top: 100%; background: conic-gradient(from -45deg at 50% 100%, var(--surface) 90deg, transparent 0) 0 0 / 12px 6px repeat-x; }
+    :root[data-theme="receipt"] .card > header { text-align: center; padding-bottom: 0.75rem; border-bottom: 1px dashed var(--border2); }
+    :root[data-theme="receipt"] .card-title { letter-spacing: 0.08em; }
+    :root[data-theme="receipt"] .card-title::before {
+      content: '*** Next buses ***';
+      display: block;
+      margin-bottom: 0.35rem;
+      font-size: 0.68rem;
+      letter-spacing: 0.2em;
+      color: var(--text-dim);
+    }
+    :root[data-theme="receipt"] .card-rows::after {
+      content: 'Thank you for riding';
+      display: block;
+      margin-top: 0.5rem;
+      padding-top: 0.7rem;
+      border-top: 1px dashed var(--border2);
+      text-align: center;
+      text-transform: uppercase;
+      font-size: 0.68rem;
+      letter-spacing: 0.2em;
+      color: var(--text-dim);
+    }
+    :root[data-theme="receipt"] .route-pill {
+      background: transparent !important;
+      color: var(--text) !important;
+      box-shadow: inset 0 0 0 1.5px var(--text);
+      border-radius: 0;
+      font-weight: 600;
+    }
+    :root[data-theme="receipt"] .cd b { font-weight: 600; }
+    :root[data-theme="receipt"] .badge:not(.b-sched) { background: transparent; padding: 0; }
+    :root[data-theme="receipt"] .badge:not(.b-sched)::before { content: '['; }
+    :root[data-theme="receipt"] .badge:not(.b-sched)::after { content: ']'; }
+    :root[data-theme="receipt"] .then-item { background: transparent; box-shadow: inset 0 0 0 1px var(--border2); }
+    :root[data-theme="receipt"] .dep,
+    :root[data-theme="receipt"] .then { border-top-style: dashed; border-top-color: var(--border2); }
+
+    /* Platform: station sign — header bar, yellow top rule, round route bullets,
+       zebra rows, yellow countdowns */
+    :root[data-theme="platform"] .top { background: var(--surface); border-bottom: 1px solid var(--border); margin-bottom: 0.75rem; }
+    :root[data-theme="platform"] .top-title,
+    :root[data-theme="platform"] .card-title { text-transform: none; letter-spacing: -0.01em; }
+    :root[data-theme="platform"] .card-title { font-size: 1.3rem; }
+    :root[data-theme="platform"] .card { border: 0; border-radius: 0; border-top: 0.3rem solid var(--accent); }
+    :root[data-theme="platform"] .dep { margin: 0 -1rem; padding-left: 1rem; padding-right: 1rem; border-top: 0; }
+    :root[data-theme="platform"] .dep:nth-child(even) { background: rgba(255,255,255,0.045); }
+    :root[data-theme="platform"] .route-pill { border-radius: 999px; }
+    :root[data-theme="platform"] .route-pill:not(.sm) { min-width: 3.3rem; padding: 0.45rem 0.65rem; }
+    :root[data-theme="platform"] .cd b { color: var(--accent); }
+
     @media (max-width: 600px) {
       .setup-sheet { border-left: 0; }
       .top-clock { font-size: 1.5rem; }
@@ -808,7 +1068,7 @@
         <section class="sg">
           <h3>Look</h3>
           <label class="field"><span>Board name <small>(optional)</small></span><input class="text-input" id="fTitle" type="text" placeholder="e.g. Morning commute" maxlength="60" /></label>
-          <div class="field"><span>Theme</span><div class="seg" id="fTheme"></div></div>
+          <div class="field"><span>Theme</span><div class="themes" id="fTheme"></div></div>
           <div class="field"><span>Accent colour</span><div class="swatches" id="fAccent"></div></div>
           <div class="field"><span>Text size</span><div class="seg" id="fSize"></div></div>
           <div class="field"><span>Layout</span><div class="seg" id="fLayout"></div></div>
@@ -948,7 +1208,8 @@
     // start URL is frozen) still stick: the copy with the newer `t` wins.
     const LS_PREFIX = 'gtfs-glance:';
     const LS_LAST = 'gtfs-glance-last';
-    const THEMES = [['auto','Auto'], ['light','Paper'], ['dark','Ink'], ['midnight','Midnight'], ['signal','Signal']];
+    const THEMES = [['auto','Auto'], ['light','Paper'], ['dark','Ink'], ['midnight','Midnight'], ['signal','Signal'],
+                    ['ticket','Ticket'], ['receipt','Receipt'], ['platform','Platform']];
     const SIZES = [['m','Normal'], ['l','Large'], ['xl','Huge']];
     const LAYOUTS = [['list','List'], ['hero','Next bus big']];
     const ACCENTS = ['', '#6FA0E8', '#4FA876', '#E8A93B', '#E8674B', '#B48EDB', '#4AB8AA', '#E07BB0'];
@@ -1684,6 +1945,25 @@
       };
     }
 
+    // A mini board in the theme's own colours (the tile's data-theme picks up that
+    // theme's tokens); Auto shows Paper and Ink side by side.
+    function themePreview(t) {
+      const half = th => `<span class="tt-half" data-theme="${th}"><span class="tt-card"><span class="tt-pill"></span><span class="tt-lines"><i></i><i></i></span><b class="tt-num">4</b></span></span>`;
+      return `<span class="tt-prev${t === 'auto' ? ' auto' : ''}" aria-hidden="true">${t === 'auto' ? half('light') + half('dark') : half(t)}</span>`;
+    }
+
+    function renderThemes() {
+      const el = $('#fTheme');
+      el.innerHTML = THEMES.map(([v, label]) => `<button type="button" class="theme-tile" data-v="${v}" aria-pressed="${v === draft.theme}">${themePreview(v)}<span>${label}</span></button>`).join('');
+      el.onclick = e => {
+        const b = e.target.closest('button[data-v]');
+        if (!b) return;
+        draft.theme = b.dataset.v;
+        el.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+        applyAppearance(draft);
+      };
+    }
+
     function renderAccents() {
       const el = $('#fAccent');
       el.innerHTML = ACCENTS.map(a => `<button type="button" class="swatch${a ? '' : ' auto'}" data-v="${a}" style="--sw:${a || 'transparent'}" aria-pressed="${a === draft.accent}" aria-label="${a ? `Accent ${a}` : 'Theme default accent'}" title="${a || 'Theme default'}"></button>`).join('');
@@ -1708,7 +1988,7 @@
       $('#fCount').innerHTML = [1, 2, 3, 4, 5, 6].map(n => `<option value="${n}"${n === draft.count ? ' selected' : ''}>${n}</option>`).join('');
       $('#showChecks').innerHTML = SHOW_OPTIONS.map(([k, label, note]) =>
         `<label class="check"><input type="checkbox" data-k="${k}"${draft.show[k] ? ' checked' : ''} /><span>${label}${note ? ` <small>${note}</small>` : ''}</span></label>`).join('');
-      renderSeg($('#fTheme'), THEMES, draft.theme, v => { draft.theme = v; applyAppearance(draft); });
+      renderThemes();
       renderSeg($('#fSize'), SIZES, draft.size, v => { draft.size = v; applyAppearance(draft); });
       renderSeg($('#fLayout'), LAYOUTS, draft.layout, v => { draft.layout = v; });
       renderAccents();
