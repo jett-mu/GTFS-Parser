@@ -47,6 +47,10 @@
       --safe-right: env(safe-area-inset-right, 0px);
       --gutter-l: max(16px, var(--safe-left));
       --gutter-r: max(16px, var(--safe-right));
+      --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+      --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+      --t-fast: 150ms;
+      --t-med: 260ms;
     }
 
     /* ===== Ink (dark, default) — same palette as the other boards ===== */
@@ -70,6 +74,7 @@
       --ontime-rgb: 74,184,170;
       --overlay: rgba(0,0,0,0.55);
       --shadow: 4px 4px 0 rgba(0,0,0,0.4);
+      --lift: 2px 2px 0 rgba(0,0,0,0.45);
       color-scheme: dark;
     }
 
@@ -94,6 +99,7 @@
       --ontime-rgb: 20,133,120;
       --overlay: rgba(26,26,26,0.35);
       --shadow: 4px 4px 0 rgba(26,26,26,0.10);
+      --lift: 2px 2px 0 rgba(26,26,26,0.14);
       color-scheme: light;
     }
 
@@ -118,6 +124,7 @@
       --ontime-rgb: 80,190,176;
       --overlay: rgba(0,0,0,0.7);
       --shadow: none;
+      --lift: 2px 2px 0 rgba(255,255,255,0.12);
       color-scheme: dark;
     }
 
@@ -142,6 +149,7 @@
       --ontime-rgb: 155,216,106;
       --overlay: rgba(0,0,0,0.7);
       --shadow: none;
+      --lift: 2px 2px 0 rgba(255,181,71,0.22);
       color-scheme: dark;
     }
 
@@ -153,6 +161,10 @@
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
     [hidden] { display: none !important; }
     html, body { background: var(--bg); color: var(--text); }
+    /* Theme previews in setup cross-fade instead of snapping */
+    html, body, .card, .setup-sheet, .setup-foot, .ce, .then-item {
+      transition: background-color var(--t-med) ease, border-color var(--t-med) ease, color var(--t-med) ease;
+    }
     body {
       font-family: var(--font-body);
       min-height: 100vh;
@@ -198,6 +210,7 @@
       width: 0.5rem; height: 0.5rem; border-radius: 50%;
       background: var(--text-dim);
       flex-shrink: 0;
+      transition: background-color 0.4s ease;
     }
     .live-dot.ok { background: var(--positive); animation: dot-pulse 2.4s ease-in-out infinite; }
     .live-dot.stale { background: rgb(var(--warn-rgb)); }
@@ -222,9 +235,32 @@
       border-radius: 4px;
       color: var(--text-muted);
       flex-shrink: 0;
+      transition: color var(--t-fast) ease, background-color var(--t-fast) ease, border-color var(--t-fast) ease,
+                  box-shadow var(--t-fast) ease, transform var(--t-fast) var(--ease-out);
     }
-    .icon-btn:hover { color: var(--text); border-color: var(--border2); }
-    .icon-btn svg { width: 20px; height: 20px; }
+    .icon-btn svg { width: 20px; height: 20px; transition: transform var(--t-med) var(--ease-out); }
+    .icon-btn svg.ico-gear { transition-duration: 0.6s; }
+    @media (hover: hover) {
+      .icon-btn:hover { color: var(--text); border-color: var(--border2); background: var(--surface2); transform: translate(-1px, -1px); box-shadow: var(--lift); }
+      .icon-btn:hover .ico-gear { transform: rotate(60deg); }
+      .icon-btn:hover .ico-x { transform: rotate(90deg); }
+      .icon-btn:hover .ico-up { transform: translateY(-2px); }
+      .icon-btn:hover .ico-down { transform: translateY(2px); }
+    }
+    .icon-btn:active { transform: scale(0.94); box-shadow: none; transition-duration: 60ms; }
+    .icon-btn:disabled { opacity: 0.35; cursor: default; pointer-events: none; }
+
+    /* Full-screen icon: corners spread on hover and swap to "exit" while full screen */
+    .fs-ico g { transform-box: view-box; transform-origin: center; transition: opacity var(--t-med) ease, transform var(--t-med) var(--ease-out); }
+    .fs-ico path { transition: transform var(--t-med) var(--ease-out); }
+    .fs-ico .fs-exit { opacity: 0; transform: scale(0.6); }
+    .is-fs .fs-ico .fs-enter { opacity: 0; transform: scale(1.35); }
+    .is-fs .fs-ico .fs-exit { opacity: 1; transform: none; }
+    .c-tl { --dx: -1; --dy: -1; } .c-tr { --dx: 1; --dy: -1; } .c-bl { --dx: -1; --dy: 1; } .c-br { --dx: 1; --dy: 1; }
+    @media (hover: hover) {
+      .icon-btn:hover .fs-enter path { transform: translate(calc(var(--dx) * 1.5px), calc(var(--dy) * 1.5px)); }
+      .icon-btn:hover .fs-exit path { transform: translate(calc(var(--dx) * -1.5px), calc(var(--dy) * -1.5px)); }
+    }
     body.idle { cursor: none; }
     body.idle .top-actions:not(:focus-within) { opacity: 0; }
 
@@ -244,7 +280,15 @@
       padding: 1rem 1rem 0.75rem;
       box-shadow: var(--shadow);
       min-width: 0;
+      animation: card-in 480ms var(--ease-out) backwards;
+      animation-delay: calc(var(--i, 0) * 70ms);
     }
+    @keyframes card-in { from { opacity: 0; transform: translateY(12px); } }
+    /* Departures that just appeared fade up; ones that moved glide there (see animateRows) */
+    .enter { animation: row-in 420ms var(--ease-out) backwards; }
+    .then-item.enter { animation-name: chip-in; }
+    @keyframes row-in { from { opacity: 0; transform: translateY(8px); } }
+    @keyframes chip-in { from { opacity: 0; transform: scale(0.85); } }
     .card-title {
       font-family: var(--font-display);
       font-weight: 600;
@@ -311,7 +355,10 @@
       line-height: 1;
       white-space: nowrap;
     }
-    .cd b { font-size: 2rem; font-weight: 700; }
+    .cd b { font-size: 2rem; font-weight: 700; display: inline-block; }
+    /* A countdown number rolls in when it changes (class set by updateTimers) */
+    .cd.tick b { animation: cd-tick 360ms var(--ease-out); }
+    @keyframes cd-tick { from { opacity: 0.15; transform: translateY(-0.2em); } }
     .cd small {
       font-size: 0.8rem;
       margin-left: 0.15rem;
@@ -400,7 +447,21 @@
     .alert summary { cursor: pointer; font-weight: 600; list-style: none; }
     .alert summary::-webkit-details-marker { display: none; }
     .alert summary::before { content: '⚠︎ '; color: rgb(var(--warn-rgb)); }
+    .alert:has(> p) summary::after {
+      content: '';
+      display: inline-block;
+      width: 0.4em; height: 0.4em;
+      margin-left: 0.55em;
+      border-right: 1.5px solid currentColor;
+      border-bottom: 1.5px solid currentColor;
+      opacity: 0.6;
+      transform: translateY(-0.2em) rotate(45deg);
+      transition: transform var(--t-med) var(--ease-out);
+    }
+    .alert[open] summary::after { transform: translateY(0.05em) rotate(-135deg); }
     .alert p { margin-top: 0.35rem; color: var(--text-muted); line-height: 1.4; }
+    /* Only on a tap/click, so re-renders of an already-open alert don't replay it */
+    .alert.anim[open] > p { animation: row-in var(--t-med) var(--ease-out); }
     .alert-more { font-size: 0.75rem; color: var(--text-dim); }
 
     /* Map */
@@ -430,7 +491,9 @@
       border: 3px solid var(--bg);
       border-radius: 3px;
       box-shadow: 0 0 0 2px var(--text);
+      animation: pop-in 420ms var(--ease-spring) backwards;
     }
+    @keyframes pop-in { from { opacity: 0; transform: scale(0.3); } }
     .map-veh {
       position: absolute;
       left: 0; top: 0;
@@ -442,7 +505,9 @@
       border-radius: 11px;
       white-space: nowrap;
       box-shadow: 0 0 0 2px var(--bg);
+      animation: veh-in 420ms var(--ease-spring) backwards;
     }
+    @keyframes veh-in { from { opacity: 0; transform: translate(-50%, -50%) scale(0.3); } }
     .map-veh::after {
       content: '';
       position: absolute; inset: -2px;
@@ -458,6 +523,7 @@
       margin: 12vh auto 0;
       padding: 0 var(--gutter-r) 0 var(--gutter-l);
       text-align: center;
+      animation: card-in 520ms var(--ease-out) backwards;
     }
     .empty h2 { font-family: var(--font-display); text-transform: uppercase; letter-spacing: 0.04em; font-size: 1.6rem; }
     .empty p { color: var(--text-muted); margin: 0.75rem 0 1.25rem; line-height: 1.5; }
@@ -471,11 +537,26 @@
       font-size: 14px;
       font-weight: 600;
       white-space: nowrap;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: background-color var(--t-fast) ease, border-color var(--t-fast) ease, color var(--t-fast) ease,
+                  box-shadow var(--t-fast) ease, transform var(--t-fast) var(--ease-out), filter var(--t-fast) ease;
     }
-    .btn:hover { border-color: var(--text-muted); }
+    .btn svg { width: 16px; height: 16px; flex-shrink: 0; transition: transform var(--t-med) var(--ease-out); }
     .btn-primary { background: var(--accent); border-color: var(--accent); color: var(--bg); }
-    .btn-primary:hover { filter: brightness(1.08); border-color: var(--accent); }
     .btn-sm { padding: 6px 10px; font-size: 13px; }
+    .btn-sm svg { width: 14px; height: 14px; }
+    @media (hover: hover) {
+      .btn:hover { border-color: var(--text-muted); background: var(--surface2); transform: translate(-1px, -1px); box-shadow: var(--lift); }
+      .btn-primary:hover { background: var(--accent); border-color: var(--accent); filter: brightness(1.08); }
+      .btn:hover .ico-plus { transform: rotate(90deg); }
+      .btn:hover .ico-near { transform: translate(1.5px, -1.5px); }
+      .btn:hover .ico-link { transform: rotate(-20deg); }
+    }
+    .btn:active { transform: scale(0.97); box-shadow: none; transition-duration: 60ms; }
+    .ss-near.busy svg { animation: dot-pulse 1s ease-in-out infinite; }
 
     /* ===== Setup panel ===== */
     .setup {
@@ -485,6 +566,15 @@
       display: flex;
       justify-content: flex-end;
     }
+    /* Opens by sliding in; closeSetup() adds .closing and hides it once this plays out */
+    .setup:not([hidden]) { animation: fade-in var(--t-med) ease backwards; }
+    .setup:not([hidden]) .setup-sheet { animation: sheet-in 380ms var(--ease-out) backwards; }
+    .setup.closing { animation: fade-out 220ms ease forwards; pointer-events: none; }
+    .setup.closing .setup-sheet { animation: sheet-out 220ms cubic-bezier(0.4, 0, 1, 1) forwards; }
+    @keyframes fade-in { from { opacity: 0; } }
+    @keyframes fade-out { to { opacity: 0; } }
+    @keyframes sheet-in { from { transform: translateX(100%); } }
+    @keyframes sheet-out { to { transform: translateX(100%); } }
     .setup-sheet {
       width: min(560px, 100%);
       height: 100%;
@@ -524,29 +614,44 @@
       border-radius: 4px;
       padding: 9px 11px;
       font-size: 16px; /* 16px stops iOS zooming on focus */
+      transition: border-color var(--t-fast) ease, box-shadow var(--t-fast) ease, background-color var(--t-med) ease, color var(--t-med) ease;
     }
+    .text-input:focus, .field select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.22); }
     .field select { width: auto; min-width: 90px; }
     .seg { display: inline-flex; flex-wrap: wrap; border: 1px solid var(--border2); border-radius: 4px; overflow: hidden; }
     .seg button {
       border: 0; background: var(--surface);
       padding: 8px 13px; font-size: 13px; font-weight: 600;
       border-left: 1px solid var(--border);
+      transition: background-color var(--t-fast) ease, color var(--t-fast) ease;
     }
     .seg button:first-child { border-left: 0; }
+    @media (hover: hover) { .seg button:not([aria-pressed="true"]):hover { background: var(--surface2); } }
+    .seg button:not([aria-pressed="true"]):active { background: var(--surface3); }
     .seg button[aria-pressed="true"] { background: var(--accent); color: var(--bg); }
     .swatches { display: flex; flex-wrap: wrap; gap: 8px; }
     .swatch {
       width: 32px; height: 32px; border-radius: 50%;
       border: 2px solid var(--border2);
       background: var(--sw);
+      box-shadow: 0 0 0 0 var(--bg), 0 0 0 0 var(--text);
+      transition: transform var(--t-med) var(--ease-spring), box-shadow var(--t-med) var(--ease-out);
     }
     .swatch.auto { background: conic-gradient(#6FA0E8 0 25%, #4FA876 0 50%, #E8A93B 0 75%, #E8674B 0); }
+    @media (hover: hover) { .swatch:hover { transform: scale(1.12); } }
+    .swatch:active { transform: scale(0.92); }
     .swatch[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--text); }
     .checks { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 4px 12px; }
     .check { display: flex; align-items: flex-start; gap: 8px; padding: 6px 0; font-size: 14px; cursor: pointer; line-height: 1.35; }
     .check input { margin-top: 2px; width: 16px; height: 16px; accent-color: var(--accent); flex-shrink: 0; }
     .hint { color: var(--text-muted); font-size: 13px; line-height: 1.5; margin-top: 10px; }
-    .hint a, .setup-foot a { color: var(--accent); }
+    .hint a, .setup-foot a {
+      color: var(--accent);
+      text-decoration-color: rgba(var(--accent-rgb), 0.4);
+      text-underline-offset: 3px;
+      transition: text-decoration-color var(--t-fast) ease, text-underline-offset var(--t-fast) ease;
+    }
+    .hint a:hover, .setup-foot a:hover { text-decoration-color: currentColor; text-underline-offset: 4px; }
 
     /* Card editors */
     .ce {
@@ -556,6 +661,7 @@
       padding: 12px;
       margin-bottom: 12px;
     }
+    .ce.enter { animation-duration: 360ms; }
     .ce-top { display: flex; align-items: center; gap: 10px; }
     .ce-num {
       width: 24px; height: 24px; border-radius: 3px;
@@ -582,10 +688,17 @@
       box-shadow: var(--shadow);
       max-height: 300px;
       overflow-y: auto;
+      transform-origin: top center;
     }
-    .ss-item { padding: 9px 11px; cursor: pointer; border-top: 1px solid var(--border); }
+    .ss-results:not([hidden]) { animation: drop-in var(--t-med) var(--ease-out); }
+    @keyframes drop-in { from { opacity: 0; transform: translateY(-4px) scale(0.98); } }
+    .ss-item {
+      padding: 9px 11px; cursor: pointer; border-top: 1px solid var(--border);
+      transition: background-color 120ms ease, box-shadow 120ms ease;
+    }
     .ss-item:first-child { border-top: 0; }
-    .ss-item.active, .ss-item:hover { background: var(--surface2); }
+    .ss-item:hover { background: var(--surface2); }
+    .ss-item.active { background: var(--surface2); box-shadow: inset 3px 0 0 var(--accent); }
     .ss-name { display: block; font-weight: 600; }
     .ss-meta { font-size: 12px; color: var(--text-dim); font-family: var(--font-mono); }
     .ss-empty { padding: 10px 11px; color: var(--text-dim); }
@@ -600,7 +713,16 @@
       font-weight: 600;
       display: inline-flex; align-items: center; gap: 6px;
       max-width: 100%;
+      transition: background-color var(--t-fast) ease, border-color var(--t-fast) ease, color var(--t-fast) ease,
+                  transform var(--t-fast) var(--ease-out);
     }
+    @media (hover: hover) {
+      .chip:hover { border-color: var(--text-muted); transform: translateY(-1px); }
+      .chip[aria-pressed="true"]:hover { border-color: var(--accent); }
+    }
+    .chip:active { transform: scale(0.96); }
+    .chip.pop { animation: chip-pop 320ms var(--ease-spring); }
+    @keyframes chip-pop { 0% { transform: scale(0.9); } 60% { transform: scale(1.05); } 100% { transform: none; } }
     .chip span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .chip .chip-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; background: var(--c, var(--surface3)); }
     .chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--bg); }
@@ -618,7 +740,12 @@
       font-size: 14px;
       font-weight: 600;
       max-width: calc(100% - 32px);
+      opacity: 0;
+      visibility: hidden;
+      transform: translate(-50%, 12px) scale(0.97);
+      transition: opacity var(--t-med) ease, transform var(--t-med) var(--ease-out), visibility 0s linear var(--t-med);
     }
+    .toast.show { opacity: 1; visibility: visible; transform: translate(-50%, 0); transition-delay: 0s; }
 
     @media (max-width: 600px) {
       .setup-sheet { border-left: 0; }
@@ -626,7 +753,14 @@
       .hero .cd b { font-size: 4rem; }
     }
     @media (prefers-reduced-motion: reduce) {
-      .live-dot.ok, .vi-ico, .map-veh::after { animation: none; }
+      .live-dot.ok, .vi-ico, .map-veh::after, .ss-near.busy svg { animation: none; }
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-delay: 0s !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        transition-delay: 0s !important;
+      }
     }
   </style>
 </head>
@@ -639,10 +773,13 @@
     <div class="top-clock" id="clock" aria-live="off"></div>
     <div class="top-actions">
       <button class="icon-btn" id="fsBtn" type="button" title="Full screen" aria-label="Full screen" hidden>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+        <svg class="fs-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <g class="fs-enter"><path class="c-tl" d="M8 3H5a2 2 0 0 0-2 2v3"/><path class="c-tr" d="M21 8V5a2 2 0 0 0-2-2h-3"/><path class="c-bl" d="M3 16v3a2 2 0 0 0 2 2h3"/><path class="c-br" d="M16 21h3a2 2 0 0 0 2-2v-3"/></g>
+          <g class="fs-exit"><path class="c-tl" d="M8 3v3a2 2 0 0 1-2 2H3"/><path class="c-tr" d="M21 8h-3a2 2 0 0 1-2-2V3"/><path class="c-bl" d="M3 16h3a2 2 0 0 1 2 2v3"/><path class="c-br" d="M16 21v-3a2 2 0 0 1 2-2h3"/></g>
+        </svg>
       </button>
       <button class="icon-btn" id="editBtn" type="button" title="Edit board" aria-label="Edit board">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        <svg class="ico-gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
       </button>
     </div>
   </header>
@@ -654,14 +791,14 @@
       <div class="setup-head">
         <h2 id="setupTitle">Board setup</h2>
         <button class="icon-btn" id="setupClose" type="button" aria-label="Close">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          <svg class="ico-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
         </button>
       </div>
       <div class="setup-body">
         <section class="sg">
           <h3>Stops</h3>
           <div id="cardEditors"></div>
-          <button class="btn" id="addCard" type="button">+ Add a stop</button>
+          <button class="btn" id="addCard" type="button"><svg class="ico-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Add a stop</button>
         </section>
         <section class="sg">
           <h3>Show</h3>
@@ -685,14 +822,14 @@
       <div class="setup-foot">
         <a href="/">Main map</a>
         <span class="grow"></span>
-        <button class="btn" id="copyLink" type="button">Copy link</button>
+        <button class="btn" id="copyLink" type="button"><svg class="ico-link" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>Copy link</button>
         <button class="btn" id="setupCancel" type="button">Cancel</button>
         <button class="btn btn-primary" id="setupSave" type="button">Save</button>
       </div>
     </div>
   </div>
 
-  <div class="toast" id="toast" role="status" hidden></div>
+  <div class="toast" id="toast" role="status"></div>
 
   <script>
     // ===== Helpers (copies of depboard.html / index.html ones) =====
@@ -905,6 +1042,7 @@
 
     // ===== Appearance =====
     const lightMql = window.matchMedia('(prefers-color-scheme: light)');
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 
     function applyAppearance(c) {
       const root = document.documentElement;
@@ -1220,7 +1358,7 @@
     function rowHTML(d, j, card) {
       const meta = metaHTML(d, j, card);
       const cls = d.rt.cancelled || d.rt.skipped ? ' is-cancelled' : '';
-      return `<div class="dep${cls}">${pillHTML(d)}<div class="dep-main">`
+      return `<div class="dep${cls}" data-k="r:${escapeHtml(d.trip_id)}">${pillHTML(d)}<div class="dep-main">`
         + (cfg.show.headsign ? `<div class="dep-head">${escapeHtml(d.trip_headsign || '')}</div>` : '')
         + (meta ? `<div class="dep-meta">${meta}</div>` : '')
         + `</div><div class="dep-when">${whenHTML(d)}</div></div>`;
@@ -1230,7 +1368,7 @@
       const [d, ...rest] = deps;
       const meta = metaHTML(d, 0, card);
       const cls = d.rt.cancelled || d.rt.skipped ? ' is-cancelled' : '';
-      let html = `<div class="hero${cls}"><div class="hero-top">${pillHTML(d)}`
+      let html = `<div class="hero${cls}" data-k="h:${escapeHtml(d.trip_id)}"><div class="hero-top">${pillHTML(d)}`
         + (cfg.show.headsign ? `<div class="hero-head">${escapeHtml(d.trip_headsign || '')}</div>` : '')
         + `</div><div class="hero-when">${whenHTML(d)}</div>`
         + (meta ? `<div class="dep-meta">${meta}</div>` : '') + '</div>';
@@ -1238,7 +1376,7 @@
         html += '<div class="then"><span class="then-label">Then</span>' + rest.map(r => {
           const rcls = r.rt.cancelled || r.rt.skipped ? ' is-cancelled' : '';
           const late = cfg.show.delay && r.rt.live && (r.rt.cancelled || Math.abs(r.rt.delay || 0) >= 60) ? delayBadge(r.rt) : '';
-          return `<div class="then-item${rcls}">${pillHTML(r, true)}<span class="cd" data-eff="${r.eff}">${cdHTML(r.eff)}</span>${late}</div>`;
+          return `<div class="then-item${rcls}" data-k="t:${escapeHtml(r.trip_id)}">${pillHTML(r, true)}<span class="cd" data-eff="${r.eff}">${cdHTML(r.eff)}</span>${late}</div>`;
         }).join('') + '</div>';
       }
       return html;
@@ -1282,12 +1420,34 @@
           : `<div class="card-msg">No more departures today${card.r.length || card.h.length ? ' for what you picked' : ''}.</div>`;
       }
       else html = cfg.layout === 'hero' ? heroHTML(deps, card) : deps.map((d, j) => rowHTML(d, j, card)).join('');
-      el.querySelector('.card-rows').innerHTML = html;
+      const rowsEl = el.querySelector('.card-rows');
+      const before = new Map();
+      rowsEl.querySelectorAll('[data-k]').forEach(r => before.set(r.dataset.k, r.getBoundingClientRect().top));
+      rowsEl.innerHTML = html;
 
       const alertsEl = el.querySelector('.card-alerts');
       const openHeads = new Set([...alertsEl.querySelectorAll('details[open] summary')].map(s => s.textContent));
       alertsEl.innerHTML = alertsHTML(cardAlerts(card, deps));
       alertsEl.querySelectorAll('details').forEach(dt => { if (openHeads.has(dt.querySelector('summary').textContent)) dt.open = true; });
+      animateRows(rowsEl, before);
+    }
+
+    // After a re-render, departures still on the card glide from where they were
+    // (FLIP; e.g. the others move up when a bus leaves), and new ones fade up.
+    // `before` maps data-k -> viewport top before the re-render.
+    function animateRows(box, before) {
+      if (reduceMotion.matches || document.hidden) return;
+      let n = 0;
+      box.querySelectorAll('[data-k]').forEach(r => {
+        const top = before.get(r.dataset.k);
+        if (top == null) {
+          r.classList.add('enter');
+          r.style.animationDelay = `${n++ * 50}ms`;
+          return;
+        }
+        const dy = top - r.getBoundingClientRect().top;
+        if (Math.abs(dy) > 1) r.animate([{ transform: `translateY(${dy}px)` }, { transform: 'none' }], { duration: 450, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' });
+      });
     }
 
     function updateHeader() {
@@ -1320,7 +1480,8 @@
         const eff = Number(el.dataset.eff);
         if (eff < now - 30) expired = true;
         const h = cdHTML(eff);
-        if (el._h !== h) { el.innerHTML = h; el._h = h; }
+        if (el._h === undefined) el._h = el.innerHTML;
+        if (el._h !== h) { el.innerHTML = h; el._h = h; el.classList.add('tick'); }
       });
       const nowS = Date.now() / 1000;
       document.querySelectorAll('[data-ts]').forEach(el => {
@@ -1355,6 +1516,7 @@
         const el = document.createElement('section');
         el.className = 'card';
         el.dataset.ci = i;
+        el.style.setProperty('--i', i);
         el.innerHTML = '<header><div class="card-title"></div><div class="card-sub"></div></header><div class="card-alerts"></div><div class="card-rows"></div>'
           + (card.m ? '<div class="card-map"></div>' : '');
         root.appendChild(el);
@@ -1408,6 +1570,22 @@
       });
     }
 
+    // Ease a bus marker to its new position instead of jumping. Interpolates the
+    // lat/lng (not the pixel transform), so it stays right through zooms.
+    function glideMarker(mk, to) {
+      cancelAnimationFrame(mk._glideRaf);
+      const from = mk.getLatLng();
+      if (reduceMotion.matches || document.hidden || (from.lat === to[0] && from.lng === to[1])) { mk.setLatLng(to); return; }
+      const t0 = performance.now();
+      const step = now => {
+        const k = Math.min(1, (now - t0) / 1200);
+        const e = 1 - Math.pow(1 - k, 3);
+        mk.setLatLng([from.lat + (to[0] - from.lat) * e, from.lng + (to[1] - from.lng) * e]);
+        if (k < 1) mk._glideRaf = requestAnimationFrame(step);
+      };
+      mk._glideRaf = requestAnimationFrame(step);
+    }
+
     function updateMaps() {
       if (!window.L) return;
       maps.forEach((m, ci) => {
@@ -1437,7 +1615,7 @@
             mk = L.marker(ll, { icon: L.divIcon({ className: '', html, iconSize: [0, 0] }), zIndexOffset: 1000, keyboard: false }).addTo(m.map);
             m.veh.set(d.trip_id, mk);
           } else {
-            mk.setLatLng(ll);
+            glideMarker(mk, ll);
           }
           if (!lineTrip) { lineTrip = d.trip_id; lineColor = hex; }
         });
@@ -1518,7 +1696,11 @@
       };
     }
 
+    let setupHideTimer = null;
+
     function openSetup() {
+      clearTimeout(setupHideTimer);
+      $('#setup').classList.remove('closing');
       draft = normalizeConfig(JSON.parse(JSON.stringify(cfg)));
       draft.cards = cfg.cards.map(c => ({ ...c, r: [...c.r], h: [...c.h] }));
       if (!draft.cards.length) draft.cards.push(blankCard());
@@ -1539,9 +1721,14 @@
     }
 
     function closeSetup() {
-      $('#setup').hidden = true;
+      const el = $('#setup');
+      if (el.hidden || el.classList.contains('closing')) return;
       draft = null;
       applyAppearance(cfg);
+      if (reduceMotion.matches) { el.hidden = true; return; }
+      // Let the slide-out play (.setup.closing), then really hide it.
+      el.classList.add('closing');
+      setupHideTimer = setTimeout(() => { el.hidden = true; el.classList.remove('closing'); }, 220);
     }
 
     function readStaticFields() {
@@ -1582,9 +1769,9 @@
     function toast(msg) {
       const t = $('#toast');
       t.textContent = msg;
-      t.hidden = false;
+      t.classList.add('show');
       clearTimeout(toastTimer);
-      toastTimer = setTimeout(() => { t.hidden = true; }, 2600);
+      toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
     }
 
     // ----- Card editors -----
@@ -1599,14 +1786,14 @@
             <span class="ce-num">${i + 1}</span>
             <div class="ce-stop">${k.s ? `<b>${escapeHtml(k.n || `Stop ${k.s}`)}</b><small>#${escapeHtml(k.c || k.s)}</small>` : '<i>No stop chosen yet</i>'}</div>
             <div class="ce-tools">
-              <button type="button" class="icon-btn" data-act="up" aria-label="Move up"${i === 0 ? ' disabled' : ''}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m18 15-6-6-6 6"/></svg></button>
-              <button type="button" class="icon-btn" data-act="down" aria-label="Move down"${i === draft.cards.length - 1 ? ' disabled' : ''}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
-              <button type="button" class="icon-btn" data-act="remove" aria-label="Remove stop"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+              <button type="button" class="icon-btn" data-act="up" aria-label="Move up"${i === 0 ? ' disabled' : ''}><svg class="ico-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m18 15-6-6-6 6"/></svg></button>
+              <button type="button" class="icon-btn" data-act="down" aria-label="Move down"${i === draft.cards.length - 1 ? ' disabled' : ''}><svg class="ico-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+              <button type="button" class="icon-btn" data-act="remove" aria-label="Remove stop"><svg class="ico-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
             </div>
           </div>
           <div class="ss-wrap">
             <input class="text-input ss-input" type="search" placeholder="${k.s ? 'Change stop…' : 'Search stop name, ID or code'}" autocomplete="off" autocapitalize="off" spellcheck="false" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="ss-results-${i}" aria-label="Search for a stop" />
-            <button type="button" class="btn btn-sm ss-near">Near me</button>
+            <button type="button" class="btn btn-sm ss-near"><svg class="ico-near" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11 22 2l-9 19-2-8-8-2z"/></svg>Near me</button>
             <div class="ss-results" id="ss-results-${i}" role="listbox" hidden></div>
           </div>
           ${k.s ? `
@@ -1659,6 +1846,7 @@
         const v = b.dataset.v;
         k.r = k.r.includes(v) ? k.r.filter(x => x !== v) : [...k.r, v];
         renderChips(ed, k);
+        popChip(rEl, v);
       };
 
       const heads = new Map(); // headsign -> trip count
@@ -1678,7 +1866,14 @@
         const v = b.dataset.v;
         k.h = k.h.includes(v) ? k.h.filter(x => x !== v) : [...k.h, v];
         renderChips(ed, k);
+        popChip(hEl, v);
       };
+    }
+
+    // Chips are re-rendered on every toggle, so give the one just tapped a pop.
+    function popChip(box, v) {
+      const c = [...box.querySelectorAll('.chip')].find(x => x.dataset.v === v);
+      if (c) c.classList.add('pop');
     }
 
     function wireStopSearch(ed, i) {
@@ -1731,18 +1926,22 @@
       box.addEventListener('mousedown', e => e.preventDefault());
       box.addEventListener('click', e => { const it = e.target.closest('.ss-item'); if (it) pick(items[Number(it.dataset.j)]); });
 
-      ed.querySelector('.ss-near').addEventListener('click', () => {
+      const nearBtn = ed.querySelector('.ss-near');
+      nearBtn.addEventListener('click', () => {
         if (!navigator.geolocation) { show([], 'Location isn’t available in this browser'); return; }
         const my = ++seq;
         show([], 'Finding stops near you…');
+        nearBtn.classList.add('busy');
+        const done = () => nearBtn.classList.remove('busy');
         navigator.geolocation.getCurrentPosition(async pos => {
           try {
             const d = await getJSON(`/api/nearest/${pos.coords.latitude}/${pos.coords.longitude}?limit=8`);
+            done();
             if (my !== seq) return;
             show((d.nearest_stops || []).map(s => ({ stop_id: s.stop_id, stop_name: s.stop_name, stop_code: s.stop_code, dist: s.distanceKM })));
             input.focus();
-          } catch (e) { if (my === seq) show([], 'Couldn’t load nearby stops'); }
-        }, () => { if (my === seq) show([], 'Location permission denied or unavailable'); }, { enableHighAccuracy: true, timeout: 10000 });
+          } catch (e) { done(); if (my === seq) show([], 'Couldn’t load nearby stops'); }
+        }, () => { done(); if (my === seq) show([], 'Location permission denied or unavailable'); }, { enableHighAccuracy: true, timeout: 10000 });
       });
     }
 
@@ -1755,6 +1954,8 @@
       $('#addCard').addEventListener('click', () => {
         draft.cards.push(blankCard());
         renderCardEditors();
+        const eds = document.querySelectorAll('.ce');
+        eds[eds.length - 1]?.classList.add('enter');
         const inputs = document.querySelectorAll('.ce .ss-input');
         inputs[inputs.length - 1]?.focus();
       });
@@ -1779,7 +1980,20 @@
         if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
         else document.documentElement.requestFullscreen().catch(() => {});
       });
+      // .is-fs morphs the icon to "exit full screen" (Esc exits too, so track the event).
+      document.addEventListener('fullscreenchange', () => {
+        const on = !!document.fullscreenElement;
+        document.body.classList.toggle('is-fs', on);
+        btn.title = on ? 'Exit full screen' : 'Full screen';
+        btn.setAttribute('aria-label', btn.title);
+      });
     })();
+
+    // Alert bodies slide open only when someone taps them (see .alert.anim).
+    $('#cards').addEventListener('click', e => {
+      const s = e.target.closest('.alert summary');
+      if (s) s.parentElement.classList.add('anim');
+    });
 
     // Kiosks with a mouse: hide the cursor and buttons after a few idle seconds.
     (function initIdle() {
