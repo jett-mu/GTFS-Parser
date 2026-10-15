@@ -916,6 +916,8 @@
     .rb-row .dep-badge-slot { font-size: 11px; min-height: 14px; flex: 0 0 100%; }
     .rb-row .dep-badge-slot:empty { visibility: hidden; }
     .rb-row .rt-delay-badge { background: none; padding: 0; border-radius: 0; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+    /* Grouped rows' pick-up/drop-off note: its own line under the RT status, so neither gets truncated. */
+    .rb-row .dep-pd-slot { flex: 0 0 100%; min-width: 0; min-height: 14px; line-height: 14px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
     .rb-row .rt-live-only { display: none; }
 
     /* Desktop: rows are transparent (display: contents) so every stop name sits in a header row
@@ -929,9 +931,11 @@
       .rb-row ~ .rb-row .rb-leave-wrap { border-left: 1px solid var(--border); padding-left: var(--space-3); }
       .rb-row-missed > * { opacity: 0.45; }
       .rb-row.rb-enter > * { animation: rb-fade-in 0.45s ease backwards; }
+      /* Pick-up/drop-off notes always sit on their own line under the time, never in the stop header.
+         Bottom-aligned columns: if any column in the card has a note, every column reserves the line so times stay level. */
       .rb-row .dep-pd-slot { display: none; }
-      .rb-row.rb-grouped .dep-pd-slot { display: inline; }
-      .rb-row.rb-grouped .rb-stop .dep-pd-note { display: none; }
+      .rb-deps.rb-has-pd .rb-row .dep-pd-slot { display: block; }
+      .rb-row .rb-stop .dep-pd-note { display: none; }
     }
 
     @media (max-width: 640px) {
@@ -1478,7 +1482,8 @@
           <div class="rb-leave-wrap">
             <div class="rb-leave"></div>
             <div class="rb-sched"><span class="dep-time-sched">${fmtClockShort(parseTime(dep.arrival_time))}</span><span class="dep-time-actual"></span></div>
-            <div class="dep-badge-slot"><span class="dep-pd-slot">${pickupDropoffNote(dep)}</span></div>
+            <div class="dep-badge-slot"></div>
+            <div class="dep-pd-slot">${pickupDropoffNote(dep)}</div>
           </div>
         </div>
       `;
@@ -1777,6 +1782,7 @@
           }
           i = j;
         }
+        box.classList.toggle('rb-has-pd', rows.some(r => r.querySelector('.dep-pd-slot .dep-pd-note')));
       });
     }
 
