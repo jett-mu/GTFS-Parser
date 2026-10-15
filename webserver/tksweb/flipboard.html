@@ -760,7 +760,7 @@
         c.next = c.queue.shift();
         c.phase = 1;
         c.t0 = t;
-        flapClick();
+        soundTick(c);
       }
       let el = t - c.t0;
       while (el >= FLAP_HALF_MS) {
@@ -768,10 +768,10 @@
         c.t0 += FLAP_HALF_MS;
         if (c.phase === 1) { c.phase = 2; continue; }
         c.cur = c.next;
-        if (!c.queue.length) { c.phase = 0; return false; }
+        if (!c.queue.length) { c.phase = 0; soundLand(c); return false; }
         c.next = c.queue.shift();
         c.phase = 1;
-        flapClick();
+        soundTick(c);
       }
       c.p = el / FLAP_HALF_MS;
       return true;
@@ -779,16 +779,18 @@
 
     function stepFlaps(t) {
       flapRaf = 0;
-      let busy = false;
+      let busy = false, swinging = 0;
+      sndLive = soundReady();
       for (const s of flapSurfaces) {
         for (const c of s.active) {
           if (t < c.startAt) { busy = true; continue; }
-          if (advanceFlap(c, t)) busy = true; else s.active.delete(c);
+          if (advanceFlap(c, t)) { busy = true; swinging++; } else s.active.delete(c);
           s.dirty.add(c);
         }
         for (const c of s.dirty) s.draw(c);
         s.dirty.clear();
       }
+      if (sndLive) flushSound(swinging); else silenceWhirr();
       if (busy) kickFlaps();
     }
 
@@ -847,40 +849,171 @@
       if (any) kickFlaps();
     }, BLINK_MS);
 
-    // ===== FLAP SOUND (opt-in, synthesised: a few ms of band-passed noise per flap) =====
+    // ===== FLAP SOUND (opt-in, fully synthesised — no audio files) =====
+    // Two voices, like the real mechanism: a light "tick" each time a card
+    // flicks past the stop, and a heavier "clack" when a flap lands on its final
+    // character, so a sweep ends in a trail of landings rippling across the
+    // board. The engine counts ticks/landings per frame into left-to-right pan
+    // buckets and plays a few voices per bucket, louder the more flaps are in it.
+    // So the sound follows the wave across the speakers and swells with the
+    // number of flaps moving, without one audio node per flap. Under it, a
+    // low "drum whirr" fades in and out with how much of the board is moving.
+    // Everything goes through a short hall reverb and a compressor so a full-board
+    // sweep is big but never clips.
     const SOUND_KEY = 'gtfs-flip-sound';
+    const SND_BUCKETS = 5;
+    const CLACK_BODY = 0.01; // low pitched "boop" in the landing clack, vs the noise slap at 0.9
+    const WHIRR_MAX = 0.006; // the rumble is continuous, so it reads far louder than the clicks at the same gain
     let soundOn = lsGet(SOUND_KEY, false) === true;
-    let audioCtx = null, noiseBuf = null, lastClickAt = 0;
+    let audioCtx = null, snd = null, sndLive = false, whirrUp = false;
+    const sndTicks = new Float32Array(SND_BUCKETS), sndLands = new Float32Array(SND_BUCKETS);
+
+    // Peak-normalised mono buffer filled by fn(data, sampleRate).
+    function makeSndBuffer(ctx, secs, fn) {
+      const len = Math.ceil(ctx.sampleRate * secs);
+      const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+      const d = buf.getChannelData(0);
+      fn(d, ctx.sampleRate);
+      let peak = 0;
+      for (let i = 0; i < len; i++) peak = Math.max(peak, Math.abs(d[i]));
+      if (peak) for (let i = 0; i < len; i++) d[i] *= 0.9 / peak;
+      return buf;
+    }
+    const onePole = (fc, sr) => 1 - Math.exp(-2 * Math.PI * fc / sr);
+
+    function buildSound(ctx) {
+      // tick: band-limited noise snap plus a tiny plastic ping — the card flicking past
+      const ticks = [0, 1, 2, 3, 4, 5].map(v => makeSndBuffer(ctx, 0.014, (d, sr) => {
+        const aHi = onePole(6500, sr), aLo = onePole(1100 + v * 120, sr), f = 2600 + v * 330;
+        let hi = 0, lo = 0;
+        for (let i = 0; i < d.length; i++) {
+          const n = Math.random() * 2 - 1, t = i / sr;
+          hi += aHi * (n - hi);
+          lo += aLo * (n - lo);
+          d[i] = (hi - lo) * Math.exp(-t / 0.0022) + 0.3 * Math.sin(2 * Math.PI * f * t) * Math.exp(-t / 0.0014);
+        }
+      }));
+      // clack: a woody body thump with a falling pitch plus a lower noise slap — the flap landing
+      const clacks = [0, 1, 2, 3].map(v => makeSndBuffer(ctx, 0.06, (d, sr) => {
+        const aHi = onePole(3200, sr), aLo = onePole(450, sr), f0 = 160 + v * 28;
+        let hi = 0, lo = 0, ph = 0;
+        for (let i = 0; i < d.length; i++) {
+          const n = Math.random() * 2 - 1, t = i / sr;
+          hi += aHi * (n - hi);
+          lo += aLo * (n - lo);
+          ph += 2 * Math.PI * f0 * (1 + 0.7 * Math.exp(-t / 0.005)) / sr;
+          d[i] = CLACK_BODY * Math.sin(ph) * Math.exp(-t / 0.014) + 0.9 * (hi - lo) * Math.exp(-t / 0.0045);
+        }
+      }));
+      // whirr: looping low rumble with a mechanical flutter
+      const whirrBuf = makeSndBuffer(ctx, 2, (d, sr) => {
+        const a = onePole(650, sr);
+        let lo = 0;
+        for (let i = 0; i < d.length; i++) {
+          lo += a * ((Math.random() * 2 - 1) - lo);
+          d[i] = lo * (0.65 + 0.35 * Math.sin(2 * Math.PI * 23 * i / sr));
+        }
+      });
+      // hall: a stereo impulse response of decaying noise (0.7 s)
+      const irLen = Math.ceil(ctx.sampleRate * 0.7);
+      const ir = ctx.createBuffer(2, irLen, ctx.sampleRate);
+      for (let ch = 0; ch < 2; ch++) {
+        const d = ir.getChannelData(ch);
+        for (let i = 0; i < irLen; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / irLen, 3);
+      }
+
+      const comp = ctx.createDynamicsCompressor();
+      comp.threshold.value = -20;
+      comp.knee.value = 12;
+      comp.ratio.value = 4;
+      comp.attack.value = 0.003;
+      comp.release.value = 0.15;
+      const master = ctx.createGain();
+      master.gain.value = 0.9;
+      comp.connect(master).connect(ctx.destination);
+      const bus = ctx.createGain();
+      bus.connect(comp);
+      const verb = ctx.createConvolver();
+      verb.buffer = ir;
+      const wet = ctx.createGain();
+      wet.gain.value = 0.22;
+      bus.connect(verb).connect(wet).connect(comp);
+
+      const whirr = ctx.createGain();
+      whirr.gain.value = 0;
+      const whirrSrc = ctx.createBufferSource();
+      whirrSrc.buffer = whirrBuf;
+      whirrSrc.loop = true;
+      whirrSrc.connect(whirr).connect(bus);
+      whirrSrc.start();
+      return { ticks, clacks, bus, whirr };
+    }
+
+    // Resolves once audio can actually play (browsers need a gesture first).
     function ensureAudio() {
       if (!audioCtx) {
         const AC = window.AudioContext || window.webkitAudioContext;
-        if (!AC) return;
+        if (!AC) return Promise.resolve(false);
         audioCtx = new AC();
-        const len = Math.floor(audioCtx.sampleRate * 0.012);
-        noiseBuf = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
-        const d = noiseBuf.getChannelData(0);
-        for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 4);
+        snd = buildSound(audioCtx);
       }
-      if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+      return (audioCtx.state === 'suspended' ? audioCtx.resume() : Promise.resolve())
+        .then(() => audioCtx.state === 'running', () => false);
     }
-    function flapClick() {
-      if (!soundOn || !audioCtx || audioCtx.state !== 'running' || document.hidden) return;
-      const now = performance.now();
-      if (now - lastClickAt < 10) return; // thousands of flaps would otherwise clip
-      lastClickAt = now;
-      const src = audioCtx.createBufferSource();
-      src.buffer = noiseBuf;
-      src.playbackRate.value = 0.8 + Math.random() * 0.5;
-      const bp = audioCtx.createBiquadFilter();
-      bp.type = 'bandpass';
-      bp.frequency.value = 1800 + Math.random() * 1600;
-      bp.Q.value = 1.2;
-      const g = audioCtx.createGain();
-      g.gain.value = 0.10 + Math.random() * 0.08;
-      src.connect(bp).connect(g).connect(audioCtx.destination);
-      src.start();
+
+    function soundReady() {
+      return soundOn && !!audioCtx && audioCtx.state === 'running' && !document.hidden;
     }
-    // Browsers only allow audio after a gesture, so a saved "on" wakes up on the first tap/key.
+
+    // Called by the flip engine; just counts, flushSound() turns counts into voices once per frame.
+    function soundTick(c) { if (sndLive) sndTicks[Math.min(SND_BUCKETS - 1, (c.x / c.s.canvas.width * SND_BUCKETS) | 0)]++; }
+    function soundLand(c) { if (sndLive) sndLands[Math.min(SND_BUCKETS - 1, (c.x / c.s.canvas.width * SND_BUCKETS) | 0)]++; }
+
+    function playVoice(bufs, when, pan, gain, rate) {
+      const ctx = audioCtx;
+      const src = ctx.createBufferSource();
+      src.buffer = bufs[(Math.random() * bufs.length) | 0];
+      src.playbackRate.value = rate;
+      const g = ctx.createGain();
+      g.gain.value = gain;
+      src.connect(g);
+      if (ctx.createStereoPanner) {
+        const p = ctx.createStereoPanner();
+        p.pan.value = Math.max(-1, Math.min(1, pan + (Math.random() - 0.5) * 0.2));
+        g.connect(p).connect(snd.bus);
+      } else {
+        g.connect(snd.bus);
+      }
+      src.start(when);
+    }
+
+    function flushSound(swinging) {
+      const ctx = audioCtx, t = ctx.currentTime + 0.01;
+      for (let b = 0; b < SND_BUCKETS; b++) {
+        const pan = ((b + 0.5) / SND_BUCKETS) * 1.6 - 0.8;
+        const n = sndTicks[b], m = sndLands[b];
+        if (n) {
+          // a crowd of ticks: a couple of voices spread across the frame, louder with the crowd
+          const voices = n > 8 ? 2 : 1, gain = 0.14 * Math.min(2.5, Math.sqrt(n)) / voices;
+          for (let v = 0; v < voices; v++) playVoice(snd.ticks, t + Math.random() * 0.016, pan, gain, 0.85 + Math.random() * 0.35);
+          sndTicks[b] = 0;
+        }
+        if (m) {
+          playVoice(snd.clacks, t + Math.random() * 0.012, pan, 0.32 * Math.min(2, Math.sqrt(m)), 0.9 + Math.random() * 0.2);
+          sndLands[b] = 0;
+        }
+      }
+      snd.whirr.gain.setTargetAtTime(Math.min(WHIRR_MAX, 0.0005 * Math.sqrt(swinging)), ctx.currentTime, 0.08);
+      whirrUp = swinging > 0;
+    }
+
+    function silenceWhirr() {
+      if (snd && whirrUp) { snd.whirr.gain.setTargetAtTime(0, audioCtx.currentTime, 0.05); whirrUp = false; }
+      sndTicks.fill(0);
+      sndLands.fill(0);
+    }
+    document.addEventListener('visibilitychange', () => { if (document.hidden) silenceWhirr(); });
+    // A saved "on" can only start after a gesture, so wake it on the first tap/key.
     ['pointerdown', 'keydown'].forEach(ev => document.addEventListener(ev, () => { if (soundOn) ensureAudio(); }, { capture: true }));
 
     // ===== BOARD LAYOUT =====
@@ -1114,13 +1247,13 @@
       }
       return msgs;
     }
-    function renderFooter(advance) {
+    function renderFooter(advance, force) {
       if (!fbFootCells.length || STRESS) return;
       const msgs = footerMessages();
       if (advance) footerIdx = (footerIdx + 1) % msgs.length;
       const text = fitText(msgs[footerIdx % msgs.length], fbFootCells.length, 'center');
       const t0 = performance.now();
-      fbFootCells.forEach((c, i) => setFlapTarget(c, text[i], t0 + i * 25, false));
+      fbFootCells.forEach((c, i) => setFlapTarget(c, text[i], t0 + i * 25, force));
     }
 
     // ===== CLOCK (flaps) =====
@@ -1507,7 +1640,8 @@
       cb.addEventListener('change', () => {
         soundOn = cb.checked;
         lsSet(SOUND_KEY, soundOn);
-        if (soundOn) ensureAudio();
+        // Turning it on sweeps the footer strip so there's something to hear straight away.
+        if (soundOn) ensureAudio().then(ok => { if (ok && soundOn) renderFooter(false, true); });
       });
     })();
 
