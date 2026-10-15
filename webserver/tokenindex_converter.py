@@ -11,7 +11,7 @@ import re
 BASE = os.path.dirname(os.path.abspath(__file__))
 INPUT_DIR  = os.path.join(BASE, 'web')
 OUTPUT_DIR = os.path.join(BASE, 'tksweb')
-PAGES = ['index.html', 'depboard.html', 'rteboard.html', 'flipboard.html']
+PAGES = ['index.html', 'depboard.html', 'rteboard.html', 'flipboard.html', 'at-a-glance.html']
 
 # Injected just before todayStr()
 TOKEN_JS = """    const token = new URLSearchParams(window.location.search).get('token');

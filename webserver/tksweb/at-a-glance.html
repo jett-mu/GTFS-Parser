@@ -1,0 +1,1846 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>At a Glance</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Glance" />
+  <meta name="theme-color" content="#15140f" id="themeColorMeta" />
+  <script>
+    // Apply the board's theme before first paint. The board config lives in the URL
+    // hash (#cfg=base64url JSON) with a newer local copy winning; see loadConfig().
+    (function () {
+      try {
+        var c = null, m = /[#&]cfg=([^&]+)/.exec(location.hash);
+        if (m) {
+          var s = m[1].replace(/-/g, '+').replace(/_/g, '/');
+          while (s.length % 4) s += '=';
+          c = JSON.parse(decodeURIComponent(escape(atob(s))));
+        }
+        if (c && c.id) {
+          var local = JSON.parse(localStorage.getItem('gtfs-glance:' + c.id) || 'null');
+          if (local && (local.t || 0) > (c.t || 0)) c = local;
+        }
+        if (!c && !/[#&]new\b/.test(location.hash)) c = JSON.parse(localStorage.getItem('gtfs-glance-last') || 'null');
+        var theme = (c && c.theme) || 'auto';
+        if (theme === 'auto') theme = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', theme);
+        document.documentElement.setAttribute('data-size', (c && c.size) || 'm');
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      }
+    })();
+  </script>
+  <link rel="stylesheet" href="/vendor/fonts/fonts.css">
+  <style>
+    :root {
+      --font-display: 'Oswald', sans-serif;
+      --font-body: 'Inter', sans-serif;
+      --font-mono: 'IBM Plex Mono', monospace;
+      --font-board: 'Saira', sans-serif;
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --safe-left: env(safe-area-inset-left, 0px);
+      --safe-right: env(safe-area-inset-right, 0px);
+      --gutter-l: max(16px, var(--safe-left));
+      --gutter-r: max(16px, var(--safe-right));
+    }
+
+    /* ===== Ink (dark, default) — same palette as the other boards ===== */
+    :root, :root[data-theme="dark"] {
+      --bg: #15140f;
+      --surface: #1d1c15;
+      --surface2: #24231a;
+      --surface3: #2d2b1f;
+      --border: rgba(250,250,247,0.14);
+      --border2: rgba(250,250,247,0.28);
+      --text: #FAFAF7;
+      --text-muted: rgba(250,250,247,0.72);
+      --text-dim: rgba(250,250,247,0.50);
+      --accent: #6FA0E8;
+      --accent-rgb: 111,160,232;
+      --positive: #4FA876;
+      --positive-rgb: 79,168,118;
+      --negative: #E8674B;
+      --negative-rgb: 232,103,75;
+      --warn-rgb: 240,165,50;
+      --ontime-rgb: 74,184,170;
+      --overlay: rgba(0,0,0,0.55);
+      --shadow: 4px 4px 0 rgba(0,0,0,0.4);
+      color-scheme: dark;
+    }
+
+    /* ===== Paper (light) ===== */
+    :root[data-theme="light"] {
+      --bg: #FAFAF7;
+      --surface: #ffffff;
+      --surface2: #f4f1ea;
+      --surface3: #eae5d9;
+      --border: rgba(26,26,26,0.15);
+      --border2: rgba(26,26,26,0.32);
+      --text: #1A1A1A;
+      --text-muted: rgba(26,26,26,0.68);
+      --text-dim: rgba(26,26,26,0.50);
+      --accent: #2B5FAD;
+      --accent-rgb: 43,95,173;
+      --positive: #2F7B4F;
+      --positive-rgb: 47,123,79;
+      --negative: #C23B24;
+      --negative-rgb: 194,59,36;
+      --warn-rgb: 176,108,0;
+      --ontime-rgb: 20,133,120;
+      --overlay: rgba(26,26,26,0.35);
+      --shadow: 4px 4px 0 rgba(26,26,26,0.10);
+      color-scheme: light;
+    }
+
+    /* ===== Midnight — true black for OLED phones and always-on screens ===== */
+    :root[data-theme="midnight"] {
+      --bg: #000000;
+      --surface: #0b0b0b;
+      --surface2: #151515;
+      --surface3: #1f1f1f;
+      --border: rgba(255,255,255,0.11);
+      --border2: rgba(255,255,255,0.24);
+      --text: #F2F2F2;
+      --text-muted: rgba(242,242,242,0.68);
+      --text-dim: rgba(242,242,242,0.45);
+      --accent: #7FAEF0;
+      --accent-rgb: 127,174,240;
+      --positive: #55B57F;
+      --positive-rgb: 85,181,127;
+      --negative: #EF6F55;
+      --negative-rgb: 239,111,85;
+      --warn-rgb: 240,170,60;
+      --ontime-rgb: 80,190,176;
+      --overlay: rgba(0,0,0,0.7);
+      --shadow: none;
+      color-scheme: dark;
+    }
+
+    /* ===== Signal — amber LED departure sign ===== */
+    :root[data-theme="signal"] {
+      --bg: #0a0805;
+      --surface: #110d07;
+      --surface2: #1a140b;
+      --surface3: #241c10;
+      --border: rgba(255,181,71,0.16);
+      --border2: rgba(255,181,71,0.32);
+      --text: #FFB547;
+      --text-muted: rgba(255,181,71,0.74);
+      --text-dim: rgba(255,181,71,0.48);
+      --accent: #FFB547;
+      --accent-rgb: 255,181,71;
+      --positive: #9BD86A;
+      --positive-rgb: 155,216,106;
+      --negative: #FF6A4D;
+      --negative-rgb: 255,106,77;
+      --warn-rgb: 255,214,102;
+      --ontime-rgb: 155,216,106;
+      --overlay: rgba(0,0,0,0.7);
+      --shadow: none;
+      color-scheme: dark;
+    }
+
+    /* Board text scales with the chosen size; the setup panel stays in px. */
+    html { font-size: 16px; }
+    html[data-size="l"] { font-size: 20px; }
+    html[data-size="xl"] { font-size: 26px; }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    [hidden] { display: none !important; }
+    html, body { background: var(--bg); color: var(--text); }
+    body {
+      font-family: var(--font-body);
+      min-height: 100vh;
+      min-height: 100dvh;
+      font-variant-emoji: text;
+      -webkit-font-smoothing: antialiased;
+      -webkit-text-size-adjust: 100%;
+      padding-bottom: calc(var(--safe-bottom) + 16px);
+    }
+    button, input, select { font: inherit; color: inherit; }
+    button { cursor: pointer; }
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+    /* ===== Header ===== */
+    .top {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: calc(var(--safe-top) + 0.75rem) var(--gutter-r) 0.75rem var(--gutter-l);
+    }
+    .top-text { min-width: 0; }
+    .top-title {
+      font-family: var(--font-display);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      font-size: 1.35rem;
+      line-height: 1.1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .top-date {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      margin-top: 0.15rem;
+    }
+    .live-dot {
+      width: 0.5rem; height: 0.5rem; border-radius: 50%;
+      background: var(--text-dim);
+      flex-shrink: 0;
+    }
+    .live-dot.ok { background: var(--positive); animation: dot-pulse 2.4s ease-in-out infinite; }
+    .live-dot.stale { background: rgb(var(--warn-rgb)); }
+    .live-dot.err { background: var(--negative); }
+    @keyframes dot-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+    .top-clock {
+      margin-left: auto;
+      font-family: var(--font-board);
+      font-weight: 600;
+      font-size: 1.9rem;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+    .top-clock small { font-size: 0.45em; margin-left: 0.2em; color: var(--text-muted); font-weight: 500; }
+    .top-actions { display: flex; gap: 6px; transition: opacity 0.4s ease; }
+    .icon-btn {
+      width: 40px; height: 40px;
+      display: inline-flex; align-items: center; justify-content: center;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      border-radius: 4px;
+      color: var(--text-muted);
+      flex-shrink: 0;
+    }
+    .icon-btn:hover { color: var(--text); border-color: var(--border2); }
+    .icon-btn svg { width: 20px; height: 20px; }
+    body.idle { cursor: none; }
+    body.idle .top-actions:not(:focus-within) { opacity: 0; }
+
+    /* ===== Cards ===== */
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+      gap: 1rem;
+      padding: 0.25rem var(--gutter-r) 0 var(--gutter-l);
+      align-items: start;
+    }
+    .cards[data-n="1"] { max-width: 48rem; margin: 0 auto; }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1rem 1rem 0.75rem;
+      box-shadow: var(--shadow);
+      min-width: 0;
+    }
+    .card-title {
+      font-family: var(--font-display);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      font-size: 1.15rem;
+      line-height: 1.2;
+    }
+    .card-sub {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-top: 0.2rem;
+      font-family: var(--font-mono);
+    }
+    .card-rows { margin-top: 0.5rem; }
+    .card-msg { color: var(--text-muted); padding: 1rem 0 0.5rem; font-size: 0.95rem; }
+    .card-msg.err { color: var(--negative); }
+
+    .route-pill {
+      font-family: var(--font-board);
+      font-weight: 700;
+      font-size: 1.05rem;
+      line-height: 1;
+      min-width: 3rem;
+      text-align: center;
+      padding: 0.35rem 0.5rem;
+      border-radius: 3px;
+      background: var(--surface3);
+      color: var(--text);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .route-pill.sm { font-size: 0.8rem; min-width: 2.2rem; padding: 0.25rem 0.35rem; }
+
+    .dep {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      gap: 0.75rem;
+      align-items: center;
+      padding: 0.7rem 0;
+      border-top: 1px solid var(--border);
+    }
+    .dep:first-child { border-top: 0; }
+    .dep-head {
+      font-weight: 600;
+      font-size: 1rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .dep-meta {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.3rem 0.5rem;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-top: 0.25rem;
+    }
+    .dep-when { text-align: right; white-space: nowrap; }
+    .cd {
+      font-family: var(--font-board);
+      font-variant-numeric: tabular-nums;
+      line-height: 1;
+      white-space: nowrap;
+    }
+    .cd b { font-size: 2rem; font-weight: 700; }
+    .cd small {
+      font-size: 0.8rem;
+      margin-left: 0.15rem;
+      margin-right: 0.15rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+    }
+    .cd small:last-child { margin-right: 0; }
+    .clk { font-family: var(--font-mono); font-size: 0.78rem; color: var(--text-muted); margin-top: 0.25rem; }
+    .clk s { opacity: 0.65; margin-left: 0.3rem; }
+    .is-cancelled .cd, .is-cancelled .clk, .is-cancelled .dep-head, .is-cancelled .hero-head { text-decoration: line-through; opacity: 0.55; }
+
+    /* Hero layout: the next bus big, the rest as a strip */
+    .hero { padding: 0.25rem 0 0.75rem; }
+    .hero-top { display: flex; align-items: center; gap: 0.75rem; min-width: 0; }
+    .hero .route-pill { font-size: 1.5rem; padding: 0.4rem 0.6rem; }
+    .hero-head { font-size: 1.25rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .hero-when { display: flex; align-items: baseline; gap: 1rem; margin-top: 0.6rem; flex-wrap: wrap; }
+    .hero .cd b { font-size: 5rem; }
+    .hero .cd small { font-size: 1.4rem; }
+    .hero .clk { font-size: 1rem; }
+    .hero .dep-meta { font-size: 0.9rem; margin-top: 0.5rem; }
+    .then {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.5rem;
+      border-top: 1px solid var(--border);
+      padding-top: 0.75rem;
+    }
+    .then-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim); font-weight: 600; }
+    .then-item {
+      display: flex; align-items: center; gap: 0.45rem;
+      background: var(--surface2);
+      border-radius: 3px;
+      padding: 0.3rem 0.55rem 0.3rem 0.3rem;
+    }
+    .then-item .cd b { font-size: 1.15rem; }
+    .then-item .cd small { font-size: 0.65rem; }
+    .then-item .badge { font-size: 0.68rem; }
+
+    /* RT badges — same colours as the departure board */
+    .badge {
+      display: inline-block;
+      padding: 0.12rem 0.4rem;
+      border-radius: 3px;
+      font-size: 0.74rem;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .b-ontime { background: rgba(var(--ontime-rgb), 0.14); color: rgb(var(--ontime-rgb)); }
+    .b-early  { background: rgba(var(--positive-rgb), 0.12); color: var(--positive); }
+    .b-late   { background: rgba(var(--negative-rgb), 0.12); color: var(--negative); }
+    .b-slight { background: rgba(var(--warn-rgb), 0.16); color: rgb(var(--warn-rgb)); }
+    .b-live   { background: rgba(var(--accent-rgb), 0.12); color: var(--accent); }
+    .b-cancel { background: rgba(var(--negative-rgb), 0.18); color: var(--negative); }
+    .b-sched  { background: transparent; color: var(--text-dim); padding-left: 0; padding-right: 0; font-weight: 500; }
+
+    .vgroup { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 0.1rem 0; }
+    .vi-ico {
+      width: 0.5rem; height: 0.5rem; border-radius: 50%;
+      background: var(--accent);
+      margin-right: 0.4rem;
+      box-shadow: 0 0 0 0 rgba(var(--accent-rgb), 0.5);
+      animation: veh-ping 2s ease-out infinite;
+    }
+    @keyframes veh-ping { 0% { box-shadow: 0 0 0 0 rgba(var(--accent-rgb), 0.5); } 100% { box-shadow: 0 0 0 0.45rem rgba(var(--accent-rgb), 0); } }
+    .vgroup .vi + .vi::before { content: '·'; margin: 0 0.4em; opacity: 0.6; }
+    .vi { white-space: nowrap; }
+    .vi-away { color: var(--text); font-weight: 600; }
+    .vi-away.passed { color: var(--text-dim); font-weight: 500; }
+    .vi-age.stale { color: var(--negative); }
+    .vi-none { color: var(--text-dim); }
+
+    /* Alerts */
+    .card-alerts:not(:empty) { margin-top: 0.6rem; display: grid; gap: 0.35rem; }
+    .alert {
+      border-left: 3px solid rgb(var(--warn-rgb));
+      background: rgba(var(--warn-rgb), 0.08);
+      border-radius: 0 3px 3px 0;
+      padding: 0.4rem 0.6rem;
+      font-size: 0.8rem;
+    }
+    .alert summary { cursor: pointer; font-weight: 600; list-style: none; }
+    .alert summary::-webkit-details-marker { display: none; }
+    .alert summary::before { content: '⚠︎ '; color: rgb(var(--warn-rgb)); }
+    .alert p { margin-top: 0.35rem; color: var(--text-muted); line-height: 1.4; }
+    .alert-more { font-size: 0.75rem; color: var(--text-dim); }
+
+    /* Map */
+    .card-map {
+      height: clamp(180px, 15rem, 440px);
+      margin-top: 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      background: var(--surface2);
+      overflow: hidden;
+      position: relative;
+      z-index: 0;
+    }
+    .card-map .map-msg { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--text-dim); font-size: 0.85rem; }
+    :root:not([data-theme="light"]) .leaflet-tile-pane {
+      filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9);
+    }
+    :root[data-theme="signal"] .leaflet-tile-pane {
+      filter: invert(1) hue-rotate(180deg) sepia(0.7) brightness(0.75) contrast(0.95);
+    }
+    .leaflet-container { background: var(--surface2); font-family: var(--font-body); }
+    .leaflet-control-attribution { font-size: 9px !important; background: var(--surface) !important; color: var(--text-dim) !important; }
+    .leaflet-control-attribution a { color: var(--text-muted) !important; }
+    .map-stop div {
+      width: 16px; height: 16px;
+      background: var(--text);
+      border: 3px solid var(--bg);
+      border-radius: 3px;
+      box-shadow: 0 0 0 2px var(--text);
+    }
+    .map-veh {
+      position: absolute;
+      left: 0; top: 0;
+      transform: translate(-50%, -50%);
+      background: var(--c);
+      color: var(--fg);
+      font: 700 12px/1 var(--font-board);
+      padding: 4px 7px;
+      border-radius: 11px;
+      white-space: nowrap;
+      box-shadow: 0 0 0 2px var(--bg);
+    }
+    .map-veh::after {
+      content: '';
+      position: absolute; inset: -2px;
+      border-radius: 13px;
+      border: 2px solid var(--c);
+      animation: map-ping 2s ease-out infinite;
+    }
+    @keyframes map-ping { 0% { opacity: 0.9; transform: scale(1); } 100% { opacity: 0; transform: scale(1.6); } }
+
+    /* Empty board */
+    .empty {
+      max-width: 30rem;
+      margin: 12vh auto 0;
+      padding: 0 var(--gutter-r) 0 var(--gutter-l);
+      text-align: center;
+    }
+    .empty h2 { font-family: var(--font-display); text-transform: uppercase; letter-spacing: 0.04em; font-size: 1.6rem; }
+    .empty p { color: var(--text-muted); margin: 0.75rem 0 1.25rem; line-height: 1.5; }
+
+    /* ===== Buttons (setup sizes are px so they don't scale with board text) ===== */
+    .btn {
+      border: 1px solid var(--border2);
+      background: var(--surface);
+      border-radius: 4px;
+      padding: 9px 14px;
+      font-size: 14px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .btn:hover { border-color: var(--text-muted); }
+    .btn-primary { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+    .btn-primary:hover { filter: brightness(1.08); border-color: var(--accent); }
+    .btn-sm { padding: 6px 10px; font-size: 13px; }
+
+    /* ===== Setup panel ===== */
+    .setup {
+      position: fixed; inset: 0;
+      z-index: 2000;
+      background: var(--overlay);
+      display: flex;
+      justify-content: flex-end;
+    }
+    .setup-sheet {
+      width: min(560px, 100%);
+      height: 100%;
+      background: var(--bg);
+      border-left: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      font-size: 14px;
+    }
+    .setup-head {
+      display: flex; align-items: center; gap: 12px;
+      padding: calc(var(--safe-top) + 14px) max(20px, var(--safe-right)) 14px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    .setup-head h2 { font-family: var(--font-display); text-transform: uppercase; letter-spacing: 0.05em; font-size: 20px; font-weight: 600; flex: 1; }
+    .setup-body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 4px max(20px, var(--safe-right)) 24px 20px; }
+    .setup-foot {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+      padding: 12px max(20px, var(--safe-right)) calc(var(--safe-bottom) + 12px) 20px;
+      border-top: 1px solid var(--border);
+      background: var(--surface);
+    }
+    .setup-foot .grow { flex: 1; }
+    .sg { padding: 18px 0; border-bottom: 1px solid var(--border); }
+    .sg:last-child { border-bottom: 0; }
+    .sg h3 {
+      font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em;
+      color: var(--text-dim); font-weight: 700; margin-bottom: 12px;
+    }
+    .field { display: block; margin-top: 12px; }
+    .field > span { display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 6px; }
+    .field small, .check small { color: var(--text-dim); font-weight: 400; }
+    .text-input, .field select {
+      width: 100%;
+      border: 1px solid var(--border2);
+      background: var(--surface);
+      border-radius: 4px;
+      padding: 9px 11px;
+      font-size: 16px; /* 16px stops iOS zooming on focus */
+    }
+    .field select { width: auto; min-width: 90px; }
+    .seg { display: inline-flex; flex-wrap: wrap; border: 1px solid var(--border2); border-radius: 4px; overflow: hidden; }
+    .seg button {
+      border: 0; background: var(--surface);
+      padding: 8px 13px; font-size: 13px; font-weight: 600;
+      border-left: 1px solid var(--border);
+    }
+    .seg button:first-child { border-left: 0; }
+    .seg button[aria-pressed="true"] { background: var(--accent); color: var(--bg); }
+    .swatches { display: flex; flex-wrap: wrap; gap: 8px; }
+    .swatch {
+      width: 32px; height: 32px; border-radius: 50%;
+      border: 2px solid var(--border2);
+      background: var(--sw);
+    }
+    .swatch.auto { background: conic-gradient(#6FA0E8 0 25%, #4FA876 0 50%, #E8A93B 0 75%, #E8674B 0); }
+    .swatch[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--text); }
+    .checks { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 4px 12px; }
+    .check { display: flex; align-items: flex-start; gap: 8px; padding: 6px 0; font-size: 14px; cursor: pointer; line-height: 1.35; }
+    .check input { margin-top: 2px; width: 16px; height: 16px; accent-color: var(--accent); flex-shrink: 0; }
+    .hint { color: var(--text-muted); font-size: 13px; line-height: 1.5; margin-top: 10px; }
+    .hint a, .setup-foot a { color: var(--accent); }
+
+    /* Card editors */
+    .ce {
+      border: 1px solid var(--border);
+      background: var(--surface);
+      border-radius: 4px;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+    .ce-top { display: flex; align-items: center; gap: 10px; }
+    .ce-num {
+      width: 24px; height: 24px; border-radius: 3px;
+      background: var(--surface3);
+      display: inline-flex; align-items: center; justify-content: center;
+      font: 700 12px var(--font-mono);
+      flex-shrink: 0;
+    }
+    .ce-stop { flex: 1; min-width: 0; }
+    .ce-stop b { display: block; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ce-stop small { color: var(--text-dim); font-family: var(--font-mono); font-size: 12px; }
+    .ce-stop i { color: var(--text-dim); }
+    .ce-tools { display: flex; gap: 4px; }
+    .ce-tools .icon-btn { width: 32px; height: 32px; }
+    .ce-tools .icon-btn svg { width: 16px; height: 16px; }
+    .ss-wrap { position: relative; display: flex; gap: 6px; margin-top: 10px; }
+    .ss-wrap .text-input { flex: 1; min-width: 0; }
+    .ss-results {
+      position: absolute; left: 0; right: 0; top: calc(100% + 4px);
+      z-index: 10;
+      background: var(--surface);
+      border: 1px solid var(--border2);
+      border-radius: 4px;
+      box-shadow: var(--shadow);
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    .ss-item { padding: 9px 11px; cursor: pointer; border-top: 1px solid var(--border); }
+    .ss-item:first-child { border-top: 0; }
+    .ss-item.active, .ss-item:hover { background: var(--surface2); }
+    .ss-name { display: block; font-weight: 600; }
+    .ss-meta { font-size: 12px; color: var(--text-dim); font-family: var(--font-mono); }
+    .ss-empty { padding: 10px 11px; color: var(--text-dim); }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .chips .chips-note { color: var(--text-dim); font-size: 13px; }
+    .chip {
+      border: 1px solid var(--border2);
+      background: var(--surface);
+      border-radius: 3px;
+      padding: 5px 9px;
+      font-size: 13px;
+      font-weight: 600;
+      display: inline-flex; align-items: center; gap: 6px;
+      max-width: 100%;
+    }
+    .chip span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .chip .chip-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; background: var(--c, var(--surface3)); }
+    .chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+    .chip.missing { border-style: dashed; }
+
+    .toast {
+      position: fixed;
+      left: 50%; bottom: calc(var(--safe-bottom) + 24px);
+      transform: translateX(-50%);
+      z-index: 3000;
+      background: var(--text);
+      color: var(--bg);
+      padding: 10px 16px;
+      border-radius: 4px;
+      font-size: 14px;
+      font-weight: 600;
+      max-width: calc(100% - 32px);
+    }
+
+    @media (max-width: 600px) {
+      .setup-sheet { border-left: 0; }
+      .top-clock { font-size: 1.5rem; }
+      .hero .cd b { font-size: 4rem; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .live-dot.ok, .vi-ico, .map-veh::after { animation: none; }
+    }
+  </style>
+</head>
+<body>
+  <header class="top">
+    <div class="top-text">
+      <div class="top-title" id="boardTitle">At a glance</div>
+      <div class="top-date"><span class="live-dot" id="liveDot" title="Waiting for data"></span><span id="boardDate"></span></div>
+    </div>
+    <div class="top-clock" id="clock" aria-live="off"></div>
+    <div class="top-actions">
+      <button class="icon-btn" id="fsBtn" type="button" title="Full screen" aria-label="Full screen" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+      </button>
+      <button class="icon-btn" id="editBtn" type="button" title="Edit board" aria-label="Edit board">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main class="cards" id="cards"></main>
+
+  <div class="setup" id="setup" role="dialog" aria-modal="true" aria-labelledby="setupTitle" hidden>
+    <div class="setup-sheet">
+      <div class="setup-head">
+        <h2 id="setupTitle">Board setup</h2>
+        <button class="icon-btn" id="setupClose" type="button" aria-label="Close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="setup-body">
+        <section class="sg">
+          <h3>Stops</h3>
+          <div id="cardEditors"></div>
+          <button class="btn" id="addCard" type="button">+ Add a stop</button>
+        </section>
+        <section class="sg">
+          <h3>Show</h3>
+          <div class="checks" id="showChecks"></div>
+          <label class="field"><span>Departures per stop</span><select id="fCount"></select></label>
+        </section>
+        <section class="sg">
+          <h3>Look</h3>
+          <label class="field"><span>Board name <small>(optional)</small></span><input class="text-input" id="fTitle" type="text" placeholder="e.g. Morning commute" maxlength="60" /></label>
+          <div class="field"><span>Theme</span><div class="seg" id="fTheme"></div></div>
+          <div class="field"><span>Accent colour</span><div class="swatches" id="fAccent"></div></div>
+          <div class="field"><span>Text size</span><div class="seg" id="fSize"></div></div>
+          <div class="field"><span>Layout</span><div class="seg" id="fLayout"></div></div>
+        </section>
+        <section class="sg">
+          <h3>This screen</h3>
+          <label class="check"><input type="checkbox" id="fWake" /><span>Keep the screen on <small id="wakeNote">(for kiosks and wall displays)</small></span></label>
+          <p class="hint">On iPhone, save the board, then tap Share → <b>Add to Home Screen</b>. The setup is stored in the link, so each home-screen icon or bookmark keeps its own board. <a href="#new" id="newBoard">Start another board</a></p>
+        </section>
+      </div>
+      <div class="setup-foot">
+        <a href="/">Main map</a>
+        <span class="grow"></span>
+        <button class="btn" id="copyLink" type="button">Copy link</button>
+        <button class="btn" id="setupCancel" type="button">Cancel</button>
+        <button class="btn btn-primary" id="setupSave" type="button">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status" hidden></div>
+
+  <script>
+    // ===== Helpers (copies of depboard.html / index.html ones) =====
+    const token = new URLSearchParams(window.location.search).get('token');
+
+    function apiFetch(url, options = {}) {
+        return fetch(url, {
+        ...options,
+        headers: { ...options.headers, 'X-Auth-Token': token }
+        });
+    }
+
+    // Page navigation can't send headers, so carry the token on internal links.
+    document.querySelectorAll('a[href^="/"]').forEach(a => {
+        const u = new URL(a.getAttribute('href'), window.location.origin);
+        u.searchParams.set('token', token);
+        a.href = u.pathname + u.search;
+    });
+
+
+    function todayStr() {
+      return dateStr(new Date());
+    }
+
+    function dateStr(d) {
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    }
+
+    function escapeHtml(s) {
+      return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    function readableTextColor(hex) {
+      const h = String(hex ?? '').replace('#', '');
+      if (!/^[0-9a-fA-F]{6}$/.test(h)) return '#fff';
+      const r = parseInt(h.slice(0,2),16), g = parseInt(h.slice(2,4),16), b = parseInt(h.slice(4,6),16);
+      const luminance = (0.299*r + 0.587*g + 0.114*b) / 255;
+      return luminance > 0.6 ? '#000' : '#fff';
+    }
+
+    function hexToRgb(hex) {
+      const h = String(hex).replace('#', '');
+      return `${parseInt(h.slice(0,2),16)},${parseInt(h.slice(2,4),16)},${parseInt(h.slice(4,6),16)}`;
+    }
+
+    function parseTime(t) {
+      const p = String(t).split(':').map(Number);
+      return p[0]*3600 + p[1]*60 + (p[2]||0);
+    }
+
+    function fmtClockShort(totalSeconds) {
+      let h = Math.floor(totalSeconds / 3600) % 24;
+      if (h < 0) h += 24;
+      const m = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2,'0');
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      h = h % 12 || 12;
+      return `${h}:${m} ${ampm}`;
+    }
+
+    function nowInSeconds() {
+      const n = new Date();
+      return n.getHours()*3600 + n.getMinutes()*60 + n.getSeconds();
+    }
+
+    // Seconds late (+) / early (-) for one trip_update at stopId, vs the scheduled
+    // time schedTime ("HH:MM:SS", may run past 24h). Uses the feed's own delay when
+    // it has one; otherwise derives it from the predicted absolute time.
+    function rtStopDelay(tu, stopId, schedTime) {
+      const stu = (tu.stop_time_update || []).find(s => s.stop_id === String(stopId));
+      if (!stu) return null;
+      const explicit = stu.departure?.delay ?? stu.arrival?.delay;
+      if (explicit != null) return explicit;
+      const t = Number(stu.arrival?.time ?? stu.departure?.time);
+      if (!t || !schedTime) return null;
+      const d = new Date(t * 1000);
+      const diff = d.getHours()*3600 + d.getMinutes()*60 + d.getSeconds() - parseTime(schedTime);
+      return ((diff + 43200) % 86400 + 86400) % 86400 - 43200; // fold into [-12h, 12h)
+    }
+
+    function haversineKm(lat1, lon1, lat2, lon2) {
+      const r = Math.PI / 180;
+      const dLat = (lat2 - lat1) * r, dLon = (lon2 - lon1) * r;
+      const x = Math.sin(dLat/2)**2 + Math.cos(lat1*r) * Math.cos(lat2*r) * Math.sin(dLon/2)**2;
+      return 2 * 6371 * Math.asin(Math.sqrt(x));
+    }
+
+    function fmtKm(km) {
+      if (km < 1) return `${Math.max(10, Math.round(km * 100) * 10)} m`;
+      return `${km < 10 ? km.toFixed(1) : Math.round(km)} km`;
+    }
+
+    function ageText(unixSec) {
+      const diff = Math.max(0, Math.floor(Date.now()/1000) - Number(unixSec));
+      if (diff < 5)    return 'updated just now';
+      if (diff < 60)   return `updated ${diff}s ago`;
+      if (diff < 3600) return `updated ${Math.floor(diff/60)}m ago`;
+      return `updated ${Math.floor(diff/3600)}h ago`;
+    }
+
+    function alertText(t) {
+      const tr = t?.translation || [];
+      return (tr.find(x => String(x.language || '').startsWith('en')) || tr[0])?.text || '';
+    }
+
+    function debounce(fn, ms) {
+      let timer = null;
+      return function (...args) {
+        clearTimeout(timer);
+        timer = setTimeout(() => fn.apply(this, args), ms);
+      };
+    }
+
+    function lsGet(key, fallback) {
+      try { const v = JSON.parse(localStorage.getItem(key)); return v ?? fallback; } catch (e) { return fallback; }
+    }
+    function lsSet(key, val) {
+      try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) {}
+    }
+
+    function getJSON(url) {
+      return apiFetch(url).then(r => {
+        if (!r.ok) { const err = new Error(`HTTP ${r.status}`); err.status = r.status; throw err; }
+        return r.json();
+      });
+    }
+
+    const $ = sel => document.querySelector(sel);
+
+    // ===== Config =====
+    // A board is stored as base64url JSON in the URL hash (#cfg=...) so every
+    // home-screen icon / kiosk bookmark carries its own setup, and mirrored to
+    // localStorage under its id so edits made inside a home-screen web app (whose
+    // start URL is frozen) still stick: the copy with the newer `t` wins.
+    const LS_PREFIX = 'gtfs-glance:';
+    const LS_LAST = 'gtfs-glance-last';
+    const THEMES = [['auto','Auto'], ['light','Paper'], ['dark','Ink'], ['midnight','Midnight'], ['signal','Signal']];
+    const SIZES = [['m','Normal'], ['l','Large'], ['xl','Huge']];
+    const LAYOUTS = [['list','List'], ['hero','Next bus big']];
+    const ACCENTS = ['', '#6FA0E8', '#4FA876', '#E8A93B', '#E8674B', '#B48EDB', '#4AB8AA', '#E07BB0'];
+    const SHOW_OPTIONS = [
+      ['countdown', 'Countdown', '“4 min”'],
+      ['clock',     'Clock time', 'expected time, e.g. 8:14 AM'],
+      ['headsign',  'Destination', ''],
+      ['delay',     'Delay', 'on time / late / early'],
+      ['stopsAway', 'Stops away', 'live bus'],
+      ['distance',  'Bus distance', 'along the route'],
+      ['updated',   'Last bus update', 'how long ago it reported'],
+      ['alerts',    'Service alerts', ''],
+      ['boardable', 'Hide drop-off-only trips', 'buses you can’t board here'],
+    ];
+    const DEFAULT_SHOW = { countdown: true, clock: true, headsign: true, delay: true, stopsAway: true, distance: true, updated: true, alerts: true, boardable: true };
+
+    function newId() { return Math.random().toString(36).slice(2, 8); }
+
+    function defaultConfig() {
+      return { v: 1, id: newId(), t: 0, title: '', theme: 'auto', accent: '', size: 'm', layout: 'list', count: 3, wake: false, show: { ...DEFAULT_SHOW }, cards: [] };
+    }
+
+    function blankCard() { return { s: '', n: '', c: '', l: '', r: [], h: [], m: false }; }
+
+    function normalizeConfig(c) {
+      const d = defaultConfig();
+      if (!c || typeof c !== 'object') return d;
+      const strArr = a => Array.isArray(a) ? a.map(String) : [];
+      const out = { ...d, ...c, show: { ...DEFAULT_SHOW, ...(c.show || {}) } };
+      if (!THEMES.some(([v]) => v === out.theme)) out.theme = 'auto';
+      if (!SIZES.some(([v]) => v === out.size)) out.size = 'm';
+      if (!LAYOUTS.some(([v]) => v === out.layout)) out.layout = 'list';
+      if (!/^#[0-9a-fA-F]{6}$/.test(out.accent || '')) out.accent = '';
+      out.count = Math.min(6, Math.max(1, parseInt(out.count, 10) || 3));
+      out.title = String(out.title || '');
+      out.wake = !!out.wake;
+      out.id = String(out.id || d.id);
+      out.t = Number(out.t) || 0;
+      out.cards = (Array.isArray(c.cards) ? c.cards : []).filter(k => k && k.s).map(k => ({
+        s: String(k.s), n: String(k.n || ''), c: String(k.c || ''), l: String(k.l || ''),
+        r: strArr(k.r), h: strArr(k.h), m: !!k.m,
+      }));
+      return out;
+    }
+
+    function encodeConfig(c) {
+      const bytes = new TextEncoder().encode(JSON.stringify(c));
+      let bin = '';
+      bytes.forEach(b => { bin += String.fromCharCode(b); });
+      return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    }
+
+    function decodeConfig(s) {
+      try {
+        s = s.replace(/-/g, '+').replace(/_/g, '/');
+        while (s.length % 4) s += '=';
+        const bin = atob(s);
+        return JSON.parse(new TextDecoder().decode(Uint8Array.from(bin, ch => ch.charCodeAt(0))));
+      } catch (e) { return null; }
+    }
+
+    function hashParam(name) {
+      for (const part of location.hash.slice(1).split('&')) {
+        const i = part.indexOf('=');
+        const k = i < 0 ? part : part.slice(0, i);
+        if (k === name) return i < 0 ? '' : part.slice(i + 1);
+      }
+      return null;
+    }
+
+    function loadConfig() {
+      if (hashParam('new') !== null) return { cfg: defaultConfig(), fresh: true };
+      const h = hashParam('cfg');
+      let c = h ? decodeConfig(h) : null;
+      if (c && c.id) {
+        const local = lsGet(LS_PREFIX + c.id, null);
+        if (local && (local.t || 0) > (c.t || 0)) c = local;
+      }
+      if (!c) c = lsGet(LS_LAST, null);
+      return { cfg: normalizeConfig(c), fresh: !c };
+    }
+
+    function boardUrl(c) { return location.pathname + location.search + '#cfg=' + encodeConfig(c); }
+
+    function saveConfig(c) {
+      c.t = Date.now();
+      lsSet(LS_PREFIX + c.id, c);
+      lsSet(LS_LAST, c);
+      history.replaceState(null, '', boardUrl(c));
+    }
+
+    // ===== Appearance =====
+    const lightMql = window.matchMedia('(prefers-color-scheme: light)');
+
+    function applyAppearance(c) {
+      const root = document.documentElement;
+      root.setAttribute('data-theme', c.theme === 'auto' ? (lightMql.matches ? 'light' : 'dark') : c.theme);
+      root.setAttribute('data-size', c.size);
+      if (c.accent) {
+        root.style.setProperty('--accent', c.accent);
+        root.style.setProperty('--accent-rgb', hexToRgb(c.accent));
+      } else {
+        root.style.removeProperty('--accent');
+        root.style.removeProperty('--accent-rgb');
+      }
+      const bg = getComputedStyle(root).getPropertyValue('--bg').trim();
+      if (bg) $('#themeColorMeta').setAttribute('content', bg);
+    }
+
+    // ===== Data state =====
+    const RT_STALE_MS = 2 * 60 * 1000;      // keep showing RT badges this long after a failed fetch
+    const VEH_DROP_MS = 5 * 60 * 1000;      // forget a vehicle position after this long without one
+    const VEH_STALE_S = 120;                // "updated N ago" turns red past this
+    const SCHED_MS = 60 * 1000;
+    const RT_MS = 15 * 1000;
+    const ALERTS_MS = 5 * 60 * 1000;
+
+    let cfg = defaultConfig();
+    const stopData = new Map();     // stop_id -> {date, deps, info, error}
+    const rtStopCache = new Map();  // stop_id -> {byTrip: Map trip_id -> trip_update, receivedAt}
+    const vehCache = new Map();     // trip_id -> {v: {...}|null, receivedAt}
+    const tripCache = new Map();    // trip_id -> {stops, line} | {pending} | {error, at}
+    let alertsData = [];
+    let schedDate = '';
+    let lastRtOk = 0, lastSchedOk = 0, lastErr = 0;
+
+    function uniqueStopIds() { return [...new Set(cfg.cards.map(c => c.s))]; }
+    function trackCount() { return Math.min(cfg.count, 3); }
+    function wantsVehicleInfo() { const s = cfg.show; return s.distance || s.stopsAway || s.updated; }
+    function wantsVehicles() { return wantsVehicleInfo() || cfg.cards.some(c => c.m); }
+
+    async function fetchStopDay(stopId, date) {
+      try { return await getJSON(`/api/stop/${encodeURIComponent(stopId)}/${date}`); }
+      catch (e) { if (e.status === 422) return { departures: [] }; throw e; }
+    }
+
+    // Today's departures, plus yesterday's past-midnight ones (24:xx+) before 4am.
+    // `base` is seconds since today's midnight.
+    async function loadStopDay(stopId) {
+      const now = new Date();
+      const today = dateStr(now);
+      const y = new Date(now); y.setDate(y.getDate() - 1);
+      const early = nowInSeconds() < 4 * 3600;
+      const [t, yd] = await Promise.all([
+        fetchStopDay(stopId, today),
+        early ? fetchStopDay(stopId, dateStr(y)).catch(() => null) : null,
+      ]);
+      const deps = [];
+      (t.departures || []).forEach(d => deps.push({ ...d, base: parseTime(d.arrival_time) }));
+      if (yd) (yd.departures || []).forEach(d => {
+        const base = parseTime(d.arrival_time) - 86400;
+        if (base >= 0) deps.push({ ...d, base });
+      });
+      deps.sort((a, b) => a.base - b.base);
+      const prev = stopData.get(stopId);
+      const info = t.stop_name ? { stop_name: t.stop_name, stop_code: t.stop_code, lat: Number(t.lat), lon: Number(t.lon) } : prev?.info || null;
+      const entry = { date: today, deps, info, error: null };
+      stopData.set(stopId, entry);
+      return entry;
+    }
+
+    let schedBusy = false;
+    async function refreshSchedules() {
+      if (schedBusy || !cfg.cards.length) return;
+      schedBusy = true;
+      schedDate = todayStr();
+      await Promise.all(uniqueStopIds().map(id => loadStopDay(id)
+        .then(() => { lastSchedOk = Date.now(); })
+        .catch(err => {
+          lastErr = Date.now();
+          const prev = stopData.get(id);
+          stopData.set(id, { ...(prev || { deps: [], info: null }), error: err });
+        })));
+      schedBusy = false;
+      renderAll();
+    }
+
+    let rtBusy = false;
+    async function refreshRT() {
+      if (rtBusy || !cfg.cards.length) return;
+      rtBusy = true;
+      await Promise.all(uniqueStopIds().map(id => getJSON(`/api/rt/stop/${encodeURIComponent(id)}`)
+        .then(data => {
+          const byTrip = new Map();
+          (data.entity || []).forEach(e => { const tid = e.trip_update?.trip?.trip_id; if (tid) byTrip.set(tid, e.trip_update); });
+          rtStopCache.set(id, { byTrip, receivedAt: Date.now() });
+          lastRtOk = Date.now();
+        })
+        .catch(() => { lastErr = Date.now(); })));
+      if (wantsVehicles()) await refreshVehicles();
+      rtBusy = false;
+      renderAll();
+    }
+
+    async function refreshVehicles() {
+      const tripIds = new Set();
+      cfg.cards.forEach(card => (cardDepartures(card) || []).slice(0, trackCount()).forEach(d => tripIds.add(d.trip_id)));
+      await Promise.all([...tripIds].map(async tid => {
+        try {
+          const data = await getJSON(`/api/rt/location/${encodeURIComponent(tid)}`);
+          const e = (data.entity || []).find(e => e.vehicle);
+          const v = e?.vehicle;
+          const lat = Number(v?.position?.latitude), lon = Number(v?.position?.longitude);
+          if (!v || !isFinite(lat) || !isFinite(lon) || (!lat && !lon)) {
+            vehCache.set(tid, { v: null, receivedAt: Date.now() });
+            return;
+          }
+          vehCache.set(tid, {
+            v: {
+              lat, lon,
+              ts: Number(v.timestamp || data.header?.timestamp) || null,
+              stopId: v.stop_id ?? null,
+              seq: v.current_stop_sequence ?? null,
+              status: v.current_status || 'IN_TRANSIT_TO',
+            },
+            receivedAt: Date.now(),
+          });
+          const tc = tripCache.get(tid);
+          if (!tc || (tc.error && Date.now() - tc.at > 5 * 60 * 1000)) loadTrip(tid);
+        } catch (err) {
+          // Keep the previous position; vehicleProgress drops it after VEH_DROP_MS.
+        }
+      }));
+      for (const [tid, vc] of vehCache) if (!tripIds.has(tid) && Date.now() - vc.receivedAt > VEH_DROP_MS) vehCache.delete(tid);
+    }
+
+    function loadTrip(tid) {
+      tripCache.set(tid, { pending: true });
+      getJSON(`/api/trip/${encodeURIComponent(tid)}`)
+        .then(d => {
+          const stops = (d.stops || []).slice().sort((a, b) => a.stop_sequence - b.stop_sequence);
+          const line = (d.pos_markers || []).slice().sort((a, b) => a.sequence - b.sequence).map(p => [p.lat, p.lng]);
+          tripCache.set(tid, { stops, line });
+          renderAll();
+        })
+        .catch(() => tripCache.set(tid, { error: true, at: Date.now() }));
+    }
+
+    async function refreshAlerts() {
+      if (!cfg.show.alerts || !cfg.cards.length) return;
+      try {
+        const d = await getJSON('/api/rt/alerts');
+        alertsData = Array.isArray(d) ? d : (d.entity || []);
+      } catch (e) {
+        if (e.status === 422) alertsData = [];
+      }
+      renderAll();
+    }
+
+    // ===== Derived data =====
+    function rtFor(tripId, stopId, sched) {
+      const c = rtStopCache.get(stopId);
+      if (!c || Date.now() - c.receivedAt > RT_STALE_MS) return { live: false, delay: null };
+      const tu = c.byTrip.get(tripId);
+      if (!tu) return { live: false, delay: null };
+      if (tu.trip?.schedule_relationship === 'CANCELED') return { live: true, cancelled: true, delay: null };
+      const stu = (tu.stop_time_update || []).find(s => s.stop_id === String(stopId));
+      if (stu?.schedule_relationship === 'SKIPPED') return { live: true, skipped: true, delay: null };
+      return { live: true, delay: rtStopDelay(tu, stopId, sched) };
+    }
+
+    // The next `count` departures for a card, with RT applied. null until loaded.
+    function cardDepartures(card) {
+      const sd = stopData.get(card.s);
+      if (!sd) return null;
+      const now = nowInSeconds();
+      const out = [];
+      for (const d of sd.deps) {
+        if (d.base < now - 3 * 3600) continue; // even a very late bus won't be this late
+        if (card.r.length && !card.r.includes(String(d.route_id))) continue;
+        if (card.h.length && !card.h.includes(String(d.trip_headsign))) continue;
+        if (cfg.show.boardable && (d.pickup_type | 0) === 1) continue;
+        const rt = rtFor(d.trip_id, card.s, d.arrival_time);
+        const eff = d.base + (rt.delay || 0);
+        if (eff < now - 30) continue;
+        out.push({ ...d, rt, eff });
+      }
+      out.sort((a, b) => a.eff - b.eff);
+      return out.slice(0, cfg.count);
+    }
+
+    // Where the bus for this departure is, relative to the card's stop.
+    // away: stops between the bus and this stop (0 = next/at stop, <0 = passed).
+    // km: along the trip's stops when known, else straight-line (along=false).
+    function vehicleProgress(dep, card) {
+      const vc = vehCache.get(dep.trip_id);
+      if (!vc || !vc.v || Date.now() - vc.receivedAt > VEH_DROP_MS) return null;
+      const v = vc.v;
+      const out = { v, ts: v.ts, km: null, along: false, away: null };
+      const t = tripCache.get(dep.trip_id);
+      if (t?.stops?.length) {
+        const stops = t.stops;
+        let cur = v.stopId != null ? stops.findIndex(s => String(s.id) === String(v.stopId)) : -1;
+        if (cur < 0 && v.seq != null) cur = stops.findIndex(s => Number(s.stop_sequence) === Number(v.seq));
+        if (cur >= 0) {
+          // Loop routes can visit a stop twice; prefer the visit still ahead of the bus.
+          let target = stops.findIndex((s, i) => i >= cur && String(s.id) === String(card.s));
+          if (target < 0) target = stops.findIndex(s => String(s.id) === String(card.s));
+          if (target >= 0) {
+            out.away = target - cur;
+            if (out.away >= 0) {
+              let km = haversineKm(v.lat, v.lon, stops[cur].lat, stops[cur].lng);
+              for (let i = cur; i < target; i++) km += haversineKm(stops[i].lat, stops[i].lng, stops[i+1].lat, stops[i+1].lng);
+              out.km = km;
+              out.along = true;
+            }
+          }
+        }
+      }
+      const info = stopData.get(card.s)?.info;
+      if (out.km == null && out.away == null && info && isFinite(info.lat)) out.km = haversineKm(v.lat, v.lon, info.lat, info.lon);
+      return out;
+    }
+
+    function routesAtStop(stopId) {
+      return [...new Set((stopData.get(stopId)?.deps || []).map(d => String(d.route_id)))];
+    }
+
+    // Alerts touching this card: its stop, its routes (route_id vs short name, so
+    // compare without leading zeros), or one of its shown trips. Active ones only.
+    function cardAlerts(card, deps) {
+      if (!cfg.show.alerts || !alertsData.length) return [];
+      const norm = r => String(r).replace(/^0+(?=.)/, '');
+      const routes = new Set((card.r.length ? card.r : routesAtStop(card.s)).map(norm));
+      const trips = new Set((deps || []).map(d => d.trip_id));
+      const now = Date.now() / 1000;
+      return alertsData.filter(a => {
+        const al = a.alert;
+        if (!al) return false;
+        const periods = al.active_period || [];
+        if (periods.length && !periods.some(p => (!p.start || Number(p.start) <= now) && (!p.end || Number(p.end) >= now))) return false;
+        return (al.informed_entity || []).some(ie => {
+          if (ie.trip?.trip_id && trips.has(ie.trip.trip_id)) return true;
+          if (ie.stop_id != null) return String(ie.stop_id) === card.s && (ie.route_id == null || routes.has(norm(ie.route_id)));
+          return ie.route_id != null && routes.has(norm(ie.route_id));
+        });
+      });
+    }
+
+    // ===== Rendering =====
+    function cdHTML(eff) {
+      const secs = eff - nowInSeconds();
+      if (secs < 60) return '<b>Due</b>';
+      const m = Math.floor(secs / 60);
+      if (m < 60) return `<b>${m}</b><small>min</small>`;
+      if (m < 180) return `<b>${Math.floor(m / 60)}</b><small>h</small><b>${String(m % 60).padStart(2, '0')}</b><small>min</small>`;
+      const [time, ampm] = fmtClockShort(eff).split(' ');
+      return `<b>${time}</b><small>${ampm}</small>`;
+    }
+
+    function pillHTML(d, small) {
+      const hex = /^[0-9a-fA-F]{6}$/.test(d.route_color || '') ? `#${d.route_color}` : '';
+      const style = hex ? ` style="background:${hex};color:${readableTextColor(hex)}"` : '';
+      return `<span class="route-pill${small ? ' sm' : ''}"${style}>${escapeHtml(d.route_id)}</span>`;
+    }
+
+    function delayBadge(rt) {
+      if (rt.cancelled) return '<span class="badge b-cancel">Cancelled</span>';
+      if (rt.skipped) return '<span class="badge b-cancel">Skips this stop</span>';
+      if (!rt.live) return '<span class="badge b-sched">Scheduled</span>';
+      const d = rt.delay;
+      if (d == null) return '<span class="badge b-live">Live</span>';
+      if (d <= -60) return `<span class="badge b-early">▲︎ ${Math.round(-d / 60)} min early</span>`;
+      if (d < 60) return '<span class="badge b-ontime">On time</span>';
+      return `<span class="badge ${d <= 90 ? 'b-slight' : 'b-late'}">▼︎ ${Math.round(d / 60)} min late</span>`;
+    }
+
+    function clockHTML(d) {
+      const shifted = d.rt.delay != null && Math.abs(d.rt.delay) >= 60;
+      return `${fmtClockShort(d.eff)}${shifted ? ` <s>${fmtClockShort(d.base)}</s>` : ''}`;
+    }
+
+    function whenHTML(d) {
+      const s = cfg.show;
+      return ((s.countdown || !s.clock) ? `<div class="cd" data-eff="${d.eff}">${cdHTML(d.eff)}</div>` : '')
+        + (s.clock ? `<div class="clk">${clockHTML(d)}</div>` : '');
+    }
+
+    function awayText(p) {
+      if (p.away < 0) return 'Passed your stop';
+      if (p.away === 0) return p.v.status === 'STOPPED_AT' ? 'At your stop' : 'Arriving';
+      return p.away === 1 ? '1 stop away' : `${p.away} stops away`;
+    }
+
+    function vehHTML(d, j, card) {
+      if (!vehCache.has(d.trip_id)) return '';
+      const s = cfg.show;
+      const p = vehicleProgress(d, card);
+      // Later trips usually have no bus assigned yet; only say so for the next one.
+      if (!p) return j === 0 ? '<span class="vi vi-none">No live position yet</span>' : '';
+      const out = [];
+      if (s.stopsAway && p.away != null) out.push(`<span class="vi vi-away${p.away < 0 ? ' passed' : ''}">${awayText(p)}</span>`);
+      if (s.distance && p.km != null && !(p.away < 0)) out.push(`<span class="vi">${fmtKm(p.km)}${p.along ? '' : ' away'}</span>`);
+      if (s.updated && p.ts) out.push(`<span class="vi vi-age" data-ts="${p.ts}">${ageText(p.ts)}</span>`);
+      return out.length ? `<span class="vgroup"><span class="vi-ico" aria-hidden="true"></span>${out.join('')}</span>` : '';
+    }
+
+    function metaHTML(d, j, card) {
+      const parts = [];
+      if (cfg.show.delay) parts.push(delayBadge(d.rt));
+      if ((d.pickup_type | 0) === 1) parts.push('<span class="vi">Drop-off only</span>');
+      if (j < trackCount() && wantsVehicleInfo()) parts.push(vehHTML(d, j, card));
+      return parts.filter(Boolean).join('');
+    }
+
+    function rowHTML(d, j, card) {
+      const meta = metaHTML(d, j, card);
+      const cls = d.rt.cancelled || d.rt.skipped ? ' is-cancelled' : '';
+      return `<div class="dep${cls}">${pillHTML(d)}<div class="dep-main">`
+        + (cfg.show.headsign ? `<div class="dep-head">${escapeHtml(d.trip_headsign || '')}</div>` : '')
+        + (meta ? `<div class="dep-meta">${meta}</div>` : '')
+        + `</div><div class="dep-when">${whenHTML(d)}</div></div>`;
+    }
+
+    function heroHTML(deps, card) {
+      const [d, ...rest] = deps;
+      const meta = metaHTML(d, 0, card);
+      const cls = d.rt.cancelled || d.rt.skipped ? ' is-cancelled' : '';
+      let html = `<div class="hero${cls}"><div class="hero-top">${pillHTML(d)}`
+        + (cfg.show.headsign ? `<div class="hero-head">${escapeHtml(d.trip_headsign || '')}</div>` : '')
+        + `</div><div class="hero-when">${whenHTML(d)}</div>`
+        + (meta ? `<div class="dep-meta">${meta}</div>` : '') + '</div>';
+      if (rest.length) {
+        html += '<div class="then"><span class="then-label">Then</span>' + rest.map(r => {
+          const rcls = r.rt.cancelled || r.rt.skipped ? ' is-cancelled' : '';
+          const late = cfg.show.delay && r.rt.live && (r.rt.cancelled || Math.abs(r.rt.delay || 0) >= 60) ? delayBadge(r.rt) : '';
+          return `<div class="then-item${rcls}">${pillHTML(r, true)}<span class="cd" data-eff="${r.eff}">${cdHTML(r.eff)}</span>${late}</div>`;
+        }).join('') + '</div>';
+      }
+      return html;
+    }
+
+    function alertsHTML(list) {
+      if (!list.length) return '';
+      const shown = list.slice(0, 2).map(a => {
+        const al = a.alert;
+        const head = alertText(al.header_text) || 'Service alert';
+        const body = alertText(al.description_text);
+        return `<details class="alert"><summary>${escapeHtml(head)}</summary>${body ? `<p>${escapeHtml(body)}</p>` : ''}</details>`;
+      }).join('');
+      return shown + (list.length > 2 ? `<div class="alert-more">+${list.length - 2} more alert${list.length - 2 === 1 ? '' : 's'}</div>` : '');
+    }
+
+    function renderCard(card, i) {
+      const el = document.querySelector(`.card[data-ci="${i}"]`);
+      if (!el) return;
+      const sd = stopData.get(card.s);
+      const info = sd?.info;
+      const name = info?.stop_name || card.n || `Stop ${card.s}`;
+      const code = info?.stop_code || card.c || card.s;
+      el.querySelector('.card-title').textContent = card.l || name;
+      const sub = [];
+      if (card.l) sub.push(name);
+      sub.push(`#${code}`);
+      if (card.r.length) sub.push((card.r.length === 1 ? 'Route ' : 'Routes ') + card.r.join(', '));
+      if (card.h.length) sub.push('to ' + card.h.join(' / '));
+      el.querySelector('.card-sub').textContent = sub.join(' · ');
+
+      const deps = cardDepartures(card);
+      let html;
+      if (!sd) html = '<div class="card-msg">Loading departures…</div>';
+      else if (!sd.deps.length && sd.error) html = '<div class="card-msg err">Can’t reach the server. Retrying…</div>';
+      else if (!deps.length) {
+        const dropOnly = cfg.show.boardable && sd.deps.some(d => (d.pickup_type | 0) === 1 && d.base >= nowInSeconds()
+          && (!card.r.length || card.r.includes(String(d.route_id))) && (!card.h.length || card.h.includes(String(d.trip_headsign))));
+        html = dropOnly
+          ? '<div class="card-msg">Buses only drop off here (e.g. end of the line). Turn off “Hide drop-off-only trips” to see them.</div>'
+          : `<div class="card-msg">No more departures today${card.r.length || card.h.length ? ' for what you picked' : ''}.</div>`;
+      }
+      else html = cfg.layout === 'hero' ? heroHTML(deps, card) : deps.map((d, j) => rowHTML(d, j, card)).join('');
+      el.querySelector('.card-rows').innerHTML = html;
+
+      const alertsEl = el.querySelector('.card-alerts');
+      const openHeads = new Set([...alertsEl.querySelectorAll('details[open] summary')].map(s => s.textContent));
+      alertsEl.innerHTML = alertsHTML(cardAlerts(card, deps));
+      alertsEl.querySelectorAll('details').forEach(dt => { if (openHeads.has(dt.querySelector('summary').textContent)) dt.open = true; });
+    }
+
+    function updateHeader() {
+      const single = cfg.cards.length === 1 ? cfg.cards[0] : null;
+      const title = cfg.title || (single ? (single.l || stopData.get(single.s)?.info?.stop_name || single.n) : 'At a glance');
+      $('#boardTitle').textContent = title || 'At a glance';
+      document.title = cfg.title ? `${cfg.title} · At a Glance` : 'At a Glance';
+      const dot = $('#liveDot');
+      const now = Date.now();
+      let cls = '', tip = 'Waiting for data';
+      if (now - lastRtOk < 45 * 1000) { cls = 'ok'; tip = `Live · updated ${new Date(lastRtOk).toLocaleTimeString()}`; }
+      else if (lastSchedOk && now - lastSchedOk < 3 * SCHED_MS) { cls = 'stale'; tip = 'Live data unavailable, showing the schedule'; }
+      else if (lastErr) { cls = 'err'; tip = 'Can’t reach the server'; }
+      dot.className = `live-dot ${cls}`;
+      dot.title = tip;
+    }
+
+    function renderAll() {
+      cfg.cards.forEach((card, i) => renderCard(card, i));
+      updateHeader();
+      updateMaps();
+    }
+
+    // Per-second refresh of countdowns, "updated N ago" and the clock. Returns
+    // true when a shown departure has left, so the caller can re-render.
+    function updateTimers() {
+      let expired = false;
+      const now = nowInSeconds();
+      document.querySelectorAll('[data-eff]').forEach(el => {
+        const eff = Number(el.dataset.eff);
+        if (eff < now - 30) expired = true;
+        const h = cdHTML(eff);
+        if (el._h !== h) { el.innerHTML = h; el._h = h; }
+      });
+      const nowS = Date.now() / 1000;
+      document.querySelectorAll('[data-ts]').forEach(el => {
+        el.textContent = ageText(el.dataset.ts);
+        el.classList.toggle('stale', nowS - Number(el.dataset.ts) > VEH_STALE_S);
+      });
+      return expired;
+    }
+
+    function tick() {
+      const d = new Date();
+      const [time, ampm] = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }).split(' ');
+      $('#clock').innerHTML = ampm ? `${escapeHtml(time)}<small>${escapeHtml(ampm)}</small>` : escapeHtml(time);
+      $('#boardDate').textContent = d.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+      if (document.hidden) return;
+      if (cfg.cards.length && schedDate && todayStr() !== schedDate) { refreshSchedules(); return; }
+      if (updateTimers()) renderAll();
+    }
+
+    function buildBoard() {
+      destroyMaps();
+      const root = $('#cards');
+      root.dataset.n = cfg.cards.length;
+      root.innerHTML = '';
+      if (!cfg.cards.length) {
+        root.innerHTML = `<div class="empty"><h2>Set up your board</h2><p>Pick the stop you wait at and the routes you take. The board then shows the next buses, how late they are and where they are, and keeps itself updated.</p><button class="btn btn-primary" type="button" id="emptySetup">Set up board</button></div>`;
+        $('#emptySetup').addEventListener('click', openSetup);
+        updateHeader();
+        return;
+      }
+      cfg.cards.forEach((card, i) => {
+        const el = document.createElement('section');
+        el.className = 'card';
+        el.dataset.ci = i;
+        el.innerHTML = '<header><div class="card-title"></div><div class="card-sub"></div></header><div class="card-alerts"></div><div class="card-rows"></div>'
+          + (card.m ? '<div class="card-map"></div>' : '');
+        root.appendChild(el);
+      });
+      renderAll();
+      if (cfg.cards.some(c => c.m)) {
+        loadLeaflet().then(() => { initMaps(); updateMaps(); }).catch(() => {
+          document.querySelectorAll('.card-map').forEach(m => { m.innerHTML = '<div class="map-msg">Map unavailable</div>'; });
+        });
+      }
+    }
+
+    // ===== Maps (Leaflet loaded only when a card has its map on) =====
+    let leafletPromise = null;
+    function loadLeaflet() {
+      if (window.L) return Promise.resolve();
+      if (!leafletPromise) {
+        leafletPromise = new Promise((resolve, reject) => {
+          const css = document.createElement('link');
+          css.rel = 'stylesheet';
+          css.href = '/vendor/leaflet/leaflet.css';
+          document.head.appendChild(css);
+          const js = document.createElement('script');
+          js.src = '/vendor/leaflet/leaflet.js';
+          js.onload = resolve;
+          js.onerror = () => { leafletPromise = null; reject(new Error('leaflet')); };
+          document.head.appendChild(js);
+        });
+      }
+      return leafletPromise;
+    }
+
+    const maps = new Map(); // card index -> {map, stopMk, veh: Map trip_id -> marker, line, lineTrip, userAt}
+
+    function destroyMaps() {
+      maps.forEach(m => m.map.remove());
+      maps.clear();
+    }
+
+    function initMaps() {
+      document.querySelectorAll('.card').forEach(el => {
+        const ci = Number(el.dataset.ci);
+        if (!cfg.cards[ci]?.m || maps.has(ci)) return;
+        const box = el.querySelector('.card-map');
+        const map = L.map(box, { zoomControl: false, attributionControl: true }).setView([43.88, -79.34], 12);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap contributors' }).addTo(map);
+        const m = { map, stopMk: null, veh: new Map(), line: null, lineTrip: null, userAt: 0 };
+        // Stop auto-framing for a minute after someone pans or zooms by hand.
+        ['pointerdown', 'wheel', 'touchstart'].forEach(ev => box.addEventListener(ev, () => { m.userAt = Date.now(); }, { passive: true }));
+        maps.set(ci, m);
+      });
+    }
+
+    function updateMaps() {
+      if (!window.L) return;
+      maps.forEach((m, ci) => {
+        const card = cfg.cards[ci];
+        const info = card && stopData.get(card.s)?.info;
+        if (!info || !isFinite(info.lat)) return;
+        const stopLL = [info.lat, info.lon];
+        if (!m.stopMk) {
+          m.stopMk = L.marker(stopLL, {
+            icon: L.divIcon({ className: 'map-stop', html: '<div></div>', iconSize: [16, 16], iconAnchor: [8, 8] }),
+            zIndexOffset: 500, keyboard: false,
+          }).addTo(m.map);
+        }
+        const pts = [stopLL];
+        const seen = new Set();
+        let lineTrip = null, lineColor = '';
+        (cardDepartures(card) || []).slice(0, trackCount()).forEach(d => {
+          const p = vehicleProgress(d, card);
+          if (!p || (p.away != null && p.away < 0)) return;
+          seen.add(d.trip_id);
+          const ll = [p.v.lat, p.v.lon];
+          pts.push(ll);
+          const hex = /^[0-9a-fA-F]{6}$/.test(d.route_color || '') ? `#${d.route_color}` : '#888888';
+          const html = `<div class="map-veh" style="--c:${hex};--fg:${readableTextColor(hex)}">${escapeHtml(d.route_id)}</div>`;
+          let mk = m.veh.get(d.trip_id);
+          if (!mk) {
+            mk = L.marker(ll, { icon: L.divIcon({ className: '', html, iconSize: [0, 0] }), zIndexOffset: 1000, keyboard: false }).addTo(m.map);
+            m.veh.set(d.trip_id, mk);
+          } else {
+            mk.setLatLng(ll);
+          }
+          if (!lineTrip) { lineTrip = d.trip_id; lineColor = hex; }
+        });
+        m.veh.forEach((mk, tid) => { if (!seen.has(tid)) { mk.remove(); m.veh.delete(tid); } });
+
+        // The route line of the soonest tracked bus.
+        const lineData = lineTrip && tripCache.get(lineTrip)?.line;
+        if (m.lineTrip !== lineTrip || (lineData && !m.line)) {
+          if (m.line) { m.line.remove(); m.line = null; }
+          m.lineTrip = lineTrip;
+          if (lineData?.length) m.line = L.polyline(lineData, { color: lineColor, weight: 4, opacity: 0.7, interactive: false }).addTo(m.map);
+        }
+
+        if (Date.now() - m.userAt > 60 * 1000) {
+          if (pts.length > 1) m.map.fitBounds(L.latLngBounds(pts), { padding: [28, 28], maxZoom: 16 });
+          else m.map.setView(stopLL, 16);
+        }
+      });
+    }
+
+    // ===== Polling =====
+    let pollTimers = [];
+    function startPolling() {
+      pollTimers.forEach(clearInterval);
+      pollTimers = [];
+      if (!cfg.cards.length) return;
+      refreshSchedules().then(refreshRT);
+      refreshAlerts();
+      pollTimers.push(setInterval(() => { if (!document.hidden) refreshSchedules(); }, SCHED_MS));
+      pollTimers.push(setInterval(() => { if (!document.hidden) refreshRT(); }, RT_MS));
+      pollTimers.push(setInterval(() => { if (!document.hidden) refreshAlerts(); }, ALERTS_MS));
+    }
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) return;
+      // Phones suspend timers in the background; catch up straight away.
+      tick();
+      refreshSchedules().then(refreshRT);
+      syncWakeLock();
+    });
+
+    // ===== Screen wake lock (kiosks) =====
+    let wakeLock = null;
+    async function syncWakeLock() {
+      if (!('wakeLock' in navigator)) return;
+      if (!cfg.wake) {
+        if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; }
+        return;
+      }
+      if (document.hidden || (wakeLock && !wakeLock.released)) return;
+      try { wakeLock = await navigator.wakeLock.request('screen'); } catch (e) { wakeLock = null; }
+    }
+    // Some browsers only grant the lock after a tap; retry on the first one.
+    document.addEventListener('click', () => { if (cfg.wake && (!wakeLock || wakeLock.released)) syncWakeLock(); });
+
+    // ===== Setup panel =====
+    let draft = null;
+
+    function renderSeg(el, options, value, onPick) {
+      el.innerHTML = options.map(([v, label]) => `<button type="button" data-v="${v}" aria-pressed="${v === value}">${label}</button>`).join('');
+      el.onclick = e => {
+        const b = e.target.closest('button[data-v]');
+        if (!b) return;
+        el.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+        onPick(b.dataset.v);
+      };
+    }
+
+    function renderAccents() {
+      const el = $('#fAccent');
+      el.innerHTML = ACCENTS.map(a => `<button type="button" class="swatch${a ? '' : ' auto'}" data-v="${a}" style="--sw:${a || 'transparent'}" aria-pressed="${a === draft.accent}" aria-label="${a ? `Accent ${a}` : 'Theme default accent'}" title="${a || 'Theme default'}"></button>`).join('');
+      el.onclick = e => {
+        const b = e.target.closest('button[data-v]');
+        if (!b) return;
+        draft.accent = b.dataset.v;
+        el.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+        applyAppearance(draft);
+      };
+    }
+
+    function openSetup() {
+      draft = normalizeConfig(JSON.parse(JSON.stringify(cfg)));
+      draft.cards = cfg.cards.map(c => ({ ...c, r: [...c.r], h: [...c.h] }));
+      if (!draft.cards.length) draft.cards.push(blankCard());
+      $('#fTitle').value = draft.title;
+      $('#fCount').innerHTML = [1, 2, 3, 4, 5, 6].map(n => `<option value="${n}"${n === draft.count ? ' selected' : ''}>${n}</option>`).join('');
+      $('#showChecks').innerHTML = SHOW_OPTIONS.map(([k, label, note]) =>
+        `<label class="check"><input type="checkbox" data-k="${k}"${draft.show[k] ? ' checked' : ''} /><span>${label}${note ? ` <small>${note}</small>` : ''}</span></label>`).join('');
+      renderSeg($('#fTheme'), THEMES, draft.theme, v => { draft.theme = v; applyAppearance(draft); });
+      renderSeg($('#fSize'), SIZES, draft.size, v => { draft.size = v; applyAppearance(draft); });
+      renderSeg($('#fLayout'), LAYOUTS, draft.layout, v => { draft.layout = v; });
+      renderAccents();
+      $('#fWake').checked = draft.wake;
+      $('#wakeNote').textContent = 'wakeLock' in navigator ? '(for kiosks and wall displays)' : '(not supported by this browser)';
+      renderCardEditors();
+      $('#setup').hidden = false;
+      document.body.classList.remove('idle');
+      if (!cfg.cards.length) setTimeout(() => document.querySelector('.ce .ss-input')?.focus(), 50);
+    }
+
+    function closeSetup() {
+      $('#setup').hidden = true;
+      draft = null;
+      applyAppearance(cfg);
+    }
+
+    function readStaticFields() {
+      draft.title = $('#fTitle').value.trim();
+      draft.count = Number($('#fCount').value) || 3;
+      draft.wake = $('#fWake').checked;
+      document.querySelectorAll('#showChecks input[data-k]').forEach(i => { draft.show[i.dataset.k] = i.checked; });
+    }
+
+    function commitDraft() {
+      readStaticFields();
+      const next = normalizeConfig(draft);
+      next.id = cfg.id;
+      cfg = next;
+      saveConfig(cfg);
+      applyAppearance(cfg);
+      buildBoard();
+      startPolling();
+      syncWakeLock();
+    }
+
+    async function copyText(text) {
+      try { await navigator.clipboard.writeText(text); return true; }
+      catch (e) {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        let ok = false;
+        try { ok = document.execCommand('copy'); } catch (e2) {}
+        ta.remove();
+        return ok;
+      }
+    }
+
+    let toastTimer = null;
+    function toast(msg) {
+      const t = $('#toast');
+      t.textContent = msg;
+      t.hidden = false;
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => { t.hidden = true; }, 2600);
+    }
+
+    // ----- Card editors -----
+    function renderCardEditors() {
+      const wrap = $('#cardEditors');
+      wrap.innerHTML = '';
+      draft.cards.forEach((k, i) => {
+        const ed = document.createElement('div');
+        ed.className = 'ce';
+        ed.innerHTML = `
+          <div class="ce-top">
+            <span class="ce-num">${i + 1}</span>
+            <div class="ce-stop">${k.s ? `<b>${escapeHtml(k.n || `Stop ${k.s}`)}</b><small>#${escapeHtml(k.c || k.s)}</small>` : '<i>No stop chosen yet</i>'}</div>
+            <div class="ce-tools">
+              <button type="button" class="icon-btn" data-act="up" aria-label="Move up"${i === 0 ? ' disabled' : ''}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m18 15-6-6-6 6"/></svg></button>
+              <button type="button" class="icon-btn" data-act="down" aria-label="Move down"${i === draft.cards.length - 1 ? ' disabled' : ''}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+              <button type="button" class="icon-btn" data-act="remove" aria-label="Remove stop"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+            </div>
+          </div>
+          <div class="ss-wrap">
+            <input class="text-input ss-input" type="search" placeholder="${k.s ? 'Change stop…' : 'Search stop name, ID or code'}" autocomplete="off" autocapitalize="off" spellcheck="false" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="ss-results-${i}" aria-label="Search for a stop" />
+            <button type="button" class="btn btn-sm ss-near">Near me</button>
+            <div class="ss-results" id="ss-results-${i}" role="listbox" hidden></div>
+          </div>
+          ${k.s ? `
+          <label class="field"><span>Label <small>(optional, e.g. “To work”)</small></span><input class="text-input ce-label" type="text" maxlength="40" value="${escapeHtml(k.l)}" placeholder="${escapeHtml(k.n)}" /></label>
+          <div class="field"><span>Routes <small>(none picked = all)</small></span><div class="chips ce-routes"><span class="chips-note">Loading…</span></div></div>
+          <div class="field"><span>Directions <small>(none picked = all)</small></span><div class="chips ce-heads"></div></div>
+          <label class="check"><input type="checkbox" class="ce-map"${k.m ? ' checked' : ''} /><span>Show a map with the live buses</span></label>` : ''}`;
+        wrap.appendChild(ed);
+
+        ed.querySelector('.ce-tools').addEventListener('click', e => {
+          const b = e.target.closest('button[data-act]');
+          if (!b) return;
+          const act = b.dataset.act;
+          if (act === 'remove') draft.cards.splice(i, 1);
+          else {
+            const j = act === 'up' ? i - 1 : i + 1;
+            [draft.cards[i], draft.cards[j]] = [draft.cards[j], draft.cards[i]];
+          }
+          renderCardEditors();
+        });
+        wireStopSearch(ed, i);
+        if (k.s) {
+          ed.querySelector('.ce-label').addEventListener('input', e => { k.l = e.target.value.trim(); });
+          ed.querySelector('.ce-map').addEventListener('change', e => { k.m = e.target.checked; });
+          const sd = stopData.get(k.s);
+          if (sd && sd.date === todayStr()) renderChips(ed, k);
+          else loadStopDay(k.s).then(() => renderChips(ed, k)).catch(() => {
+            ed.querySelector('.ce-routes').innerHTML = '<span class="chips-note">Couldn’t load routes for this stop.</span>';
+          });
+        }
+      });
+    }
+
+    function renderChips(ed, k) {
+      if (!ed.isConnected) return;
+      const deps = stopData.get(k.s)?.deps || [];
+      const routes = new Map();
+      deps.forEach(d => { if (!routes.has(String(d.route_id))) routes.set(String(d.route_id), d.route_color); });
+      k.r.forEach(r => { if (!routes.has(r)) routes.set(r, null); });
+      const routeIds = [...routes.keys()].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+      const rEl = ed.querySelector('.ce-routes');
+      rEl.innerHTML = routeIds.length ? routeIds.map(r => {
+        const c = routes.get(r);
+        const missing = c === null;
+        return `<button type="button" class="chip${missing ? ' missing' : ''}" data-v="${escapeHtml(r)}" aria-pressed="${k.r.includes(r)}"${missing ? ' title="No trips today"' : ''}><span class="chip-dot" style="--c:${/^[0-9a-fA-F]{6}$/.test(c || '') ? '#' + c : 'var(--surface3)'}"></span><span>${escapeHtml(r)}</span></button>`;
+      }).join('') : '<span class="chips-note">No departures here today.</span>';
+      rEl.onclick = e => {
+        const b = e.target.closest('.chip');
+        if (!b) return;
+        const v = b.dataset.v;
+        k.r = k.r.includes(v) ? k.r.filter(x => x !== v) : [...k.r, v];
+        renderChips(ed, k);
+      };
+
+      const heads = new Map(); // headsign -> trip count
+      deps.forEach(d => {
+        if (k.r.length && !k.r.includes(String(d.route_id))) return;
+        const h = String(d.trip_headsign || '');
+        if (h) heads.set(h, (heads.get(h) || 0) + 1);
+      });
+      k.h.forEach(h => { if (!heads.has(h)) heads.set(h, 0); });
+      const hEl = ed.querySelector('.ce-heads');
+      hEl.innerHTML = heads.size ? [...heads.keys()].sort().map(h =>
+        `<button type="button" class="chip${heads.get(h) ? '' : ' missing'}" data-v="${escapeHtml(h)}" aria-pressed="${k.h.includes(h)}" title="${heads.get(h)} trips today"><span>${escapeHtml(h)}</span></button>`).join('')
+        : '<span class="chips-note">—</span>';
+      hEl.onclick = e => {
+        const b = e.target.closest('.chip');
+        if (!b) return;
+        const v = b.dataset.v;
+        k.h = k.h.includes(v) ? k.h.filter(x => x !== v) : [...k.h, v];
+        renderChips(ed, k);
+      };
+    }
+
+    function wireStopSearch(ed, i) {
+      const input = ed.querySelector('.ss-input');
+      const box = ed.querySelector('.ss-results');
+      let items = [], active = -1, seq = 0;
+
+      const close = () => { box.hidden = true; input.setAttribute('aria-expanded', 'false'); input.removeAttribute('aria-activedescendant'); active = -1; };
+      const setActive = j => {
+        active = j;
+        box.querySelectorAll('.ss-item').forEach((el, n) => el.classList.toggle('active', n === j));
+        const el = box.querySelector(`.ss-item[data-j="${j}"]`);
+        if (el) { input.setAttribute('aria-activedescendant', el.id); el.scrollIntoView({ block: 'nearest' }); }
+      };
+      const show = (list, note) => {
+        items = list;
+        active = -1;
+        box.innerHTML = list.length
+          ? list.map((s, j) => `<div class="ss-item" role="option" id="ss-${i}-${j}" data-j="${j}"><span class="ss-name">${escapeHtml(s.stop_name)}</span><span class="ss-meta">#${escapeHtml(s.stop_code || s.stop_id)}${s.dist != null ? ` · ${fmtKm(s.dist)}` : ''}</span></div>`).join('')
+          : `<div class="ss-empty">${escapeHtml(note || 'No stops found')}</div>`;
+        box.hidden = false;
+        input.setAttribute('aria-expanded', 'true');
+      };
+      const pick = s => {
+        if (!s) return;
+        const k = draft.cards[i];
+        Object.assign(k, { s: String(s.stop_id), n: s.stop_name || '', c: String(s.stop_code || ''), r: [], h: [] });
+        renderCardEditors();
+      };
+
+      const run = debounce(async q => {
+        const my = ++seq;
+        if (q.length < 2) { close(); return; }
+        try {
+          const d = await getJSON(`/api/searchstop/${encodeURIComponent(q)}`);
+          if (my === seq) show((d.matches || []).slice(0, 8));
+        } catch (e) {
+          if (my === seq) show([], e.status === 422 ? 'No stops found' : 'Search failed');
+        }
+      }, 200);
+
+      input.addEventListener('input', () => run(input.value.trim()));
+      input.addEventListener('keydown', e => {
+        if (e.key === 'ArrowDown' && !box.hidden && items.length) { e.preventDefault(); setActive(Math.min(items.length - 1, active + 1)); }
+        else if (e.key === 'ArrowUp' && !box.hidden && items.length) { e.preventDefault(); setActive(Math.max(0, active - 1)); }
+        else if (e.key === 'Enter') { e.preventDefault(); if (!box.hidden && items.length) pick(items[active >= 0 ? active : 0]); }
+        else if (e.key === 'Escape' && !box.hidden) { e.preventDefault(); e.stopPropagation(); close(); }
+      });
+      input.addEventListener('blur', () => setTimeout(close, 150));
+      box.addEventListener('mousedown', e => e.preventDefault());
+      box.addEventListener('click', e => { const it = e.target.closest('.ss-item'); if (it) pick(items[Number(it.dataset.j)]); });
+
+      ed.querySelector('.ss-near').addEventListener('click', () => {
+        if (!navigator.geolocation) { show([], 'Location isn’t available in this browser'); return; }
+        const my = ++seq;
+        show([], 'Finding stops near you…');
+        navigator.geolocation.getCurrentPosition(async pos => {
+          try {
+            const d = await getJSON(`/api/nearest/${pos.coords.latitude}/${pos.coords.longitude}?limit=8`);
+            if (my !== seq) return;
+            show((d.nearest_stops || []).map(s => ({ stop_id: s.stop_id, stop_name: s.stop_name, stop_code: s.stop_code, dist: s.distanceKM })));
+            input.focus();
+          } catch (e) { if (my === seq) show([], 'Couldn’t load nearby stops'); }
+        }, () => { if (my === seq) show([], 'Location permission denied or unavailable'); }, { enableHighAccuracy: true, timeout: 10000 });
+      });
+    }
+
+    (function initSetup() {
+      $('#editBtn').addEventListener('click', openSetup);
+      $('#setupClose').addEventListener('click', closeSetup);
+      $('#setupCancel').addEventListener('click', closeSetup);
+      $('#setup').addEventListener('click', e => { if (e.target.id === 'setup') closeSetup(); });
+      document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#setup').hidden) closeSetup(); });
+      $('#addCard').addEventListener('click', () => {
+        draft.cards.push(blankCard());
+        renderCardEditors();
+        const inputs = document.querySelectorAll('.ce .ss-input');
+        inputs[inputs.length - 1]?.focus();
+      });
+      $('#setupSave').addEventListener('click', () => {
+        commitDraft();
+        closeSetup();
+        toast(cfg.cards.length ? 'Board saved' : 'Board saved (no stops yet)');
+      });
+      $('#copyLink').addEventListener('click', async () => {
+        commitDraft();
+        const ok = await copyText(location.origin + boardUrl(cfg));
+        toast(ok ? 'Saved, and the link is copied' : 'Saved. Copy the link from the address bar');
+      });
+    })();
+
+    // ===== Header controls =====
+    (function initFullscreen() {
+      const btn = $('#fsBtn');
+      if (!document.fullscreenEnabled) return;
+      btn.hidden = false;
+      btn.addEventListener('click', () => {
+        if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+        else document.documentElement.requestFullscreen().catch(() => {});
+      });
+    })();
+
+    // Kiosks with a mouse: hide the cursor and buttons after a few idle seconds.
+    (function initIdle() {
+      if (!window.matchMedia('(pointer: fine)').matches) return;
+      let timer = null;
+      const wake = () => {
+        document.body.classList.remove('idle');
+        clearTimeout(timer);
+        timer = setTimeout(() => { if ($('#setup').hidden) document.body.classList.add('idle'); }, 6000);
+      };
+      ['mousemove', 'keydown', 'pointerdown'].forEach(ev => window.addEventListener(ev, wake, { passive: true }));
+      wake();
+    })();
+
+    // ===== Start =====
+    function startBoard(fresh) {
+      applyAppearance(cfg);
+      buildBoard();
+      startPolling();
+      syncWakeLock();
+      if (fresh || !cfg.cards.length) openSetup();
+    }
+
+    lightMql.addEventListener?.('change', () => applyAppearance(draft || cfg));
+
+    // Pasting another board's link into this tab swaps boards.
+    window.addEventListener('hashchange', () => {
+      const r = loadConfig();
+      if (r.cfg.id === cfg.id && r.cfg.t === cfg.t && !r.fresh) return;
+      if (!$('#setup').hidden) closeSetup();
+      cfg = r.cfg;
+      stopData.clear();
+      startBoard(r.fresh);
+    });
+
+    (function init() {
+      const r = loadConfig();
+      cfg = r.cfg;
+      // Put a stored board into the URL, so Add to Home Screen / bookmarks capture it.
+      if (cfg.cards.length && hashParam('cfg') === null && hashParam('new') === null) history.replaceState(null, '', boardUrl(cfg));
+      tick();
+      setInterval(tick, 1000);
+      startBoard(r.fresh);
+    })();
+  </script>
+</body>
+</html>

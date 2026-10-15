@@ -190,6 +190,11 @@ def route_board():
 def flip_board():
     return send_from_directory('tksweb', 'flipboard.html')
 
+@app.route('/at-a-glance')
+@require_token
+def at_a_glance():
+    return send_from_directory('tksweb', 'at-a-glance.html')
+
 # Self-hosted fonts + Leaflet (no third-party requests from visitors' browsers)
 @app.route('/vendor/<path:filename>')
 def vendor(filename):

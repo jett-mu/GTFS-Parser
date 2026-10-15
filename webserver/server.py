@@ -161,6 +161,10 @@ def route_board():
 def flip_board():
     return send_from_directory('web', 'flipboard.html')
 
+@app.route('/at-a-glance')
+def at_a_glance():
+    return send_from_directory('web', 'at-a-glance.html')
+
 # Self-hosted fonts + Leaflet (no third-party requests from visitors' browsers)
 @app.route('/vendor/<path:filename>')
 def vendor(filename):
