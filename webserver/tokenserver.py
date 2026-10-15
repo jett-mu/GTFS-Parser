@@ -185,6 +185,11 @@ def departure_board():
 def route_board():
     return send_from_directory('tksweb', 'rteboard.html')
 
+@app.route('/flipbd')
+@require_token
+def flip_board():
+    return send_from_directory('tksweb', 'flipboard.html')
+
 # Self-hosted fonts + Leaflet (no third-party requests from visitors' browsers)
 @app.route('/vendor/<path:filename>')
 def vendor(filename):

@@ -157,6 +157,10 @@ def departure_board():
 def route_board():
     return send_from_directory('web', 'rteboard.html')
 
+@app.route('/flipbd')
+def flip_board():
+    return send_from_directory('web', 'flipboard.html')
+
 # Self-hosted fonts + Leaflet (no third-party requests from visitors' browsers)
 @app.route('/vendor/<path:filename>')
 def vendor(filename):

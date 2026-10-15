@@ -1758,7 +1758,11 @@
     .alert-item-meta {
       font-size: 10.5px; color: rgb(var(--warn-rgb)); font-weight: 600;
       letter-spacing: 0.03em; text-transform: uppercase; white-space: nowrap; flex-shrink: 0;
+      display: inline-flex; align-items: center; gap: 5px;
     }
+    /* Effect icon: drawn (not a Unicode fallback) on phones too, so it reads the same everywhere */
+    .alert-effect-ico { width: 13px; height: 13px; flex-shrink: 0; display: block; }
+    @media (max-width: 640px) { .alert-effect-ico { width: 15px; height: 15px; } }
     /* Height animates via the 0fr -> 1fr grid-row trick, so no measured heights are needed. */
     .alert-item-body-wrap {
       display: grid; grid-template-rows: 0fr; opacity: 0;
@@ -1967,7 +1971,9 @@
     .dep-filter-section { padding: 8px 0 10px; }
     .dep-filter-section + .dep-filter-section { border-top: 1px solid var(--border); }
     .dep-filter-section-routes { padding-bottom: 2px; }
-    .dep-filter-section-head { display: flex; align-items: center; gap: 6px; min-height: 22px; margin-bottom: 6px; }
+    /* Fixed height + Clear kept in the layout (visibility, not display) so the
+       count badge and Clear link appearing never push the section down. */
+    .dep-filter-section-head { display: flex; align-items: center; gap: 6px; height: 22px; margin-bottom: 6px; }
     .dep-filter-section-head .dep-filter-subhead { padding: 0; }
     .dep-filter-count {
       min-width: 16px;
@@ -1992,9 +1998,19 @@
       font-weight: 600;
     }
     button.dep-filter-section-clear:hover { background: none; text-decoration: underline; }
-    button.dep-filter-section-clear[hidden] { display: none; }
+    button.dep-filter-section-clear[hidden] { display: inline-block; visibility: hidden; }
     /* Pick-up / drop-off rule chips */
-    .dep-pd-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    /* Two labelled rows, "Hide" and "Show only"; labels share one column */
+    .dep-pd-chips { display: grid; grid-template-columns: max-content 1fr; align-items: center; gap: 8px 10px; }
+    .dep-pd-row { display: flex; flex-wrap: wrap; gap: 6px; }
+    .dep-pd-sep { display: none; grid-column: 1 / -1; height: 1px; background: var(--border); }
+    .dep-pd-row-label {
+      font-size: 10.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      color: var(--text-dim);
+    }
     .dep-pd-chips[hidden], .dep-pd-empty[hidden] { display: none; }
     button.dep-pd-chip {
       display: inline-flex;
@@ -2014,8 +2030,24 @@
       border-color: rgba(var(--accent-rgb), 0.5);
       color: var(--accent);
     }
-    .dep-pd-check { display: none; font-size: 11px; }
-    .dep-pd-chip[aria-pressed="true"] .dep-pd-check { display: inline; }
+    /* Check is a fixed-size ring in both states (empty off, filled on) so
+       toggling a chip never changes its width or re-wraps the row. */
+    .dep-pd-check {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      border: 1.5px solid var(--border2);
+      color: transparent;
+      font-size: 9px;
+      font-weight: 700;
+      line-height: 1;
+      transition: background var(--transition), border-color var(--transition), color var(--transition);
+    }
+    .dep-pd-chip[aria-pressed="true"] .dep-pd-check { background: var(--accent); border-color: var(--accent); color: var(--surface); }
     .dep-pd-hides { font-size: 10.5px; color: var(--text-dim); font-weight: 500; }
     .dep-pd-hides:empty { display: none; }
     .dep-pd-chip[aria-pressed="true"] .dep-pd-hides { color: inherit; opacity: 0.75; }
@@ -2128,6 +2160,46 @@
     }
     button.dep-filter-clear:hover { background: none; text-decoration: underline; }
     .dep-filter-clear .ico-svg { width: 12px; height: 12px; }
+    .dep-filter-header .settings-popover-title { margin-right: auto; }
+
+    /* Phone: the filter opens as a full-screen page instead of a dropdown.
+       initSettingsPopover moves it to <body> so the bottom sheet's drag
+       transform can't become its containing block and clip it. */
+    .settings-popover.is-fullscreen {
+      position: fixed;
+      inset: 0;
+      z-index: 1100;
+      width: auto;
+      max-width: none;
+      max-height: none;
+      border: none;
+      border-radius: 0;
+      box-shadow: none;
+      padding: 0 calc(var(--space-5) + env(safe-area-inset-right, 0px)) calc(var(--space-5) + var(--safe-bottom)) calc(var(--space-5) + env(safe-area-inset-left, 0px));
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
+      animation: fs-popover-in 0.25s cubic-bezier(0.32,0.72,0,1);
+    }
+    @keyframes fs-popover-in { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+    .is-fullscreen .dep-filter-header {
+      gap: 12px;
+      padding: calc(var(--space-4) + var(--safe-top)) 0 var(--space-3);
+      margin-bottom: 4px;
+    }
+    .is-fullscreen .dep-filter-header .settings-popover-title { font-size: 15px; letter-spacing: 0.02em; color: var(--text); }
+    .is-fullscreen button.dep-filter-clear { margin-bottom: 0; }
+    button.dep-filter-done {
+      flex-shrink: 0;
+      padding: 9px 18px;
+      border-radius: 20px;
+      border: 1px solid var(--accent);
+      background: var(--accent);
+      color: var(--surface);
+      font-size: 14px;
+      font-weight: 700;
+    }
+    button.dep-filter-done:hover { filter: brightness(1.07); background: var(--accent); }
 
     /* Route trips */
     .route-header { display: none; }
@@ -2183,10 +2255,40 @@
       font-family: var(--font-mono);
     }
 
-    .route-trips-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 6px;
+    /* Service alerts total: split-flap digits, like a station departure board.
+       Digits that change (and every digit on first show) flip down into place. */
+    .alerts-count { display: inline-flex; gap: 2px; }
+    .alerts-count:empty { display: none; }
+    .alerts-flap {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 17px;
+      height: 24px;
+      border-radius: 4px;
+      border: 1px solid var(--border2);
+      background: linear-gradient(to bottom, var(--surface3) 50%, var(--surface2) 50%);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+      color: rgb(var(--warn-rgb));
+      font-family: var(--font-board);
+      font-size: 15px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      line-height: 1;
+    }
+    /* The hinge line across the middle of each flap */
+    .alerts-flap::after {
+      content: '';
+      position: absolute;
+      left: 0; right: 0; top: 50%;
+      height: 1px;
+      background: rgba(0, 0, 0, 0.35);
+    }
+    .alerts-flap.flip { animation: alerts-flap-flip 0.55s cubic-bezier(0.3, 1.4, 0.5, 1) both; animation-delay: calc(var(--d, 0) * 70ms); }
+    @keyframes alerts-flap-flip {
+      from { transform: perspective(60px) rotateX(-90deg); opacity: 0.3; }
+      to   { transform: none; opacity: 1; }
     }
 
     .pagination {
@@ -2316,7 +2418,10 @@
       button.dep-time-now { padding: 4px 11px; font-size: 12px; }
       .dep-filter-headsigns { margin-left: 10px; }
       button.dep-filter-clear { padding: 8px 4px; font-size: 14px; }
-      button.dep-pd-chip { padding: 9px 13px; font-size: 13.5px; }
+      button.dep-pd-chip { padding: 9px 13px; font-size: 13.5px; gap: 7px; }
+      .dep-pd-check { width: 17px; height: 17px; font-size: 11px; }
+      .dep-pd-sep { display: block; margin: 2px 0; }
+      .dep-filter-section-head { height: 30px; }
       button.dep-filter-section-clear { padding: 6px 0; font-size: 13px; }
       .leaflet-control-zoom a { width: 44px !important; height: 44px !important; line-height: 44px !important; }
     }
@@ -2934,7 +3039,7 @@
         <div class="panel">
           <div class="panel-heading-row">
             <div class="panel-heading">Service alerts</div>
-            <span id="alertsCount" class="route-trips-count"></span>
+            <span id="alertsCount" class="alerts-count"></span>
           </div>
         </div>
         <div id="alertsList" class="alerts-list"></div>
@@ -2952,6 +3057,7 @@
           <div class="btn-tiles">
             <a class="secondary tab-accent-btn board-link btn-tile btn-ico" href="/depbd"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span class="ico-uni" aria-hidden="true">&#x25A6;&#xFE0E;</span><span class="btn-label">Departure board</span></a>
             <a class="secondary tab-accent-btn board-link btn-tile btn-ico" href="/rtebd"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg><span class="ico-uni" aria-hidden="true">&#x2261;&#xFE0E;</span><span class="btn-label">Route board</span></a>
+            <a class="secondary tab-accent-btn board-link btn-tile btn-ico" href="/flipbd"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="8" height="16" rx="1"/><rect x="13" y="4" width="8" height="16" rx="1"/><path d="M3 12h8M13 12h8"/></svg><span class="ico-uni" aria-hidden="true">&#x25A4;&#xFE0E;</span><span class="btn-label">Flip board (beta)</span></a>
           </div>
         </div>
       </div>
@@ -3071,7 +3177,7 @@
                 <div class="dep-filter-row settings-popover-wrap">
                   <button type="button" class="dep-filter-btn dep-filter-icon-btn" id="m-depFilterBtn" aria-haspopup="true" aria-expanded="false" aria-label="Filter by time, route or destination" title="Filter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18l-7 8.5V19l-4 2v-7.5z"/></svg><span class="dep-filter-badge" id="m-depFilterBadge" hidden>0</span></button>
                   <div class="settings-popover dep-filter-popover" id="m-depFilterPopover" hidden>
-                    <div class="dep-filter-header"><div class="settings-popover-title">Filter departures</div><button type="button" class="dep-filter-clear btn-ico" id="m-depFilterClearBtn" onclick="onDepFilterClear('m')"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg><span class="ico-uni" aria-hidden="true">&#x2715;&#xFE0E;</span><span class="btn-label">Clear all</span></button></div>
+                    <div class="dep-filter-header"><div class="settings-popover-title">Filter departures</div><button type="button" class="dep-filter-clear btn-ico" id="m-depFilterClearBtn" onclick="onDepFilterClear('m')"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg><span class="ico-uni" aria-hidden="true">&#x2715;&#xFE0E;</span><span class="btn-label">Clear all</span></button><button type="button" class="dep-filter-done" data-popover-close>Done</button></div>
                     <div class="dep-filter-tree" id="m-depFilterTree"></div>
                   </div>
                 </div>
@@ -3102,7 +3208,7 @@
                 <div class="dep-filter-row settings-popover-wrap">
                   <button type="button" class="dep-filter-btn dep-filter-icon-btn" id="m-multiDepFilterBtn" aria-haspopup="true" aria-expanded="false" aria-label="Filter by time, route or destination" title="Filter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18l-7 8.5V19l-4 2v-7.5z"/></svg><span class="dep-filter-badge" id="m-multiDepFilterBadge" hidden>0</span></button>
                   <div class="settings-popover dep-filter-popover" id="m-multiDepFilterPopover" hidden>
-                    <div class="dep-filter-header"><div class="settings-popover-title">Filter departures</div><button type="button" class="dep-filter-clear btn-ico" id="m-multiDepFilterClearBtn" onclick="onMultiDepFilterClear('m')"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg><span class="ico-uni" aria-hidden="true">&#x2715;&#xFE0E;</span><span class="btn-label">Clear all</span></button></div>
+                    <div class="dep-filter-header"><div class="settings-popover-title">Filter departures</div><button type="button" class="dep-filter-clear btn-ico" id="m-multiDepFilterClearBtn" onclick="onMultiDepFilterClear('m')"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg><span class="ico-uni" aria-hidden="true">&#x2715;&#xFE0E;</span><span class="btn-label">Clear all</span></button><button type="button" class="dep-filter-done" data-popover-close>Done</button></div>
                     <div class="dep-filter-tree" id="m-multiDepFilterTree"></div>
                   </div>
                 </div>
@@ -3212,7 +3318,7 @@
       <div class="tab-panel" id="m-tab-alerts">
         <div class="panel-heading-row">
           <div class="panel-heading">Service alerts</div>
-          <span id="m-alertsCount" class="route-trips-count"></span>
+          <span id="m-alertsCount" class="alerts-count"></span>
         </div>
         <div id="m-alertsList" class="alerts-list"></div>
       </div>
@@ -3229,6 +3335,7 @@
           <div class="btn-tiles">
             <a class="secondary tab-accent-btn board-link btn-tile btn-ico" href="/depbd"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span class="ico-uni" aria-hidden="true">&#x25A6;&#xFE0E;</span><span class="btn-label">Departure board</span></a>
             <a class="secondary tab-accent-btn board-link btn-tile btn-ico" href="/rtebd"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg><span class="ico-uni" aria-hidden="true">&#x2261;&#xFE0E;</span><span class="btn-label">Route board</span></a>
+            <a class="secondary tab-accent-btn board-link btn-tile btn-ico" href="/flipbd"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="8" height="16" rx="1"/><rect x="13" y="4" width="8" height="16" rx="1"/><path d="M3 12h8M13 12h8"/></svg><span class="ico-uni" aria-hidden="true">&#x25A4;&#xFE0E;</span><span class="btn-label">Flip board (beta)</span></a>
           </div>
         </div>
       </div>
@@ -3575,7 +3682,9 @@
     // replaces "now" as the start of the 3h / Next 4 windows.
     //
     // st.pd is a Set of PD_FILTERS keys (pick-up / drop-off rules); each one
-    // active hides the departures its test rejects.
+    // active hides the departures its test rejects. Rules that together would
+    // hide everything (e.g. "Hide pick-up only" + "Show only pick-up only")
+    // list each other in `excludes`, and turning one on turns the others off.
     //
     // Loading another stop resets the routes (they differ per stop) but keeps
     // the times and pick-up / drop-off rules.
@@ -3594,14 +3703,26 @@
       st.pd = new Set();
     }
     // pickup_type / drop_off_type: 0 regular, 1 none, 2 phone agency, 3 coordinate with driver.
+    // `match` picks the departures a rule is about (its chip shows how many);
+    // a "hide" rule keeps the rest, a "only" rule keeps just those.
+    const noPickup     = d => (d.pickup_type | 0) === 1;
+    const noDropoff    = d => (d.drop_off_type | 0) === 1;
+    const needsCall    = d => (d.pickup_type | 0) >= 2 || (d.drop_off_type | 0) >= 2;
+    const dropoffOnly  = d => noPickup(d) && !noDropoff(d);
+    const pickupOnly   = d => noDropoff(d) && !noPickup(d);
     const PD_FILTERS = [
-      { key: 'board',  label: 'Can board',     title: "Hide trips you can't board at this stop",
-        test: d => (d.pickup_type | 0) !== 1 },
-      { key: 'alight', label: 'Can get off',   title: "Hide trips that don't let you off at this stop",
-        test: d => (d.drop_off_type | 0) !== 1 },
-      { key: 'noCall', label: 'No call-ahead', title: 'Hide trips that need a phone call or a word with the driver here',
-        test: d => (d.pickup_type | 0) < 2 && (d.drop_off_type | 0) < 2 },
-    ];
+      { key: 'board',       group: 'hide', label: 'Drop-off only', match: noPickup,    excludes: ['onlyDropoff'],
+        title: "Hide trips you can't board at this stop (drop-off only / no pick-up)" },
+      { key: 'alight',      group: 'hide', label: 'Pick-up only',  match: noDropoff,   excludes: ['onlyPickup'],
+        title: "Hide trips that don't let you off at this stop (pick-up only / no drop-off)" },
+      { key: 'noCall',      group: 'hide', label: 'Call-ahead',    match: needsCall,   excludes: [],
+        title: 'Hide trips that need a phone call or a word with the driver here' },
+      { key: 'onlyDropoff', group: 'only', label: 'Drop-off only', match: dropoffOnly, excludes: ['board', 'onlyPickup'],
+        title: 'Show only trips that let you off here but not on' },
+      { key: 'onlyPickup',  group: 'only', label: 'Pick-up only',  match: pickupOnly,  excludes: ['alight', 'onlyDropoff'],
+        title: 'Show only trips you can board here but not get off' },
+    ].map(f => ({ ...f, test: f.group === 'only' ? f.match : d => !f.match(d) }));
+    const PD_GROUPS = [['hide', 'Hide'], ['only', 'Show only']];
     // A "Before" at or earlier than "After" means the next morning (22:00 → 02:00).
     function depTimeBounds(key) {
       const { after, before } = getDepFilterState(key);
@@ -3694,7 +3815,11 @@
           <section class="dep-filter-section">
             ${head('pd', 'Pick-up / drop-off')}
             <div class="dep-pd-chips">
-              ${PD_FILTERS.map(f => `<button type="button" class="dep-pd-chip" data-pd="${f.key}" aria-pressed="false" title="${f.title}"><span class="dep-pd-check" aria-hidden="true">&#x2713;&#xFE0E;</span>${f.label}<span class="dep-pd-hides"></span></button>`).join('')}
+              ${PD_GROUPS.map(([g, name], i) => `${i ? '<div class="dep-pd-sep" aria-hidden="true"></div>' : ''}
+                <span class="dep-pd-row-label" aria-hidden="true">${name}</span>
+                <div class="dep-pd-row" role="group" aria-label="${name}">
+                  ${PD_FILTERS.filter(f => f.group === g).map(f => `<button type="button" class="dep-pd-chip" data-pd="${f.key}" aria-pressed="false" title="${f.title}"><span class="dep-pd-check" aria-hidden="true">&#x2713;&#xFE0E;</span>${f.label}<span class="dep-pd-hides"></span></button>`).join('')}
+                </div>`).join('')}
             </div>
             <div class="dep-pd-empty" hidden>Every departure here has regular pick-up and drop-off.</div>
           </section>
@@ -3706,9 +3831,10 @@
         // Every change: update state, re-render this panel, then the departures view.
         const commit = mutate => {
           const [, , , k, onChange] = box._args;
+          const hadTime = depHasTimeFilter(k);
           mutate(getDepFilterState(k));
           renderDepFilterPanel(...box._args);
-          onChange();
+          if (!syncDepWindowToTime(k, hadTime)) onChange();
         };
         box.querySelectorAll('.dep-time-input input').forEach(inp =>
           inp.addEventListener('change', () => commit(st => { st[inp.dataset.bound] = inp.value ? parseTime(inp.value) : null; })));
@@ -3717,7 +3843,12 @@
         box.querySelectorAll('.dep-time-now').forEach(btn =>
           btn.addEventListener('click', e => { e.preventDefault(); commit(st => { st[btn.dataset.bound] = Math.floor(nowInSeconds() / 60) * 60; }); }));
         box.querySelectorAll('.dep-pd-chip').forEach(btn =>
-          btn.addEventListener('click', () => commit(st => { st.pd.has(btn.dataset.pd) ? st.pd.delete(btn.dataset.pd) : st.pd.add(btn.dataset.pd); })));
+          btn.addEventListener('click', () => commit(st => {
+            const f = PD_FILTERS.find(x => x.key === btn.dataset.pd);
+            if (st.pd.has(f.key)) { st.pd.delete(f.key); return; }
+            f.excludes.forEach(k => st.pd.delete(k));
+            st.pd.add(f.key);
+          })));
         box.querySelectorAll('.dep-filter-section-clear').forEach(btn =>
           btn.addEventListener('click', () => commit(st => {
             if (btn.dataset.clear === 'time') st.after = st.before = null;
@@ -3735,20 +3866,22 @@
       });
       box.querySelectorAll('.dep-time-clear').forEach(btn => { btn.hidden = st[btn.dataset.bound] === null; });
 
-      // Chips say how many of this stop's departures they'd hide; a chip that
-      // would hide nothing is disabled, and if none would, a note replaces them.
-      let anyHides = false;
+      // Chips say how many of this stop's departures are of their kind; a chip
+      // that wouldn't change the list is disabled, and if every one is, a note
+      // replaces them.
+      let anyUseful = false;
       box.querySelectorAll('.dep-pd-chip').forEach(btn => {
         const f = PD_FILTERS.find(x => x.key === btn.dataset.pd);
-        const hides = departures.filter(d => !f.test(d)).length;
+        const n = departures.filter(f.match).length;
         const on = st.pd.has(f.key);
-        anyHides = anyHides || hides > 0 || on;
+        const useful = n > 0 && !(f.group === 'only' && n === departures.length);
+        anyUseful = anyUseful || useful || on;
         btn.setAttribute('aria-pressed', on);
-        btn.disabled = !hides && !on;
-        btn.querySelector('.dep-pd-hides').textContent = hides ? `hides ${hides}` : '';
+        btn.disabled = !useful && !on;
+        btn.querySelector('.dep-pd-hides').textContent = n ? `(${n})` : '';
       });
-      box.querySelector('.dep-pd-chips').hidden = !anyHides;
-      box.querySelector('.dep-pd-empty').hidden = anyHides;
+      box.querySelector('.dep-pd-chips').hidden = !anyUseful;
+      box.querySelector('.dep-pd-empty').hidden = anyUseful;
 
       const counts = depFilterCounts(key);
       box.querySelectorAll('.dep-filter-count').forEach(el => {
@@ -4785,9 +4918,10 @@
 
     function onDepFilterClear(prefix) {
       const p = prefix === 'd' ? '' : 'm-';
+      const hadTime = depHasTimeFilter('dep-' + prefix);
       clearDepFilterState('dep-' + prefix);
       renderDepFilterPanel(allDepartures, p + 'depFilterTree', p + 'depFilterBadge', 'dep-' + prefix, () => { if (currentStopId) updateDeparturesView(currentStopId); });
-      if (currentStopId) updateDeparturesView(currentStopId);
+      if (!syncDepWindowToTime('dep-' + prefix, hadTime) && currentStopId) updateDeparturesView(currentStopId);
     }
 
     // Time-window segmented control (3h / Next 4 / All) on each departures header.
@@ -4796,6 +4930,36 @@
       if (!seg) return;
       seg.dataset.mode = mode;
       seg.querySelectorAll('button[data-mode]').forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === mode));
+    }
+    function getDepWindow(kind, prefix) {
+      const [all, n4] = kind === 'dep'
+        ? (prefix === 'd' ? [showingAllDeps_d, showingNext4_d] : [showingAllDeps_m, showingNext4_m])
+        : (prefix === 'd' ? [showingAllMultiDeps_d, showingNext4MultiDeps_d] : [showingAllMultiDeps_m, showingNext4MultiDeps_m]);
+      return all ? 'all' : n4 ? 'n4' : '3h';
+    }
+    function depHasTimeFilter(key) {
+      const st = getDepFilterState(key);
+      return st.after !== null || st.before !== null;
+    }
+    // A time filter is a range the rider asked for, so setting the first bound
+    // switches that board to "All"; clearing the last one puts back the window
+    // it had before, unless the rider has since picked another. `key` is the
+    // filter key ('dep-d', 'multi-m', ...). Returns true if it switched (and so
+    // already re-rendered the departures).
+    function syncDepWindowToTime(key, hadTime) {
+      const [kind, prefix] = key.split('-');
+      const st = getDepFilterState(key);
+      const hasTime = depHasTimeFilter(key);
+      const current = getDepWindow(kind, prefix);
+      if (!hadTime && hasTime) {
+        st.windowBeforeTime = current;
+        if (current !== 'all') { setDepWindow(kind, prefix, 'all'); return true; }
+      } else if (hadTime && !hasTime) {
+        const prev = st.windowBeforeTime;
+        st.windowBeforeTime = null;
+        if (prev && prev !== 'all' && current === 'all') { setDepWindow(kind, prefix, prev); return true; }
+      }
+      return false;
     }
     function setDepWindow(kind, prefix, mode) {
       const all = mode === 'all', n4 = mode === 'n4';
@@ -5827,8 +5991,8 @@
 
       if (!isRefresh) {
         const defaultShowAll = !selectedDateOffset().isToday;
-        showingAllMultiDeps_d = defaultShowAll; showingNext4MultiDeps_d = false;
-        showingAllMultiDeps_m = defaultShowAll; showingNext4MultiDeps_m = false;
+        showingAllMultiDeps_d = defaultShowAll || depHasTimeFilter('multi-d'); showingNext4MultiDeps_d = false;
+        showingAllMultiDeps_m = defaultShowAll || depHasTimeFilter('multi-m'); showingNext4MultiDeps_m = false;
         resetDepFilterState('multi-d'); resetDepFilterState('multi-m');
       }
       renderDepFilterPanel(allMultiDepartures, 'multiDepFilterTree', 'multiDepFilterBadge', 'multi-d', updateMultiDeparturesView);
@@ -5954,9 +6118,10 @@
 
     function onMultiDepFilterClear(prefix) {
       const p = prefix === 'd' ? '' : 'm-';
+      const hadTime = depHasTimeFilter('multi-' + prefix);
       clearDepFilterState('multi-' + prefix);
       renderDepFilterPanel(allMultiDepartures, p + 'multiDepFilterTree', p + 'multiDepFilterBadge', 'multi-' + prefix, updateMultiDeparturesView);
-      updateMultiDeparturesView();
+      if (!syncDepWindowToTime('multi-' + prefix, hadTime)) updateMultiDeparturesView();
     }
 
     function startMultiDepsRefresh() {
@@ -6000,8 +6165,8 @@
       allDepartures = [...data.departures].sort((a,b) => parseTime(a.arrival_time)-parseTime(b.arrival_time));
       // "Next 3h" only means something for today; any other date opens on all departures.
       const defaultShowAll = !selectedDateOffset().isToday;
-      showingAllDeps_d = defaultShowAll; showingNext4_d = false;
-      showingAllDeps_m = defaultShowAll; showingNext4_m = false;
+      showingAllDeps_d = defaultShowAll || depHasTimeFilter('dep-d'); showingNext4_d = false;
+      showingAllDeps_m = defaultShowAll || depHasTimeFilter('dep-m'); showingNext4_m = false;
       currentStopId = data.stop_id;
       currentStopView = { kind: 'single', stopId: String(data.stop_id) };
 
@@ -6095,19 +6260,36 @@
     wireMultiStopSetting('truncateMultiTripsToggle', 'm-truncateMultiTripsToggle', 'gtfs-truncate-multi-trips', 'checked', reRunMultiStopSearch);
 
     // Wires a gear button to show/hide its settings popover: click toggles,
-    // clicking outside or pressing Escape closes it.
-    function initSettingsPopover(btnId, popoverId) {
+    // clicking outside or pressing Escape closes it. `fullscreen` turns it into a
+    // full-screen page (phone filter) that closes via its [data-popover-close] button.
+    function initSettingsPopover(btnId, popoverId, { fullscreen = false } = {}) {
       const btn = document.getElementById(btnId);
       const popover = document.getElementById(popoverId);
       if (!btn || !popover) return;
 
-      const close = () => { popover.hidden = true; btn.classList.remove('active'); btn.setAttribute('aria-expanded', 'false'); };
-      const open = () => { popover.hidden = false; btn.classList.add('active'); btn.setAttribute('aria-expanded', 'true'); };
+      if (fullscreen) {
+        popover.classList.add('is-fullscreen');
+        popover.setAttribute('role', 'dialog');
+        popover.setAttribute('aria-modal', 'true');
+        popover.setAttribute('aria-label', 'Filter departures');
+        document.body.appendChild(popover);
+      }
+
+      const close = () => {
+        if (popover.hidden) return;
+        popover.hidden = true; btn.classList.remove('active'); btn.setAttribute('aria-expanded', 'false');
+        if (fullscreen) btn.focus({ preventScroll: true });
+      };
+      const open = () => {
+        popover.hidden = false; btn.classList.add('active'); btn.setAttribute('aria-expanded', 'true');
+        if (fullscreen) { popover.scrollTop = 0; popover.querySelector('[data-popover-close]')?.focus({ preventScroll: true }); }
+      };
 
       btn.addEventListener('click', e => {
         e.stopPropagation();
         if (popover.hidden) open(); else close();
       });
+      popover.querySelectorAll('[data-popover-close]').forEach(b => b.addEventListener('click', close));
       popover.addEventListener('click', e => e.stopPropagation());
       document.addEventListener('click', close);
       document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
@@ -6115,9 +6297,9 @@
     initSettingsPopover('stopSettingsBtn', 'stopSettingsPopover');
     initSettingsPopover('m-stopSettingsBtn', 'm-stopSettingsPopover');
     initSettingsPopover('depFilterBtn', 'depFilterPopover');
-    initSettingsPopover('m-depFilterBtn', 'm-depFilterPopover');
+    initSettingsPopover('m-depFilterBtn', 'm-depFilterPopover', { fullscreen: true });
     initSettingsPopover('multiDepFilterBtn', 'multiDepFilterPopover');
-    initSettingsPopover('m-multiDepFilterBtn', 'm-multiDepFilterPopover');
+    initSettingsPopover('m-multiDepFilterBtn', 'm-multiDepFilterPopover', { fullscreen: true });
 
     // ===== NEAREST STOPS =====
     function handleFindNearest(latId, lonId) {
@@ -6643,11 +6825,39 @@
       });
     }
     function prettyEnum(s) { return String(s || '').toLowerCase().replace(/_/g, ' '); }
+    // Icon per GTFS-RT Alert.effect; anything unlisted (OTHER_EFFECT, UNKNOWN_EFFECT, ...) gets the warning triangle.
+    const ALERT_EFFECT_ICONS = {
+      DETOUR:              '<path d="M4 20v-6a4 4 0 0 1 4-4h12"/><path d="m16 6 4 4-4 4"/>',
+      SIGNIFICANT_DELAYS:  '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+      NO_SERVICE:          '<circle cx="12" cy="12" r="9"/><path d="m5.6 5.6 12.8 12.8"/>',
+      REDUCED_SERVICE:     '<path d="m22 17-8.5-8.5-5 5L2 7"/><path d="M16 17h6v-6"/>',
+      ADDITIONAL_SERVICE:  '<circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/>',
+      MODIFIED_SERVICE:    '<path d="M7 4 3 8l4 4"/><path d="M3 8h18"/><path d="m17 20 4-4-4-4"/><path d="M21 16H3"/>',
+      STOP_MOVED:          '<path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/>',
+      ACCESSIBILITY_ISSUE: '<circle cx="10" cy="4" r="1.5"/><path d="M10 7v6h6l2 5"/><path d="M7 11a5 5 0 1 0 6.6 6.6"/>',
+    };
+    const ALERT_EFFECT_DEFAULT_ICON = '<path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/>';
+    function alertEffectIcon(effect) {
+      return '<svg class="alert-effect-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+        (ALERT_EFFECT_ICONS[String(effect || '').toUpperCase()] || ALERT_EFFECT_DEFAULT_ICON) + '</svg>';
+    }
+    // Split-flap alert total; only digits that differ from the last render flip,
+    // so the 60 s refresh is still unless the count actually changed.
+    function renderAlertsCount(el, n) {
+      const text = n ? String(n) : '';
+      const prev = el.dataset.n || '';
+      if (prev === text && el.childElementCount) return;
+      el.dataset.n = text;
+      if (n) el.setAttribute('aria-label', n + ' active alert' + (n !== 1 ? 's' : '')); else el.removeAttribute('aria-label');
+      const old = prev.padStart(text.length);
+      el.innerHTML = [...text].map((ch, i) =>
+        '<span class="alerts-flap' + (old[i] !== ch ? ' flip' : '') + '" style="--d:' + i + '" aria-hidden="true">' + ch + '</span>').join('');
+    }
     function renderAlerts() {
       [['alertsList', 'alertsCount'], ['m-alertsList', 'm-alertsCount']].forEach(([listId, countId]) => {
         const list = document.getElementById(listId), count = document.getElementById(countId);
         if (!list) return;
-        if (count) count.textContent = activeAlerts.length ? String(activeAlerts.length) : '';
+        if (count) renderAlertsCount(count, activeAlerts.length);
         const badge = document.getElementById(listId === 'alertsList' ? 'sbAlertsBadge' : 'mAlertsBadge');
         if (badge) {
           badge.textContent = activeAlerts.length > 99 ? '99+' : String(activeAlerts.length);
@@ -6674,7 +6884,7 @@
             (colors.length ? '<div class="alert-item-bars">' + colors.map(c => '<span style="background:' + c + '"></span>').join('') + '</div>' : '') +
             '<div class="alert-item-header">' +
             '<div class="alert-item-title">' + escapeHtml(title) + '</div>' +
-            '<div class="alert-item-meta">' + escapeHtml(prettyEnum(al.effect)) + '</div></div>' +
+            '<div class="alert-item-meta">' + escapeHtml(prettyEnum(al.effect)) + alertEffectIcon(al.effect) + '</div></div>' +
             (body ? '<div class="alert-item-body-wrap"><div class="alert-item-body-clip"><div class="alert-item-body">' + escapeHtml(body) + '</div></div></div>' : '') +
             (routes.length ? '<div class="alert-item-routes">Routes: ' + routes.map(alertRouteChip).join('') + '</div>' : '') +
             '</div>';

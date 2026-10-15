@@ -1,0 +1,1627 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Flip Board (Beta)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <script>
+    (function () {
+      try {
+        var saved = localStorage.getItem('gtfs-theme');
+        var theme = saved || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) {}
+    })();
+  </script>
+  <link rel="stylesheet" href="/vendor/fonts/fonts.css">
+  <style>
+    :root {
+      --card-radius: 3px;
+      --sidebar-transition: 0.32s cubic-bezier(0.16,1,0.3,1);
+      --transition: 0.18s ease;
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --safe-top: env(safe-area-inset-top, 0px);
+
+      --font-display: 'Oswald', sans-serif;
+      --font-body: 'Inter', sans-serif;
+      --font-board: 'Saira', sans-serif;
+
+      --space-2: 8px;
+      --space-3: 12px;
+      --space-4: 16px;
+      --space-5: 20px;
+
+      /* Solari housing — fixed, independent of the light/dark theme (the theme only styles the sidebar) */
+      --fb-housing: #0b0b0a;
+      --fb-housing2: #161614;
+      --fb-rule: #2a2a26;
+      --fb-flap: #2a2a27;
+      --fb-ink: #f2efe6;
+      --fb-amber: #ffc23d;
+      --fb-dim: #8f8c82;
+      --fb-green: #5fd38a;
+      --fb-red: #ff6a4d;
+      --fb-cyan: #5ad1e6;
+    }
+
+    /* Sidebar theme tokens (copy of depboard.html's) */
+    :root, :root[data-theme="dark"] {
+      --bg: #15140f;
+      --surface: #1d1c15;
+      --surface2: #24231a;
+      --surface3: #2d2b1f;
+      --border: rgba(250,250,247,0.14);
+      --border2: rgba(250,250,247,0.28);
+      --text: #FAFAF7;
+      --text-muted: rgba(250,250,247,0.72);
+      --text-dim: rgba(250,250,247,0.50);
+      --accent: #6FA0E8;
+      --shadow-2: 4px 4px 0 rgba(0,0,0,0.4);
+      color-scheme: dark;
+    }
+    :root[data-theme="light"] {
+      --bg: #FAFAF7;
+      --surface: #ffffff;
+      --surface2: #f4f1ea;
+      --surface3: #eae5d9;
+      --border: rgba(26,26,26,0.15);
+      --border2: rgba(26,26,26,0.32);
+      --text: #1A1A1A;
+      --text-muted: rgba(26,26,26,0.68);
+      --text-dim: rgba(26,26,26,0.50);
+      --accent: #2B5FAD;
+      --shadow-2: 4px 4px 0 rgba(26,26,26,0.10);
+      color-scheme: light;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; font-variant-emoji: text; }
+    a, button, input, select, label, summary { touch-action: manipulation; }
+    html, body {
+      height: 100%;
+      font-family: var(--font-body);
+      background: var(--fb-housing);
+      color: var(--text);
+      overscroll-behavior: none;
+    }
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    button {
+      background: var(--surface3); color: var(--text); border: 1px solid var(--border2);
+      border-radius: var(--card-radius); padding: 8px 13px; cursor: pointer;
+      font-size: 14px; font-weight: 500; font-family: var(--font-body); white-space: nowrap;
+    }
+    button:active { transform: scale(0.97); }
+
+    /* ===== APP SHELL ===== */
+    .fb-app {
+      position: fixed;
+      inset: 0;
+      bottom: var(--kb-h, 0px);
+      display: flex;
+      flex-direction: column;
+      background: var(--fb-housing);
+      color: var(--fb-ink);
+    }
+
+    .fb-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-4);
+      padding: calc(var(--space-3) + var(--safe-top)) var(--space-5) var(--space-3);
+      background: linear-gradient(var(--fb-housing2), #0e0e0d);
+      border-bottom: 3px solid #1f1f1c;
+      box-shadow: inset 0 -1px 0 #000;
+      flex-shrink: 0;
+    }
+    .fb-header-left { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
+    .fb-header-text { min-width: 0; }
+    .fb-title {
+      font-family: var(--font-display);
+      font-size: 28px;
+      font-weight: 500;
+      line-height: 1;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--fb-amber);
+      white-space: nowrap;
+    }
+    .fb-beta {
+      display: inline-block;
+      vertical-align: middle;
+      margin-left: 10px;
+      padding: 3px 6px 2px;
+      border: 1px solid currentColor;
+      border-radius: 3px;
+      font-family: var(--font-board);
+      font-size: 11px;
+      font-weight: 600;
+      line-height: 1;
+      letter-spacing: 0.12em;
+      position: relative;
+      top: -3px;
+    }
+    .fb-sub {
+      display: flex;
+      flex-wrap: nowrap;
+      overflow: hidden;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .fb-chip {
+      padding: 2px 8px;
+      border: 1px solid var(--fb-rule);
+      border-radius: 3px;
+      font-family: var(--font-board);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--fb-dim);
+      white-space: nowrap;
+    }
+
+    button.fb-sb-toggle {
+      width: 40px; height: 40px; padding: 0; flex-shrink: 0; position: relative;
+      display: flex; align-items: center; justify-content: center;
+      background: transparent; border: 0; border-radius: var(--card-radius);
+      color: #c9c5b8; cursor: pointer; margin-left: -8px;
+    }
+    button.fb-sb-toggle:hover { background: #22221f; color: var(--fb-ink); }
+    button.fb-sb-toggle.active { background: #22221f; color: var(--fb-amber); }
+    button.fb-sb-toggle svg { width: 22px; height: 22px; }
+    .dep-filter-badge {
+      position: absolute; top: -4px; right: -4px;
+      min-width: 17px; height: 17px; padding: 0 4px; border-radius: 9px;
+      background: var(--fb-amber); color: #000; font-size: 10.5px; font-weight: 700; line-height: 17px; text-align: center;
+    }
+    .dep-filter-badge[hidden] { display: none; }
+
+    .fb-clock-wrap { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; flex-shrink: 0; }
+    .fb-clock {
+      --cw: clamp(15px, 1.7vw, 26px);
+      --ch: calc(var(--cw) * 1.45);
+      --gap: 2px;
+      position: relative;
+    }
+    .fb-date {
+      font-family: var(--font-board);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--fb-dim);
+      white-space: nowrap;
+    }
+
+    /* ===== BOARD ===== */
+    .board-main { flex: 1; min-height: 0; display: flex; position: relative; --sb-w: 320px; }
+    .fb-stage {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      padding: var(--space-4) var(--space-5) var(--space-3);
+      background: radial-gradient(ellipse at 50% 0%, #151513 0%, var(--fb-housing) 70%);
+    }
+    .fb-board {
+      --cw: clamp(14px, 1.6vw, 30px);
+      --ch: calc(var(--cw) * 1.5);
+      --gap: 3px;
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+    .fb-heads {
+      display: flex;
+      gap: var(--seg, 20px);
+      flex-shrink: 0;
+      height: 22px;
+      line-height: 16px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--fb-rule);
+    }
+    .fb-head {
+      flex: 0 0 auto;
+      font-family: var(--font-board);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--fb-amber);
+      white-space: nowrap;
+      overflow: hidden;
+    }
+    .fb-head-min { text-align: right; }
+    .fb-rows {
+      flex: 1;
+      min-height: 0;
+      width: 100%;
+      overflow: hidden;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--rgap, 10px);
+    }
+    .fb-foot {
+      flex-shrink: 0;
+      height: calc(var(--ch) + 11px); /* fixed so the row count measured before it's filled stays right */
+      padding-top: 10px;
+      border-top: 1px solid var(--fb-rule);
+    }
+    .fb-probe { position: absolute; visibility: hidden; pointer-events: none; }
+    .fb-rows canvas, .fb-foot canvas, .fb-clock canvas { display: block; }
+    .sr-only {
+      position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+      overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+    }
+
+    .fb-legal {
+      flex-shrink: 0;
+      padding: 6px 16px calc(6px + var(--safe-bottom));
+      font-size: 11px;
+      line-height: 1.4;
+      text-align: center;
+      color: #6d6a62;
+      background: var(--fb-housing);
+    }
+
+    @media (max-width: 640px) {
+      .fb-header { padding-left: var(--space-3); padding-right: var(--space-3); gap: var(--space-2); }
+      .fb-title { font-size: 19px; letter-spacing: 0.12em; }
+      .fb-beta { font-size: 9px; margin-left: 6px; top: -2px; }
+      .fb-sub { display: none; }
+      .fb-clock { --cw: clamp(12px, 3.6vw, 18px); }
+      .fb-date { font-size: 10.5px; }
+      .fb-stage { padding: var(--space-3) var(--space-3) var(--space-2); }
+      .fb-board { --cw: clamp(12px, 3.8vw, 22px); --gap: 2px; }
+      .fb-head { font-size: 10.5px; letter-spacing: 0.1em; }
+      button.fb-sb-toggle { width: 44px; height: 44px; }
+    }
+
+    /* ===== SETTINGS SIDEBAR (copy of depboard.html's) ===== */
+    .board-sidebar {
+      flex: 0 0 auto; width: var(--sb-w); overflow: hidden;
+      background: var(--surface); border-right: 1px solid var(--border);
+      transition: width var(--sidebar-transition), border-color var(--sidebar-transition), visibility 0s;
+    }
+    .board-main.sb-collapsed .board-sidebar {
+      width: 0; border-right-color: transparent; visibility: hidden;
+      transition: width var(--sidebar-transition), border-color var(--sidebar-transition), visibility 0s linear 0.32s;
+    }
+    .board-main.sb-init .board-sidebar { transition: none !important; }
+    .board-sidebar-inner {
+      width: var(--sb-w); height: 100%; overflow-y: auto; overscroll-behavior: contain;
+      padding: var(--space-4) var(--space-4) calc(var(--space-5) + var(--safe-bottom));
+      display: flex; flex-direction: column; gap: var(--space-3);
+    }
+    a.sb-back {
+      display: block; padding: 9px 11px; font-size: 14px; font-weight: 600; text-decoration: none; color: var(--text);
+      background: var(--surface2); border: 1px solid var(--border); border-radius: var(--card-radius);
+    }
+    a.sb-back:hover { background: var(--surface3); border-color: var(--border2); }
+    details.sb-acc { border: 1px solid var(--border); border-radius: var(--card-radius); background: var(--surface2); }
+    summary.sb-sum {
+      list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      padding: 10px 12px; font-size: 14px; font-weight: 600; color: var(--text); border-radius: var(--card-radius);
+    }
+    summary.sb-sum::-webkit-details-marker { display: none; }
+    summary.sb-sum:hover { background: var(--surface3); }
+    summary.sb-sum::after {
+      content: ''; width: 8px; height: 8px; margin-left: auto; flex-shrink: 0;
+      border-right: 2px solid var(--text-muted); border-bottom: 2px solid var(--text-muted);
+      transform: rotate(45deg) translate(-2px, -2px); transition: transform 0.2s;
+    }
+    details[open] > summary.sb-sum::after { transform: rotate(-135deg); }
+    details[open] > summary.sb-sum { border-bottom: 1px solid var(--border); border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+    .sb-acc-body { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3); }
+    .sb-count {
+      min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px;
+      background: var(--accent); color: #fff; font-size: 11px; font-weight: 700; line-height: 18px; text-align: center;
+    }
+    .sb-label { margin-top: var(--space-2); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
+    .sb-current { font-size: 13px; color: var(--text-muted); }
+    .sb-row { display: flex; gap: 6px; }
+    .sb-toggle {
+      display: flex; align-items: center; gap: 10px; padding: 10px 12px; cursor: pointer;
+      font-size: 14px; font-weight: 600; color: var(--text);
+      background: var(--surface2); border: 1px solid var(--border); border-radius: var(--card-radius);
+    }
+    .sb-toggle input { width: 18px; height: 18px; margin: 0; flex-shrink: 0; accent-color: var(--accent); }
+    .board-sidebar [hidden] { display: none !important; }
+    .board-sidebar input[type="search"], .board-sidebar input[type="text"] {
+      flex: 1; min-width: 0; width: 100%; font: inherit; font-size: 14px; color: var(--text);
+      background: var(--surface2); border: 1px solid var(--border); border-radius: var(--card-radius); padding: 9px 11px;
+    }
+    button.sb-btn {
+      width: 100%; text-align: left; font-size: 14px; padding: 9px 11px; white-space: normal;
+      background: var(--surface2); border: 1px solid var(--border); border-radius: var(--card-radius); color: var(--text);
+    }
+    button.sb-btn:hover { background: var(--surface3); border-color: var(--border2); }
+    button.sb-btn.sb-primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+    button.sb-btn.sb-primary.is-current { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent); }
+    .sb-row button.sb-btn { width: auto; flex-shrink: 0; }
+    .sb-list { display: flex; flex-direction: column; gap: 6px; }
+    .sb-item { display: flex; gap: 6px; }
+    .sb-item .sb-pick { flex: 1; min-width: 0; }
+    .sb-item.active .sb-pick { border-color: var(--accent); }
+    .sb-item button.sb-btn:last-child { width: auto; flex-shrink: 0; }
+    button.sb-btn small { display: block; color: var(--text-muted); font-size: 11.5px; }
+    button.sb-btn.sb-primary small { color: inherit; }
+    .sb-empty { font-size: 13px; color: var(--text-muted); }
+
+    .dep-filter-tree { display: flex; flex-direction: column; gap: 2px; }
+    .dep-filter-route { padding: 2px 0; }
+    .dep-filter-route-row, .dep-filter-headsign-row {
+      display: flex; align-items: center; gap: 8px; padding: 5px 0; cursor: pointer; font-size: 14px;
+    }
+    .dep-filter-route-row { font-weight: 600; color: var(--text); }
+    .dep-filter-headsign-row { color: var(--text-muted); font-size: 13px; }
+    .dep-filter-route-row input, .dep-filter-headsign-row input {
+      accent-color: var(--accent); width: 16px; height: 16px; cursor: pointer; flex-shrink: 0;
+    }
+    .dep-filter-headsigns { display: flex; flex-direction: column; padding-left: 20px; border-left: 1px solid var(--border); margin-left: 7px; }
+    .dep-filter-empty { font-size: 13px; color: var(--text-muted); padding: 6px 0; }
+    .dep-filter-clear {
+      width: 100%; margin-top: 6px; padding: 8px 0 0; border: none; border-top: 1px solid var(--border);
+      background: none; color: var(--accent); font-size: 13px; font-weight: 600; cursor: pointer; text-align: center;
+    }
+    .dep-filter-clear:hover { text-decoration: underline; background: none; }
+
+    @media (max-width: 640px), (pointer: coarse) {
+      button.sb-btn, a.sb-back, summary.sb-sum { min-height: 44px; }
+      a.sb-back { display: flex; align-items: center; }
+      .board-sidebar input[type="search"], .board-sidebar input[type="text"] { min-height: 44px; }
+      .dep-filter-route-row, .dep-filter-headsign-row { padding: 11px 0; gap: 12px; font-size: 14px; }
+      .dep-filter-route-row input, .dep-filter-headsign-row input { width: 22px; height: 22px; }
+      .dep-filter-clear { padding: 14px 0 8px; }
+    }
+    @media (max-width: 640px) {
+      input, select, textarea { font-size: 16px !important; }
+      .board-main { --sb-w: min(88vw, 340px); }
+      .board-sidebar {
+        position: absolute; top: 0; bottom: 0; left: 0; z-index: 30; box-shadow: var(--shadow-2);
+        transition: transform var(--sidebar-transition), visibility 0s;
+      }
+      .board-main.sb-collapsed .board-sidebar {
+        width: var(--sb-w); transform: translateX(-100%); box-shadow: none;
+        transition: transform var(--sidebar-transition), visibility 0s linear 0.32s;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="fb-app" aria-label="Flip clock departure board">
+    <header class="fb-header">
+      <div class="fb-header-left">
+        <button type="button" class="fb-sb-toggle" id="sbToggle" aria-controls="boardSidebar" aria-expanded="true" aria-label="Toggle settings sidebar" title="Location, filter &amp; sound">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h9M19 6h1M4 12h3M13 12h7M4 18h11"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>
+          <span class="dep-filter-badge" id="boardFilterBadge" hidden>0</span>
+        </button>
+        <div class="fb-header-text">
+          <div class="fb-title">Departures<span class="fb-beta">BETA</span></div>
+          <div class="fb-sub" id="boardOverlaySub"></div>
+        </div>
+      </div>
+      <div class="fb-clock-wrap">
+        <div class="fb-clock" id="fbClock" role="timer" aria-label="Current time"><canvas id="fbClockCanvas" aria-hidden="true"></canvas></div>
+        <div class="fb-date" id="boardDate"></div>
+      </div>
+    </header>
+    <div class="board-main sb-init" id="boardMain">
+      <aside class="board-sidebar" id="boardSidebar" aria-label="Location, filter and sound settings">
+        <div class="board-sidebar-inner">
+          <a class="sb-back" href="/">&#x2190;&#xFE0E; Back to main page</a>
+          <div class="sb-current" id="locCurrent"></div>
+          <button type="button" class="sb-btn sb-primary" id="locGps">Use my current location</button>
+          <details class="sb-acc">
+            <summary class="sb-sum"><span>Search for a stop</span></summary>
+            <div class="sb-acc-body">
+              <input id="locSearch" type="search" placeholder="Stop name, ID or code" aria-label="Search for a stop" autocomplete="off">
+              <div class="sb-list" id="locResults"></div>
+            </div>
+          </details>
+          <details class="sb-acc">
+            <summary class="sb-sum"><span>Enter coordinates</span></summary>
+            <div class="sb-acc-body">
+              <div class="sb-row">
+                <input id="locCoords" type="text" inputmode="decimal" placeholder="Latitude, longitude" aria-label="Latitude, longitude" autocomplete="off">
+                <button type="button" class="sb-btn" id="locCoordsGo">Go</button>
+              </div>
+              <div class="sb-empty" id="locCoordsErr" hidden>Enter a valid latitude (-90 to 90) and longitude (-180 to 180).</div>
+            </div>
+          </details>
+          <details class="sb-acc">
+            <summary class="sb-sum"><span>Saved locations</span></summary>
+            <div class="sb-acc-body">
+              <div class="sb-list" id="locSaved"></div>
+              <div id="locSaveWrap">
+                <div class="sb-label">Save current location</div>
+                <div class="sb-row">
+                  <input id="locNick" type="text" maxlength="40" placeholder="Nickname (e.g. Home)" aria-label="Nickname" autocomplete="off">
+                  <button type="button" class="sb-btn" id="locSave">Save</button>
+                </div>
+              </div>
+            </div>
+          </details>
+          <details class="sb-acc">
+            <summary class="sb-sum"><span>Filter routes</span><span class="sb-count" id="sbFilterCount" hidden>0</span></summary>
+            <div class="sb-acc-body">
+              <div class="dep-filter-tree" id="boardFilterTree"></div>
+              <button type="button" class="dep-filter-clear" id="boardFilterClear">Clear filters</button>
+            </div>
+          </details>
+          <label class="sb-toggle" for="flapSoundToggle">
+            <input type="checkbox" id="flapSoundToggle">
+            <span>Flap sound</span>
+          </label>
+          <label class="sb-toggle" for="fullSweepToggle">
+            <input type="checkbox" id="fullSweepToggle">
+            <span>Sweep the whole board every minute</span>
+          </label>
+          <label class="sb-toggle" for="lightThemeToggle">
+            <input type="checkbox" id="lightThemeToggle">
+            <span>Light theme (sidebar)</span>
+          </label>
+        </div>
+      </aside>
+      <div class="fb-stage" id="fbStage">
+        <div class="fb-board" id="fbBoard">
+          <div class="fb-heads" id="fbHeads" aria-hidden="true"></div>
+          <div class="fb-rows" id="fbRows"><canvas id="fbCanvas" aria-hidden="true"></canvas></div>
+          <ol class="sr-only" id="fbA11y" aria-label="Departures"></ol>
+          <div class="fb-foot" id="fbFoot" aria-hidden="true"><canvas id="fbFootCanvas"></canvas></div>
+        </div>
+      </div>
+    </div>
+    <div class="fb-legal">Unofficial &mdash; not affiliated with or endorsed by York Region Transit. Departure and delay estimates may differ from official sources. Contains public transit Information made available under YRT's Open Data Licence.</div>
+  </main>
+  <script>
+    let rtStopCache = new Map(); // String(stopId) -> {byTrip: Map(trip_id -> trip_update), receivedAt}
+    const RT_STALE_MS = 2 * 60 * 1000;
+
+    function escapeHtml(s) {
+      return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    function readableTextColor(hex) {
+      const h = String(hex ?? '').replace('#', '');
+      if (!/^[0-9a-fA-F]{6}$/.test(h)) return '#fff';
+      const r = parseInt(h.slice(0,2),16), g = parseInt(h.slice(2,4),16), b = parseInt(h.slice(4,6),16);
+      const luminance = (0.299*r + 0.587*g + 0.114*b) / 255;
+      return luminance > 0.6 ? '#000' : '#fff';
+    }
+    const token = new URLSearchParams(window.location.search).get('token');
+
+    function apiFetch(url, options = {}) {
+        return fetch(url, {
+        ...options,
+        headers: { ...options.headers, 'X-Auth-Token': token }
+        });
+    }
+
+    // Page navigation can't send headers, so carry the token on internal links.
+    document.querySelectorAll('a[href^="/"]').forEach(a => {
+        const u = new URL(a.getAttribute('href'), window.location.origin);
+        u.searchParams.set('token', token);
+        a.href = u.pathname + u.search;
+    });
+
+
+
+    function todayStr() {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    }
+
+    function parseTime(t) {
+      const p = t.split(':').map(Number);
+      return p[0]*3600 + p[1]*60 + (p[2]||0);
+    }
+
+    function fmtClockShort(totalSeconds) {
+      let h = Math.floor(totalSeconds / 3600) % 24;
+      if (h < 0) h += 24;
+      const m = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2,'0');
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      h = h % 12 || 12;
+      return `${h}:${m} ${ampm}`;
+    }
+
+    function nowInSeconds() {
+      const n = new Date();
+      return n.getHours()*3600 + n.getMinutes()*60 + n.getSeconds();
+    }
+
+    function debounce(fn, ms) {
+      let timer = null;
+      const wrapped = function (...args) {
+        clearTimeout(timer);
+        timer = setTimeout(() => { timer = null; fn.apply(this, args); }, ms);
+      };
+      wrapped.cancel = () => { clearTimeout(timer); timer = null; };
+      return wrapped;
+    }
+
+    function lsGet(key, fallback) {
+      try { const v = JSON.parse(localStorage.getItem(key)); return v ?? fallback; } catch (e) { return fallback; }
+    }
+    function lsSet(key, val) {
+      try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) {}
+    }
+
+    // Seconds late (+) / early (-) for one trip_update at stopId, vs the scheduled
+    // time schedTime ("HH:MM:SS", may run past 24h). Copy of depboard.html's.
+    function rtStopDelay(tu, stopId, schedTime) {
+      const stu = (tu.stop_time_update || []).find(s => s.stop_id === String(stopId));
+      if (!stu) return null;
+      const explicit = stu.departure?.delay ?? stu.arrival?.delay;
+      if (explicit != null) return explicit;
+      const t = Number(stu.arrival?.time ?? stu.departure?.time);
+      if (!t || !schedTime) return null;
+      const d = new Date(t * 1000);
+      const diff = d.getHours()*3600 + d.getMinutes()*60 + d.getSeconds() - parseTime(schedTime);
+      return ((diff + 43200) % 86400 + 86400) % 86400 - 43200; // fold into [-12h, 12h)
+    }
+
+    // Like depboard's getRTDelaySeconds, but null (not 0) when there's no usable
+    // realtime for the trip, so the board can tell SCHED from ON TIME. The cache
+    // is indexed by stop then trip, so this is a map lookup, not a scan of every
+    // feed entity — it runs for every departure on every render.
+    function getRTDelay(tripId, schedTime, stopId) {
+      const now = Date.now();
+      const look = (sid, entry) => {
+        if (!entry || now - entry.receivedAt > RT_STALE_MS) return null;
+        const tu = entry.byTrip.get(tripId);
+        return tu ? rtStopDelay(tu, sid, schedTime) : null;
+      };
+      if (stopId != null) return look(stopId, rtStopCache.get(String(stopId)));
+      // No stop given: a trip can be cached under several stops; the right one's delay is the smallest.
+      let best = null;
+      for (const [sid, entry] of rtStopCache) {
+        const d = look(sid, entry);
+        if (d !== null && (best === null || Math.abs(d) < Math.abs(best))) best = d;
+      }
+      return best;
+    }
+
+    // Data only: index the feed into the cache, the board picks it up on the next render.
+    function loadRTStopUpdates(stopId) {
+      apiFetch(`/api/rt/stop/${stopId}`)
+        .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+        .then(data => {
+          const byTrip = new Map();
+          (data.entity || []).forEach(e => {
+            const id = e.trip_update?.trip?.trip_id;
+            if (id) byTrip.set(id, e.trip_update);
+          });
+          rtStopCache.set(String(stopId), { byTrip, receivedAt: Date.now() });
+          scheduleRender();
+        })
+        .catch(() => {}); // keep the last good data until it goes stale
+    }
+
+    // ===== FLIP ENGINE (canvas) =====
+    // Each surface (board, footer strip, clock) is one <canvas>, not four DOM
+    // nodes per flap, so thousands of flaps can be mid-swing in the same frame
+    // with no style/layout/compositing work: a swing is a few drawImage calls.
+    // Every face (char x colours) is rendered once into a cached sprite; a swing
+    // draws halves of two sprites plus a squashed, shaded leaf. Only flaps that
+    // moved or changed colour are redrawn.
+    // Every flap cycles through this fixed order, like the printed cards on a
+    // real Solari drum; anything not on the drum shows as a blank.
+    const FLAP_CHARS = " ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789:.,-'&/()+#";
+    const FLAP_N = FLAP_CHARS.length;
+    const FLAP_HALF_MS = 32;   // one leaf swing; a full character is two
+    const FLAP_MAX_STEPS = 10; // longer journeys skip ahead, so the board settles in ~2-3 s
+    const ROW_STAGGER_MS = 90;
+    const COL_STAGGER_MS = 18;
+    const BLINK_MS = 800;
+    const FB_INK = '#f2efe6', FB_FLAP = '#2a2a27';
+    const FB_COLORS = { ink: '', dim: '#8f8c82', amber: '#ffc23d', green: '#5fd38a', red: '#ff6a4d', cyan: '#5ad1e6' };
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const STRESS = new URLSearchParams(window.location.search).has('stress');
+
+    function flapText(s) {
+      return String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase()
+        .replace(/[–—]/g, '-').replace(/[‘’]/g, "'")
+        .split('').map(ch => FLAP_CHARS.includes(ch) ? ch : ' ').join('');
+    }
+    function fitText(s, len, align) {
+      s = flapText(s);
+      if (s.length > len) s = s.slice(0, len);
+      return align === 'right' ? s.padStart(len) : align === 'center'
+        ? s.padStart(Math.floor((len + s.length) / 2)).padEnd(len) : s.padEnd(len);
+    }
+
+    const flapSurfaces = new Set();
+    let flapRaf = 0, blinkOff = false;
+    function kickFlaps() { if (!flapRaf) flapRaf = requestAnimationFrame(stepFlaps); }
+
+    class FlapSurface {
+      constructor(canvas) {
+        this.canvas = canvas;
+        this.ctx = canvas.getContext('2d');
+        this.cells = [];
+        this.faces = new Map();
+        this.active = new Set(); // swinging or waiting for their stagger
+        this.dirty = new Set();  // needs a redraw this frame
+        this.key = '';
+        flapSurfaces.add(this);
+      }
+
+      // positions: [{x, y}] in CSS px from the canvas's top-left; every flap is cw x ch.
+      // Returns fresh blank cells (the old ones are dropped).
+      layout(cssW, cssH, cw, ch, positions) {
+        const dpr = Math.min(window.devicePixelRatio || 1, 3);
+        this.dpr = dpr;
+        this.canvas.style.width = cssW + 'px';
+        this.canvas.style.height = cssH + 'px';
+        this.canvas.width = Math.max(1, Math.round(cssW * dpr));
+        this.canvas.height = Math.max(1, Math.round(cssH * dpr));
+        this.w = Math.max(2, Math.round(cw * dpr));
+        this.h = Math.max(2, Math.round(ch * dpr));
+        this.half = Math.floor(this.h / 2);
+        this.faces.clear();
+        this.active.clear();
+        this.dirty.clear();
+        this.font = `500 ${Math.round(this.h * 0.72)}px Oswald, sans-serif`;
+        this.ctx.font = this.font;
+        const m = this.ctx.measureText('H'); // centre on cap height, not the em box
+        this.baseline = Math.round(this.h / 2 + (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2);
+        this.cells = positions.map(p => ({
+          s: this, x: Math.round(p.x * dpr), y: Math.round(p.y * dpr),
+          cur: ' ', next: ' ', queue: [], phase: 0, t0: 0, p: 0, startAt: 0, fg: '', bg: '', blink: false,
+        }));
+        this.cells.forEach(c => this.dirty.add(c));
+        kickFlaps();
+        return this.cells;
+      }
+
+      face(ch, fg, bg, dim) {
+        const key = ch + '|' + fg + '|' + bg + (dim ? '|d' : '');
+        let f = this.faces.get(key);
+        if (f) return f;
+        const { w, h, half } = this;
+        f = document.createElement('canvas');
+        f.width = w;
+        f.height = h;
+        const g = f.getContext('2d');
+        g.beginPath();
+        if (g.roundRect) g.roundRect(0, 0, w, h, Math.max(1, Math.round(3 * this.dpr))); else g.rect(0, 0, w, h);
+        g.clip();
+        g.fillStyle = bg || FB_FLAP;
+        g.fillRect(0, 0, w, h);
+        let gr = g.createLinearGradient(0, 0, 0, half);
+        gr.addColorStop(0, 'rgba(255,255,255,0.07)');
+        gr.addColorStop(1, 'rgba(0,0,0,0.10)');
+        g.fillStyle = gr;
+        g.fillRect(0, 0, w, half);
+        gr = g.createLinearGradient(0, half, 0, h);
+        gr.addColorStop(0, 'rgba(0,0,0,0.24)');
+        gr.addColorStop(1, 'rgba(255,255,255,0.03)');
+        g.fillStyle = gr;
+        g.fillRect(0, half, w, h - half);
+        if (ch !== ' ') {
+          g.font = this.font;
+          g.textAlign = 'center';
+          g.textBaseline = 'alphabetic';
+          g.globalAlpha = dim ? 0.28 : 1;
+          g.fillStyle = fg || FB_INK;
+          g.fillText(ch, w / 2, this.baseline);
+        }
+        this.faces.set(key, f);
+        return f;
+      }
+
+      draw(c) {
+        const g = this.ctx, { w, h, half } = this, x = c.x, y = c.y, bh = h - half;
+        const dim = c.blink && blinkOff;
+        g.clearRect(x, y, w, h);
+        if (c.phase === 0) {
+          g.drawImage(this.face(c.cur, c.fg, c.bg, dim), x, y);
+        } else {
+          const cur = this.face(c.cur, c.fg, c.bg, dim), nxt = this.face(c.next, c.fg, c.bg, dim);
+          g.drawImage(nxt, 0, 0, w, half, x, y, w, half);       // revealed behind the falling leaf
+          g.drawImage(cur, 0, half, w, bh, x, y + half, w, bh); // still covered until the leaf lands
+          if (c.phase === 1) {
+            // old top leaf falls toward the hinge (rotateX 0 -> -90deg, seen edge-on as a squash)
+            const lh = Math.max(1, Math.round(half * Math.cos(c.p * Math.PI / 2)));
+            g.drawImage(cur, 0, 0, w, half, x, y + half - lh, w, lh);
+            g.fillStyle = `rgba(0,0,0,${(0.5 * c.p).toFixed(2)})`;
+            g.fillRect(x, y + half - lh, w, lh);
+          } else {
+            // new bottom leaf swings down from the hinge (90 -> 0deg)
+            const lh = Math.max(1, Math.round(bh * Math.sin(c.p * Math.PI / 2)));
+            g.drawImage(nxt, 0, half, w, bh, x, y + half, w, lh);
+            g.fillStyle = `rgba(0,0,0,${(0.5 * (1 - c.p)).toFixed(2)})`;
+            g.fillRect(x, y + half, w, lh);
+          }
+        }
+        // hinge gap + pins
+        const hg = Math.max(1, Math.round(this.dpr * 1.5));
+        g.fillStyle = 'rgba(0,0,0,0.85)';
+        g.fillRect(x, y + half - (hg >> 1), w, hg);
+        g.fillStyle = '#555';
+        g.fillRect(x, y + half - hg, hg, hg * 2);
+        g.fillRect(x + w - hg, y + half - hg, hg, hg * 2);
+      }
+    }
+
+    // Moves a flap's swing on to time t. Time-based with catch-up, so a slow
+    // frame (or a background tab) skips ahead instead of slowing every flap down.
+    // Returns false once it has landed with nothing left queued.
+    function advanceFlap(c, t) {
+      if (c.phase === 0) {
+        if (!c.queue.length) return false;
+        c.next = c.queue.shift();
+        c.phase = 1;
+        c.t0 = t;
+        flapClick();
+      }
+      let el = t - c.t0;
+      while (el >= FLAP_HALF_MS) {
+        el -= FLAP_HALF_MS;
+        c.t0 += FLAP_HALF_MS;
+        if (c.phase === 1) { c.phase = 2; continue; }
+        c.cur = c.next;
+        if (!c.queue.length) { c.phase = 0; return false; }
+        c.next = c.queue.shift();
+        c.phase = 1;
+        flapClick();
+      }
+      c.p = el / FLAP_HALF_MS;
+      return true;
+    }
+
+    function stepFlaps(t) {
+      flapRaf = 0;
+      let busy = false;
+      for (const s of flapSurfaces) {
+        for (const c of s.active) {
+          if (t < c.startAt) { busy = true; continue; }
+          if (advanceFlap(c, t)) busy = true; else s.active.delete(c);
+          s.dirty.add(c);
+        }
+        for (const c of s.dirty) s.draw(c);
+        s.dirty.clear();
+      }
+      if (busy) kickFlaps();
+    }
+
+    // Characters a flap passes through going forward from `from` to `to`.
+    // force = do a lap even if it's already showing `to` (the "whole board" sweep).
+    function flipPath(from, to, force) {
+      const a = Math.max(0, FLAP_CHARS.indexOf(from)), b = Math.max(0, FLAP_CHARS.indexOf(to));
+      let n = (b - a + FLAP_N) % FLAP_N;
+      if (n === 0) { if (!force) return []; n = FLAP_N; }
+      const max = force ? 6 + Math.floor(Math.random() * 8) : FLAP_MAX_STEPS + Math.floor(Math.random() * 4);
+      const steps = Math.min(n, max);
+      const path = [];
+      for (let k = n - steps + 1; k <= n; k++) path.push(FLAP_CHARS[(a + k) % FLAP_N]);
+      return path;
+    }
+
+    function setFlapNow(c, ch) {
+      c.queue = [];
+      c.phase = 0;
+      c.cur = c.next = ch;
+      c.s.active.delete(c);
+      c.s.dirty.add(c);
+      kickFlaps();
+    }
+
+    function setFlapTarget(c, ch, startAt, force) {
+      if (reducedMotion.matches) { if (c.cur !== ch || c.phase || c.queue.length) setFlapNow(c, ch); return; }
+      const from = c.phase ? c.next : c.cur; // what's showing once the current swing lands
+      const heading = c.queue.length ? c.queue[c.queue.length - 1] : from;
+      if (!force && heading === ch) return;
+      c.queue = flipPath(from, ch, force);
+      if (!c.queue.length) return;
+      if (!c.s.active.has(c)) { c.startAt = startAt; c.s.active.add(c); }
+      kickFlaps();
+    }
+
+    function setFlapColors(c, fg, bg) {
+      if (c.fg === fg && c.bg === bg) return;
+      c.fg = fg;
+      c.bg = bg;
+      c.s.dirty.add(c);
+      kickFlaps();
+    }
+
+    function setFlapBlink(c, on) {
+      if (c.blink === on) return;
+      c.blink = on;
+      c.s.dirty.add(c);
+      kickFlaps();
+    }
+
+    setInterval(() => {
+      blinkOff = !blinkOff && !reducedMotion.matches;
+      let any = false;
+      for (const s of flapSurfaces) for (const c of s.cells) if (c.blink) { s.dirty.add(c); any = true; }
+      if (any) kickFlaps();
+    }, BLINK_MS);
+
+    // ===== FLAP SOUND (opt-in, synthesised: a few ms of band-passed noise per flap) =====
+    const SOUND_KEY = 'gtfs-flip-sound';
+    let soundOn = lsGet(SOUND_KEY, false) === true;
+    let audioCtx = null, noiseBuf = null, lastClickAt = 0;
+    function ensureAudio() {
+      if (!audioCtx) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return;
+        audioCtx = new AC();
+        const len = Math.floor(audioCtx.sampleRate * 0.012);
+        noiseBuf = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
+        const d = noiseBuf.getChannelData(0);
+        for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 4);
+      }
+      if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+    }
+    function flapClick() {
+      if (!soundOn || !audioCtx || audioCtx.state !== 'running' || document.hidden) return;
+      const now = performance.now();
+      if (now - lastClickAt < 10) return; // thousands of flaps would otherwise clip
+      lastClickAt = now;
+      const src = audioCtx.createBufferSource();
+      src.buffer = noiseBuf;
+      src.playbackRate.value = 0.8 + Math.random() * 0.5;
+      const bp = audioCtx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.value = 1800 + Math.random() * 1600;
+      bp.Q.value = 1.2;
+      const g = audioCtx.createGain();
+      g.gain.value = 0.10 + Math.random() * 0.08;
+      src.connect(bp).connect(g).connect(audioCtx.destination);
+      src.start();
+    }
+    // Browsers only allow audio after a gesture, so a saved "on" wakes up on the first tap/key.
+    ['pointerdown', 'keydown'].forEach(ev => document.addEventListener(ev, () => { if (soundOn) ensureAudio(); }, { capture: true }));
+
+    // ===== BOARD LAYOUT =====
+    const STATUS_LEN = 8, TIME_LEN = 5, MIN_LEN = 3;
+    let fbLayout = null;   // {rows, compact, segs, lens, cw, ch, gap, step, seg, rgap, rowWidth, footLen}
+    let fbRows = [];       // [{cells: {route: [...], dest: [...], ...}, a11y, label}]
+    let fbFootCells = [];
+    let fbRouteLen = 4;
+    let boardSurface = null, footSurface = null, clockSurface = null;
+
+    // Flap size comes from CSS (--cw/--ch/--gap, responsive); rounded to whole px so every flap is crisp.
+    function flapMetrics(host) {
+      const probe = document.createElement('div');
+      probe.className = 'fb-probe';
+      probe.style.width = 'var(--cw)';
+      probe.style.height = 'var(--ch)';
+      probe.style.paddingRight = 'var(--gap)';
+      host.appendChild(probe);
+      const r = probe.getBoundingClientRect();
+      const pad = parseFloat(getComputedStyle(probe).paddingRight) || 0;
+      probe.remove();
+      return { cw: Math.round(r.width - pad), ch: Math.round(r.height), gap: Math.round(pad) };
+    }
+
+    function computeLayout() {
+      const rowsEl = document.getElementById('fbRows');
+      const { cw, ch, gap } = flapMetrics(document.getElementById('fbBoard'));
+      if (!cw || !ch) return null;
+      const step = cw + gap;
+      const seg = Math.round(cw * 0.8);
+      const rgap = Math.round(ch * 0.28);
+      const W = rowsEl.clientWidth, H = rowsEl.clientHeight;
+      const fit = compact => {
+        const segs = compact ? ['route', 'dest', 'min'] : ['route', 'dest', 'time', 'min', 'status'];
+        const fixed = fbRouteLen + MIN_LEN + (compact ? 0 : TIME_LEN + STATUS_LEN);
+        const total = Math.floor((W + segs.length * gap - (segs.length - 1) * seg) / step);
+        return { segs, destLen: total - fixed };
+      };
+      let compact = window.matchMedia('(max-width: 640px)').matches;
+      let f = fit(compact);
+      if (!compact && f.destLen < 14) { compact = true; f = fit(true); }
+      const lens = { route: fbRouteLen, dest: Math.max(4, f.destLen), time: TIME_LEN, min: MIN_LEN, status: STATUS_LEN };
+      const charCount = f.segs.reduce((n, s) => n + lens[s], 0);
+      const rowWidth = charCount * step - f.segs.length * gap + (f.segs.length - 1) * seg;
+      return {
+        rows: Math.max(1, Math.floor((H + rgap) / (ch + rgap))),
+        compact, segs: f.segs, lens, cw, ch, gap, step, seg, rgap, rowWidth,
+        footLen: Math.max(4, Math.floor((rowWidth + gap) / step)),
+      };
+    }
+
+    const SEG_HEADS = { route: 'Route', dest: 'Destination', time: 'Expected', min: 'Min', status: 'Status' };
+
+    function relayoutBoard() {
+      layoutClock();
+      const next = computeLayout();
+      if (!next) return;
+      const same = fbLayout && ['rows', 'compact', 'footLen', 'cw', 'ch', 'gap', 'seg', 'rgap'].every(k => fbLayout[k] === next[k])
+        && fbLayout.segs.length === next.segs.length && fbLayout.segs.every(s => fbLayout.lens[s] === next.lens[s]);
+      if (same) return;
+      fbLayout = next;
+      buildBoard();
+      renderFlipBoard();
+      renderFooter(true);
+    }
+
+    function buildBoard() {
+      const L = fbLayout;
+      const board = document.getElementById('fbBoard');
+      board.style.setProperty('--seg', L.seg + 'px');
+
+      const heads = document.getElementById('fbHeads');
+      heads.innerHTML = '';
+      L.segs.forEach(s => {
+        const h = document.createElement('div');
+        h.className = `fb-head fb-head-${s}`;
+        h.style.width = (L.lens[s] * L.step - L.gap) + 'px';
+        h.textContent = SEG_HEADS[s];
+        heads.appendChild(h);
+      });
+
+      // One canvas for every row; remember which cells belong to which row/column.
+      const positions = [], index = [];
+      for (let r = 0; r < L.rows; r++) {
+        const y = r * (L.ch + L.rgap);
+        let x = 0;
+        const rowIndex = {};
+        L.segs.forEach(s => {
+          rowIndex[s] = [];
+          for (let i = 0; i < L.lens[s]; i++) {
+            rowIndex[s].push(positions.length);
+            positions.push({ x: x + i * L.step, y });
+          }
+          x += L.lens[s] * L.step - L.gap + L.seg;
+        });
+        index.push(rowIndex);
+      }
+      const cells = boardSurface.layout(L.rowWidth, L.rows * (L.ch + L.rgap) - L.rgap, L.cw, L.ch, positions);
+
+      const a11y = document.getElementById('fbA11y');
+      a11y.innerHTML = '';
+      fbRows = index.map(rowIndex => {
+        const li = document.createElement('li');
+        a11y.appendChild(li);
+        const rowCells = {};
+        L.segs.forEach(s => { rowCells[s] = rowIndex[s].map(i => cells[i]); });
+        return { cells: rowCells, a11y: li, label: null };
+      });
+
+      const foot = document.getElementById('fbFoot');
+      foot.style.height = (L.ch + 11) + 'px';
+      fbFootCells = footSurface.layout(L.footLen * L.step - L.gap, L.ch, L.cw, L.ch,
+        Array.from({ length: L.footLen }, (_, i) => ({ x: i * L.step, y: 0 })));
+      fbFootCells.forEach(c => setFlapColors(c, FB_COLORS.amber, ''));
+    }
+
+    // ===== ROW CONTENT =====
+    function expectedSecs(dep) {
+      return parseTime(dep.arrival_time) + (getRTDelay(dep.trip_id, dep.arrival_time, dep._stopId) ?? 0);
+    }
+
+    function visibleDepartures() {
+      const now = nowInSeconds();
+      return applyDepFilter(allBoardDepartures, 'board')
+        .map(dep => ({ dep, at: expectedSecs(dep) }))
+        .filter(x => x.at >= now)
+        .sort((a, b) => a.at - b.at);
+    }
+
+    // [text, colour, due]
+    function statusFor(dep, secsLeft) {
+      if (secsLeft <= 30) return ['DUE', FB_COLORS.amber, true];
+      const delay = getRTDelay(dep.trip_id, dep.arrival_time, dep._stopId);
+      if (delay == null) return ['SCHED', FB_COLORS.dim, false];
+      const mins = Math.min(99, Math.round(Math.abs(delay) / 60));
+      if (delay < 0 && mins >= 1) return [`EARLY ${mins}`, FB_COLORS.cyan, false];
+      if (delay <= 60) return ['ON TIME', FB_COLORS.green, false];
+      return [`LATE ${Math.max(1, mins)}`, delay <= 90 ? FB_COLORS.amber : FB_COLORS.red, false];
+    }
+
+    function fmtFlapClock(secs) {
+      let h = Math.floor(secs / 3600) % 24;
+      const m = String(Math.floor((secs % 3600) / 60)).padStart(2, '0');
+      h = h % 12 || 12;
+      return `${h}:${m}`;
+    }
+
+    function rowContent(item, now) {
+      const L = fbLayout;
+      const blank = s => ({ text: ' '.repeat(L.lens[s]), fg: '', bg: '' });
+      if (!item) return { segs: Object.fromEntries(L.segs.map(s => [s, blank(s)])), due: false, label: '' };
+      const { dep, at } = item;
+      const secsLeft = at - now;
+      const [status, statusColor, due] = statusFor(dep, secsLeft);
+      const routeBg = dep.route_color ? `#${dep.route_color}` : '#3a3a36';
+      const routeFg = dep.route_color ? readableTextColor(dep.route_color) : '#fff';
+      const minText = secsLeft <= 30 ? 'DUE' : secsLeft < 3600 ? String(Math.max(1, Math.round(secsLeft / 60))) : '';
+      const segs = {
+        route: { text: fitText(dep.route_id, L.lens.route, 'center'), fg: routeFg, bg: routeBg },
+        dest: { text: fitText(dep.trip_headsign || dep.route_id, L.lens.dest), fg: '', bg: '' },
+        time: { text: fitText(fmtFlapClock(at), TIME_LEN, 'right'), fg: '', bg: '' },
+        min: { text: fitText(minText, MIN_LEN, 'right'),
+               fg: L.compact ? (statusColor === FB_COLORS.dim ? '' : statusColor) : (due ? FB_COLORS.amber : ''), bg: '' },
+        status: { text: fitText(status, STATUS_LEN), fg: statusColor, bg: '' },
+      };
+      const label = `Route ${dep.route_id} to ${dep.trip_headsign || ''}, ${minText === 'DUE' ? 'due' : minText ? minText + ' min' : 'at ' + fmtClockShort(at)}, ${status.toLowerCase()}`;
+      return { segs, due, label };
+    }
+
+    // A status message written across the destination column, word-wrapped onto following rows.
+    function messageRows(text) {
+      const width = fbLayout.lens.dest, lines = [];
+      let line = '';
+      flapText(text).split(/\s+/).filter(Boolean).forEach(w => {
+        if (line && (line + ' ' + w).length > width) { lines.push(line); line = ''; }
+        line = line ? line + ' ' + w : w;
+      });
+      if (line) lines.push(line);
+      return lines;
+    }
+
+    let boardMessage = 'Finding you';
+    function setFlipMessage(text) { boardMessage = text; renderFlipBoard(); }
+
+    function renderFlipBoard(force) {
+      if (!fbLayout || STRESS) return;
+      const L = fbLayout;
+      const t0 = performance.now(), now = nowInSeconds();
+      let items = [], msgText = boardMessage;
+      if (!msgText) {
+        items = visibleDepartures().slice(0, L.rows);
+        if (!items.length) msgText = emptyMessage();
+      }
+      const msg = msgText ? messageRows(msgText) : [];
+      fbRows.forEach((row, r) => {
+        const content = rowContent(items[r], now);
+        if (msg[r] != null) content.segs.dest = { text: fitText(msg[r], L.lens.dest), fg: FB_COLORS.amber, bg: '' };
+        const label = content.label || (msg[r] ? msg[r].toLowerCase() : '');
+        if (row.label !== label) { row.label = label; row.a11y.textContent = label; }
+        let col = 0;
+        L.segs.forEach(s => {
+          const { text, fg, bg } = content.segs[s];
+          const blink = content.due && (s === 'status' || (L.compact && s === 'min'));
+          const cells = row.cells[s];
+          for (let i = 0; i < cells.length; i++) {
+            const c = cells[i];
+            setFlapColors(c, fg, bg);
+            setFlapBlink(c, blink);
+            setFlapTarget(c, text[i] || ' ', t0 + r * ROW_STAGGER_MS + (col + i) * COL_STAGGER_MS, force);
+          }
+          col += cells.length;
+        });
+      });
+    }
+    const scheduleRender = debounce(() => renderFlipBoard(), 200);
+
+    // ===== FOOTER STRIP: cycles location / stops / last update =====
+    const FOOTER_CYCLE_MS = 8000;
+    let footerIdx = 0, lastUpdated = null;
+    function footerMessages() {
+      const msgs = [boardLabel()];
+      if (lastBoardStopDatas.length) {
+        const n = lastBoardStopDatas.length;
+        msgs.push(`${n} stop${n !== 1 ? 's' : ''} nearby`);
+      }
+      if (lastUpdated) msgs.push(`Updated ${fmtClockShort(lastUpdated)}`);
+      if (rtStopCache.size) {
+        const live = visibleDepartures().slice(0, fbLayout ? fbLayout.rows : 0)
+          .filter(x => getRTDelay(x.dep.trip_id, x.dep.arrival_time, x.dep._stopId) != null).length;
+        if (live) msgs.push(`${live} live realtime`);
+      }
+      return msgs;
+    }
+    function renderFooter(advance) {
+      if (!fbFootCells.length || STRESS) return;
+      const msgs = footerMessages();
+      if (advance) footerIdx = (footerIdx + 1) % msgs.length;
+      const text = fitText(msgs[footerIdx % msgs.length], fbFootCells.length, 'center');
+      const t0 = performance.now();
+      fbFootCells.forEach((c, i) => setFlapTarget(c, text[i], t0 + i * 25, false));
+    }
+
+    // ===== CLOCK (flaps) =====
+    let clockCells = null, lastClockMin = -1;
+    function layoutClock() {
+      const host = document.getElementById('fbClock');
+      const { cw, ch, gap } = flapMetrics(host);
+      if (!cw || !ch) return;
+      const key = `${cw}x${ch}x${gap}`;
+      if (clockSurface.key === key) return;
+      clockSurface.key = key;
+      const step = cw + gap, x2 = 5 * step - gap + Math.round(cw * 0.45);
+      const pos = [];
+      for (let i = 0; i < 5; i++) pos.push({ x: i * step, y: 0 });
+      for (let i = 0; i < 2; i++) pos.push({ x: x2 + i * step, y: 0 });
+      const cells = clockSurface.layout(x2 + 2 * step - gap, ch, cw, ch, pos);
+      clockCells = { time: cells.slice(0, 5), ampm: cells.slice(5) };
+      clockCells.ampm.forEach(c => setFlapColors(c, FB_COLORS.amber, ''));
+      lastClockMin = -1;
+    }
+    function tickBoardClock() {
+      const n = new Date();
+      if (!STRESS) document.getElementById('boardDate').textContent = n.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+      const minute = n.getHours() * 60 + n.getMinutes();
+      if (clockCells && minute !== lastClockMin) {
+        lastClockMin = minute;
+        let h = n.getHours();
+        const ampm = h >= 12 ? 'PM' : 'AM';
+        h = h % 12 || 12;
+        const mm = String(n.getMinutes()).padStart(2, '0');
+        const time = `${h}:${mm}`.padStart(5);
+        const t0 = performance.now();
+        clockCells.time.forEach((c, i) => setFlapTarget(c, time[i], t0 + i * 40, false));
+        clockCells.ampm.forEach((c, i) => setFlapTarget(c, ampm[i], t0 + 220 + i * 40, false));
+        document.getElementById('fbClock').setAttribute('aria-label', `${h}:${mm} ${ampm}`);
+      }
+      renderFlipBoard(); // minutes-to-go and departed rows; only changed flaps move
+    }
+
+    // ===== STRESS MODE (?stress) =====
+    // Scrambles every flap on the board every few seconds and shows FPS under
+    // the clock, to check the engine under thousands of simultaneous swings.
+    function startStress() {
+      const scramble = () => {
+        const t0 = performance.now();
+        [boardSurface, footSurface].forEach(s => s.cells.forEach((c, i) => {
+          if (Math.random() < 0.15) setFlapColors(c, Object.values(FB_COLORS)[Math.floor(Math.random() * 6)], '');
+          setFlapTarget(c, FLAP_CHARS[Math.floor(Math.random() * FLAP_N)], t0 + (i % 97) * 12, true);
+        }));
+      };
+      scramble();
+      setInterval(scramble, 3000);
+      let frames = 0, since = performance.now();
+      const dateEl = document.getElementById('boardDate');
+      (function count(t) {
+        frames++;
+        if (t - since >= 1000) {
+          const swinging = [...flapSurfaces].reduce((n, s) => n + s.active.size, 0);
+          const total = [...flapSurfaces].reduce((n, s) => n + s.cells.length, 0);
+          dateEl.textContent = `${Math.round(frames * 1000 / (t - since))} fps · ${swinging}/${total} flaps`;
+          frames = 0;
+          since = t;
+        }
+        requestAnimationFrame(count);
+      })(performance.now());
+    }
+
+    // ===== DEPARTURE FILTER (copy of depboard.html's) =====
+    const depFilterState = {};
+    function getDepFilterState(key) {
+      return depFilterState[key] || (depFilterState[key] = { selected: new Map() });
+    }
+    function resetDepFilterState(key) {
+      getDepFilterState(key).selected = new Map();
+    }
+    function applyDepFilter(departures, key) {
+      const st = getDepFilterState(key);
+      if (st.selected.size === 0) return departures;
+      return departures.filter(d => {
+        const v = st.selected.get(d.route_id);
+        if (!v) return false;
+        return v === 'ALL' || v.has(d.trip_headsign);
+      });
+    }
+    function depFilterActiveCount(key) {
+      let n = 0;
+      getDepFilterState(key).selected.forEach(v => { n += v === 'ALL' ? 1 : v.size; });
+      return n;
+    }
+    function buildRouteHeadsignTree(departures) {
+      const map = new Map();
+      departures.forEach(d => {
+        if (!d.route_id) return;
+        if (!map.has(d.route_id)) map.set(d.route_id, new Set());
+        if (d.trip_headsign) map.get(d.route_id).add(d.trip_headsign);
+      });
+      return [...map.entries()]
+        .sort((a, b) => a[0].localeCompare(b[0], undefined, { numeric: true, sensitivity: 'base' }))
+        .map(([routeId, hs]) => ({ routeId, headsigns: [...hs].sort((a, b) => a.localeCompare(b)) }));
+    }
+
+    function renderBoardFilter() {
+      const tree = document.getElementById('boardFilterTree');
+      const key = 'board';
+      const st = getDepFilterState(key);
+      const routes = buildRouteHeadsignTree(allBoardDepartures);
+      const onChange = () => { renderBoardFilter(); renderFlipBoard(); };
+
+      tree.innerHTML = routes.length ? routes.map(r => {
+        const sel = st.selected.get(r.routeId);
+        const routeChecked = sel === 'ALL' || (sel && r.headsigns.length > 0 && sel.size === r.headsigns.length);
+        const rid = escapeHtml(r.routeId);
+        return `
+          <div class="dep-filter-route">
+            <label class="dep-filter-route-row">
+              <input type="checkbox" class="dep-filter-route-cb" data-route="${rid}" ${routeChecked ? 'checked' : ''}>
+              <span>${rid}</span>
+            </label>
+            ${r.headsigns.length ? `<div class="dep-filter-headsigns">
+              ${r.headsigns.map(h => `
+                <label class="dep-filter-headsign-row">
+                  <input type="checkbox" class="dep-filter-headsign-cb" data-route="${rid}" data-headsign="${escapeHtml(h)}" ${(sel === 'ALL' || (sel && sel.has(h))) ? 'checked' : ''}>
+                  <span>${escapeHtml(h)}</span>
+                </label>
+              `).join('')}
+            </div>` : ''}
+          </div>`;
+      }).join('') : '<div class="dep-filter-empty">No departures to filter.</div>';
+
+      tree.querySelectorAll('.dep-filter-route-cb').forEach(cb => {
+        const r = routes.find(x => x.routeId === cb.dataset.route);
+        const sel = st.selected.get(cb.dataset.route);
+        cb.indeterminate = !!(sel && sel !== 'ALL' && sel.size > 0 && r && sel.size < r.headsigns.length);
+        cb.addEventListener('change', () => {
+          if (cb.checked) st.selected.set(cb.dataset.route, 'ALL');
+          else st.selected.delete(cb.dataset.route);
+          onChange();
+        });
+      });
+      tree.querySelectorAll('.dep-filter-headsign-cb').forEach(cb => {
+        cb.addEventListener('change', () => {
+          const rid = cb.dataset.route, hs = cb.dataset.headsign;
+          const r = routes.find(x => x.routeId === rid);
+          let sel = st.selected.get(rid);
+          sel = sel === 'ALL' ? new Set(r.headsigns) : (sel ? new Set(sel) : new Set());
+          if (cb.checked) sel.add(hs); else sel.delete(hs);
+          if (sel.size === 0) st.selected.delete(rid);
+          else if (sel.size === r.headsigns.length) st.selected.set(rid, 'ALL');
+          else st.selected.set(rid, sel);
+          onChange();
+        });
+      });
+
+      const badge = document.getElementById('boardFilterBadge');
+      const n = depFilterActiveCount(key);
+      badge.textContent = n;
+      badge.hidden = n === 0;
+      const cnt = document.getElementById('sbFilterCount');
+      cnt.textContent = n;
+      cnt.hidden = n === 0;
+    }
+
+    document.getElementById('boardFilterClear').addEventListener('click', () => {
+      resetDepFilterState('board');
+      renderBoardFilter();
+      renderFlipBoard();
+    });
+
+    // ===== NEARBY DATA (copy of depboard.html's) =====
+    let boardLat = null, boardLon = null;
+    let boardCustom = null; // {lat, lon, name} when a chosen/saved location replaces GPS
+    const LOC_SAVED_KEY = 'gtfs-board-saved-locations';   // shared with /depbd
+    const LOC_ACTIVE_KEY = 'gtfs-board-active-location';
+    let allBoardDepartures = [];
+    let lastBoardStopDatas = [];
+
+    const BOARD_WALK_RADIUS_KM = 1;
+    const BOARD_MAX_STOPS = 15;
+    const BOARD_FALLBACK_STOPS = 3;
+    const BOARD_NEAREST_LIMIT = 30;
+    const BOARD_WALK_M_PER_MIN = 80;
+    const BOARD_MAX_WALK_MIN = 90;
+    const BOARD_REFRESH_MS = 60000;
+    const BOARD_RT_MS = 15000;
+
+    function walkMinutes(km) {
+      return Math.max(1, Math.ceil((km * 1000) / BOARD_WALK_M_PER_MIN));
+    }
+
+    function fetchNearbyStopDepartures(lat, lon) {
+      return apiFetch(`/api/nearest/${lat}/${lon}?limit=${BOARD_NEAREST_LIMIT}`)
+        .then(r => r.json())
+        .then(data => {
+          const all = data.nearest_stops || [];
+          let stops = all.filter(s => s.distanceKM <= BOARD_WALK_RADIUS_KM).slice(0, BOARD_MAX_STOPS);
+          if (!stops.length) stops = all.slice(0, BOARD_FALLBACK_STOPS);
+          if (!stops.length) return Promise.reject('no-stops');
+          const date = todayStr();
+          return Promise.all(stops.map(s =>
+            apiFetch(`/api/stop/${s.stop_id}/${date}`).then(r => r.json())
+              .then(sd => ({ ...sd, _distanceKM: s.distanceKM, _stopName: s.stop_name || sd.stop_name || '' }))
+              .catch(() => ({ error: true }))
+          )).then(stopDatas => stopDatas.filter(s => !s.error));
+        });
+    }
+
+    // Flatten per-stop departures, keep each trip only at its closest stop, drop the past.
+    function mergeNearbyDepartures(stopDatas) {
+      const combined = [];
+      stopDatas.forEach(s => (s.departures || []).forEach(dep => {
+        combined.push({ ...dep, _stopId: s.stop_id, _stopName: s._stopName, _distanceKM: s._distanceKM });
+      }));
+      const byTrip = new Map();
+      combined.forEach(dep => {
+        const existing = byTrip.get(dep.trip_id);
+        if (!existing || dep._distanceKM < existing._distanceKM) byTrip.set(dep.trip_id, dep);
+      });
+      const now = nowInSeconds();
+      return [...byTrip.values()].filter(dep => expectedSecs(dep) >= now);
+    }
+
+    function boardSubHTML(n, farthestKM) {
+      const walkable = walkMinutes(farthestKM) <= BOARD_MAX_WALK_MIN;
+      return `<span class="fb-chip">${escapeHtml(boardLabel())}</span>`
+        + `<span class="fb-chip">${n} stop${n !== 1 ? 's' : ''}</span>`
+        + (walkable ? `<span class="fb-chip">Up to ${walkMinutes(farthestKM)} min walk</span>` : '');
+    }
+
+    function loadDepartureBoardLocation() {
+      const sub = document.getElementById('boardOverlaySub');
+      if (boardCustom) {
+        boardLat = boardCustom.lat;
+        boardLon = boardCustom.lon;
+        fetchDepartureBoard();
+        return;
+      }
+      if (!navigator.geolocation) {
+        sub.innerHTML = '<span class="fb-chip">Location not available</span>';
+        setFlipMessage('Turn on location to see departures near you');
+        return;
+      }
+      if (boardLat == null) setFlipMessage('Finding you');
+      navigator.geolocation.getCurrentPosition(pos => {
+        boardLat = pos.coords.latitude;
+        boardLon = pos.coords.longitude;
+        fetchDepartureBoard();
+      }, () => {
+        if (boardLat == null) {
+          sub.innerHTML = '<span class="fb-chip">Location unavailable</span>';
+          setFlipMessage('Turn on location to see departures near you');
+        }
+      }, { maximumAge: 30000, timeout: 10000 });
+    }
+
+    function fetchDepartureBoard() {
+      if (boardLat == null || boardLon == null) return;
+      if (!allBoardDepartures.length) setFlipMessage(boardCustom ? `Finding stops near ${boardCustom.name}` : 'Finding stops near you');
+      fetchNearbyStopDepartures(boardLat, boardLon)
+        .then(stopDatas => renderDepartureBoard(stopDatas))
+        .catch(err => {
+          if (!allBoardDepartures.length) {
+            document.getElementById('boardOverlaySub').innerHTML = `<span class="fb-chip">${escapeHtml(boardLabel())}</span>`;
+            setFlipMessage(err === 'no-stops' ? 'No stops within walking distance' : 'Could not load departures - trying again shortly');
+          }
+        });
+    }
+
+    let hasSwept = false;
+    function renderDepartureBoard(stopDatas) {
+      allBoardDepartures = mergeNearbyDepartures(stopDatas);
+      lastBoardStopDatas = stopDatas;
+      lastUpdated = nowInSeconds();
+
+      const routes = new Set(allBoardDepartures.map(d => d.route_id).filter(Boolean));
+      const st = getDepFilterState('board');
+      [...st.selected.keys()].forEach(r => { if (!routes.has(r)) st.selected.delete(r); });
+
+      const n = stopDatas.length;
+      const farthestKM = Math.max(0, ...stopDatas.map(s => s._distanceKM || 0));
+      document.getElementById('boardOverlaySub').innerHTML = boardSubHTML(n, farthestKM);
+
+      // Route column fits the longest route on the board (3-6 flaps); a change rebuilds it.
+      const routeLen = Math.min(6, Math.max(3, ...[...routes].map(r => flapText(r).length)));
+      if (routeLen !== fbRouteLen) { fbRouteLen = routeLen; relayoutBoard(); }
+
+      boardMessage = null;
+      renderBoardFilter();
+      // Each minute's refresh can sweep every flap through a lap ("the whole loop").
+      renderFlipBoard(hasSwept && fullSweepOn);
+      hasSwept = true;
+      refreshLocPanel();
+      refreshRT();
+    }
+
+    function emptyMessage() {
+      const picked = [...getDepFilterState('board').selected.keys()];
+      return picked.length ? `No more route ${picked.join(' / ')} departures today` : 'Nothing else leaving today';
+    }
+
+    function refreshRT() {
+      lastBoardStopDatas.forEach(s => loadRTStopUpdates(s.stop_id));
+    }
+
+    // ===== LOCATION CHOOSER (copy of depboard.html's) =====
+    function boardLabel() { return boardCustom ? `Near ${boardCustom.name}` : 'Near you'; }
+
+    function getSavedLocations() {
+      const v = lsGet(LOC_SAVED_KEY, []);
+      return Array.isArray(v) ? v.filter(l => l && isFinite(l.lat) && isFinite(l.lon) && l.name) : [];
+    }
+
+    // Switch the board to a location (null = live GPS) and reload it.
+    function setBoardLocation(loc) {
+      boardCustom = loc ? { lat: +loc.lat, lon: +loc.lon, name: loc.name } : null;
+      if (boardCustom) lsSet(LOC_ACTIVE_KEY, boardCustom); else { try { localStorage.removeItem(LOC_ACTIVE_KEY); } catch (e) {} }
+      boardLat = boardLon = null;
+      allBoardDepartures = [];
+      lastBoardStopDatas = [];
+      resetDepFilterState('board');
+      renderBoardFilter();
+      refreshLocPanel();
+      collapseSidebarOnMobile();
+      loadDepartureBoardLocation();
+    }
+
+    function renderSavedLocations() {
+      const box = document.getElementById('locSaved');
+      const saved = getSavedLocations();
+      box.innerHTML = saved.length ? '' : '<div class="sb-empty">Nothing saved yet.</div>';
+      saved.forEach((l, i) => {
+        const row = document.createElement('div');
+        row.className = 'sb-item' + (boardCustom && boardCustom.lat === l.lat && boardCustom.lon === l.lon ? ' active' : '');
+        const pick = document.createElement('button');
+        pick.type = 'button'; pick.className = 'sb-btn sb-pick';
+        pick.innerHTML = `${escapeHtml(l.name)}<small>${(+l.lat).toFixed(4)}, ${(+l.lon).toFixed(4)}</small>`;
+        pick.addEventListener('click', () => setBoardLocation(l));
+        const del = document.createElement('button');
+        del.type = 'button'; del.className = 'sb-btn'; del.textContent = '✕︎'; del.title = 'Delete'; del.setAttribute('aria-label', 'Delete ' + l.name);
+        del.addEventListener('click', () => {
+          const cur = getSavedLocations(); cur.splice(i, 1); lsSet(LOC_SAVED_KEY, cur); renderSavedLocations();
+        });
+        row.append(pick, del);
+        box.appendChild(row);
+      });
+    }
+
+    function saveCurrentLocation() {
+      const nickEl = document.getElementById('locNick');
+      const name = nickEl.value.trim();
+      if (!name || boardLat == null) { nickEl.focus(); return; }
+      const cur = getSavedLocations().filter(l => l.name.toLowerCase() !== name.toLowerCase());
+      cur.push({ name, lat: boardLat, lon: boardLon });
+      lsSet(LOC_SAVED_KEY, cur);
+      boardCustom = { lat: boardLat, lon: boardLon, name };
+      lsSet(LOC_ACTIVE_KEY, boardCustom);
+      nickEl.value = '';
+      refreshLocPanel();
+      renderFooter(false);
+    }
+
+    function refreshLocPanel() {
+      document.getElementById('locCurrent').textContent = boardCustom
+        ? `Showing: ${boardCustom.name}` : 'Showing: your live location';
+      document.getElementById('locGps').classList.toggle('is-current', !boardCustom);
+      document.getElementById('locSaveWrap').hidden = boardLat == null;
+      renderSavedLocations();
+    }
+
+    // ===== SIDEBAR =====
+    const SB_KEY = 'gtfs-flip-sidebar-collapsed';
+    const sbIsMobile = () => window.matchMedia('(max-width: 640px)').matches;
+    function setSidebarCollapsed(collapsed, persist) {
+      document.getElementById('boardMain').classList.toggle('sb-collapsed', collapsed);
+      const btn = document.getElementById('sbToggle');
+      btn.classList.toggle('active', !collapsed);
+      btn.setAttribute('aria-expanded', String(!collapsed));
+      if (persist) lsSet(SB_KEY, collapsed);
+    }
+    function collapseSidebarOnMobile() { if (sbIsMobile()) setSidebarCollapsed(true, false); }
+
+    (function initSoundToggle() {
+      const cb = document.getElementById('flapSoundToggle');
+      cb.checked = soundOn;
+      cb.addEventListener('change', () => {
+        soundOn = cb.checked;
+        lsSet(SOUND_KEY, soundOn);
+        if (soundOn) ensureAudio();
+      });
+    })();
+
+    const SWEEP_KEY = 'gtfs-flip-full-sweep';
+    let fullSweepOn = lsGet(SWEEP_KEY, true) === true;
+    (function initSweepToggle() {
+      const cb = document.getElementById('fullSweepToggle');
+      cb.checked = fullSweepOn;
+      cb.addEventListener('change', () => { fullSweepOn = cb.checked; lsSet(SWEEP_KEY, fullSweepOn); });
+    })();
+
+    // Light/dark theme: shares the 'gtfs-theme' key (plain string) with the main page.
+    (function initThemeToggle() {
+      const cb = document.getElementById('lightThemeToggle');
+      const root = document.documentElement;
+      cb.checked = root.getAttribute('data-theme') === 'light';
+      cb.addEventListener('change', () => {
+        const theme = cb.checked ? 'light' : 'dark';
+        root.setAttribute('data-theme', theme);
+        try { localStorage.setItem('gtfs-theme', theme); } catch (e) {}
+      });
+    })();
+
+    (function initSidebar() {
+      // Desktop remembers open/closed (starts closed so the board gets the room); phones always start closed.
+      setSidebarCollapsed(sbIsMobile() ? true : lsGet(SB_KEY, true) === true, false);
+      requestAnimationFrame(() => requestAnimationFrame(() => document.getElementById('boardMain').classList.remove('sb-init')));
+      document.getElementById('sbToggle').addEventListener('click', () => {
+        const collapsed = !document.getElementById('boardMain').classList.contains('sb-collapsed');
+        setSidebarCollapsed(collapsed, !sbIsMobile());
+      });
+      document.getElementById('fbStage').addEventListener('click', collapseSidebarOnMobile);
+      document.addEventListener('keydown', e => { if (e.key === 'Escape') collapseSidebarOnMobile(); });
+      // The board's column count depends on its width; re-fit after the slide.
+      document.getElementById('boardSidebar').addEventListener('transitionend', e => {
+        if (e.target.id === 'boardSidebar' && !sbIsMobile()) relayoutBoard();
+      });
+    })();
+
+    window.addEventListener('resize', debounce(relayoutBoard, 200));
+
+    const runLocSearch = debounce(q => {
+      const box = document.getElementById('locResults');
+      if (!q) { box.innerHTML = ''; return; }
+      apiFetch('/api/searchstop/' + encodeURIComponent(q))
+        .then(r => r.ok ? r.json() : { matches: [] })
+        .then(d => {
+          if (document.getElementById('locSearch').value.trim() !== q) return;
+          const ms = (d.matches || []).filter(m => isFinite(m.lat) && isFinite(m.lon)).slice(0, 8);
+          box.innerHTML = ms.length ? '' : '<div class="sb-empty">No stops found.</div>';
+          ms.forEach(m => {
+            const b = document.createElement('button');
+            b.type = 'button'; b.className = 'sb-btn';
+            b.innerHTML = `${escapeHtml(m.stop_name)}<small>${escapeHtml(m.stop_code || m.stop_id)}</small>`;
+            b.addEventListener('click', () => setBoardLocation({ lat: m.lat, lon: m.lon, name: m.stop_name }));
+            box.appendChild(b);
+          });
+        })
+        .catch(() => { box.innerHTML = '<div class="sb-empty">Search failed.</div>'; });
+    }, 250);
+
+    function submitCoords() {
+      const inp = document.getElementById('locCoords'), err = document.getElementById('locCoordsErr');
+      const m = inp.value.trim().match(/^(-?\d+(?:\.\d+)?)\s*[,\s]\s*(-?\d+(?:\.\d+)?)$/);
+      const lat = m ? parseFloat(m[1]) : NaN, lon = m ? parseFloat(m[2]) : NaN;
+      if (!m || Math.abs(lat) > 90 || Math.abs(lon) > 180) { err.hidden = false; return; }
+      err.hidden = true;
+      inp.value = '';
+      setBoardLocation({ lat, lon, name: `${lat.toFixed(4)}, ${lon.toFixed(4)}` });
+    }
+    document.getElementById('locCoordsGo').addEventListener('click', submitCoords);
+    document.getElementById('locCoords').addEventListener('keydown', e => { if (e.key === 'Enter') submitCoords(); });
+    document.getElementById('locGps').addEventListener('click', () => setBoardLocation(null));
+    document.getElementById('locSave').addEventListener('click', saveCurrentLocation);
+    document.getElementById('locNick').addEventListener('keydown', e => { if (e.key === 'Enter') saveCurrentLocation(); });
+    document.getElementById('locSearch').addEventListener('input', e => runLocSearch(e.target.value.trim()));
+
+    (function restoreActiveLocation() {
+      const a = lsGet(LOC_ACTIVE_KEY, null);
+      if (a && isFinite(a.lat) && isFinite(a.lon) && a.name) boardCustom = { lat: +a.lat, lon: +a.lon, name: a.name };
+    })();
+
+    // Keep the sidebar's inputs above the on-screen keyboard.
+    (function initKeyboardAvoidance() {
+      const vv = window.visualViewport;
+      if (!vv) return;
+      const update = () => {
+        const kb = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
+        document.documentElement.style.setProperty('--kb-h', (kb > 100 && sbIsMobile() ? kb : 0) + 'px');
+      };
+      vv.addEventListener('resize', update);
+      vv.addEventListener('scroll', update);
+      update();
+    })();
+
+    // ===== START =====
+    function startFlipBoard() {
+      boardSurface = new FlapSurface(document.getElementById('fbCanvas'));
+      footSurface = new FlapSurface(document.getElementById('fbFootCanvas'));
+      clockSurface = new FlapSurface(document.getElementById('fbClockCanvas'));
+      relayoutBoard();
+      renderBoardFilter();
+      refreshLocPanel();
+      tickBoardClock();
+      loadDepartureBoardLocation();
+      setInterval(loadDepartureBoardLocation, BOARD_REFRESH_MS);
+      setInterval(refreshRT, BOARD_RT_MS);
+      setInterval(tickBoardClock, 1000);
+      setInterval(() => renderFooter(true), FOOTER_CYCLE_MS);
+      if (STRESS) startStress();
+    }
+    // The canvas draws with Oswald, so make sure it's loaded before the first sprite is rendered.
+    (document.fonts ? document.fonts.load('500 20px Oswald').then(() => document.fonts.ready) : Promise.resolve())
+      .catch(() => {}).then(startFlipBoard);
+  </script>
+</body>
+</html>
