@@ -15,9 +15,9 @@ int main(int argc, char* argv[]) {
 
     gtfs::stop st = gtfs::getStopInfo(feed, argv[1]);
 
-    std::cout << "{\n\t\"stop_id\": \"" << argv[1] << "\",\n"
-                << "\t\"stop_code\": \"" << st.stop_code << "\",\n"
-                << "\t\"stop_name\": \"" << st.stop_name << "\",\n"
+    std::cout << "{\n\t\"stop_id\": \"" << gtfs::jsonEscape(argv[1]) << "\",\n"
+                << "\t\"stop_code\": \"" << gtfs::jsonEscape(st.stop_code) << "\",\n"
+                << "\t\"stop_name\": \"" << gtfs::jsonEscape(st.stop_name) << "\",\n"
                 << "\t\"lat\": " << st.stop_lat << ",\n"
                 << "\t\"lon\": " << st.stop_lon << "\n"
                 << "}\n";

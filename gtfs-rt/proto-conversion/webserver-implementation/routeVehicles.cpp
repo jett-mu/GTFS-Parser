@@ -70,16 +70,6 @@ static bool stopTimeUpdateDelay(const TripUpdate::StopTimeUpdate& stu, int32_t& 
     return false;
 }
 
-static std::string jsonEscape(const std::string& s) {
-    std::string out;
-    out.reserve(s.size());
-    for (char c : s) {
-        if (c == '"' || c == '\\') out += '\\';
-        out += c;
-    }
-    return out;
-}
-
 int main(int argc, char* argv[]) {
     if (argc != 2) {
         cerr << "Usage: " << argv[0] << " <routeShortNameOrId>" << endl;
@@ -143,8 +133,8 @@ int main(int argc, char* argv[]) {
     }
 
     cout << "{"
-         << "\"route_id\":\"" << jsonEscape(route.route_id) << "\","
-         << "\"route_short_name\":\"" << jsonEscape(route.route_short_name) << "\","
+         << "\"route_id\":\"" << gtfs::jsonEscape(route.route_id) << "\","
+         << "\"route_short_name\":\"" << gtfs::jsonEscape(route.route_short_name) << "\","
          << "\"feed_timestamp\":" << (feed.has_header() && feed.header().has_timestamp() ? feed.header().timestamp() : 0) << ","
          << "\"vehicles\":[";
 
@@ -170,9 +160,9 @@ int main(int argc, char* argv[]) {
         first = false;
 
         cout << "{"
-             << "\"trip_id\":\"" << jsonEscape(tripId) << "\","
-             << "\"vehicle_id\":\"" << jsonEscape(vehicleId) << "\","
-             << "\"vehicle_label\":\"" << jsonEscape(vehicleLabel) << "\","
+             << "\"trip_id\":\"" << gtfs::jsonEscape(tripId) << "\","
+             << "\"vehicle_id\":\"" << gtfs::jsonEscape(vehicleId) << "\","
+             << "\"vehicle_label\":\"" << gtfs::jsonEscape(vehicleLabel) << "\","
              << "\"lat\":" << pos.latitude() << ","
              << "\"lng\":" << pos.longitude() << ","
              << "\"bearing\":" << (pos.has_bearing() ? pos.bearing() : -1) << ",";

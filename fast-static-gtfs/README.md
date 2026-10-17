@@ -6,7 +6,7 @@ Experimental indexed query layer for GTFS Schedule data, plus a standalone C++ H
 |---|---|
 | `fast-gtfs.hpp` | `fast_gtfs` namespace: `fast_data_feed`, file sorting/verification, binary-search line maps. Avoid `using namespace fast_gtfs` together with `using namespace gtfs`, since names can collide |
 | `webservermethods.hpp` | JSON builders for the HTTP handlers (`getTrip`, `getStopDayTimes`) |
-| `webserver.cpp` | Server using the vendored `httplib.h`, listening on `0.0.0.0:5016` |
+| `webserver.cpp` | Server using the vendored `httplib.h`, listening on `127.0.0.1:5016` (loopback only: it has no token check, so outside access goes through `webserver/server.py`) |
 | `test-data/` | Small sample feed with its sorted variants, used for ad-hoc testing |
 
 ## Build

@@ -20,14 +20,14 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    std::cout << "{\n\t\"route_id\": \"" << rt.route_id << "\",\n"
-                << "\t\"agency_id\": \"" << rt.agency_id << "\",\n"
-                << "\t\"route_short_name\": \"" << rt.route_short_name << "\",\n"
-                << "\t\"route_long_name\": \"" << rt.route_long_name << "\",\n"
-                << "\t\"route_desc\": \"" << rt.route_desc << "\",\n"
+    std::cout << "{\n\t\"route_id\": \"" << gtfs::jsonEscape(rt.route_id) << "\",\n"
+                << "\t\"agency_id\": \"" << gtfs::jsonEscape(rt.agency_id) << "\",\n"
+                << "\t\"route_short_name\": \"" << gtfs::jsonEscape(rt.route_short_name) << "\",\n"
+                << "\t\"route_long_name\": \"" << gtfs::jsonEscape(rt.route_long_name) << "\",\n"
+                << "\t\"route_desc\": \"" << gtfs::jsonEscape(rt.route_desc) << "\",\n"
                 << "\t\"route_type\": " << static_cast<int>(rt.route_type) << ",\n"
-                << "\t\"route_url\": \"" << rt.route_url << "\",\n"
-                << "\t\"route_color\": \"" << rt.route_color << "\",\n"
-                << "\t\"route_text_color\": \"" << rt.route_text_color << "\"\n"
+                << "\t\"route_url\": \"" << gtfs::jsonEscape(rt.route_url) << "\",\n"
+                << "\t\"route_color\": \"" << gtfs::jsonEscape(rt.route_color) << "\",\n"
+                << "\t\"route_text_color\": \"" << gtfs::jsonEscape(rt.route_text_color) << "\"\n"
                 << "}\n";
 }

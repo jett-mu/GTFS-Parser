@@ -9,8 +9,10 @@ gunicorn.
 browser → nginx (:80/:443) → gunicorn (127.0.0.1:5015) → Flask app (server.py)
 ```
 
-`server.py` uses relative paths (e.g. `./tools/tripjson`), so gunicorn **must**
-be started with `webserver/` as the working directory.
+`server.py` uses relative paths (e.g. `./tools/searchstop`), so gunicorn **must**
+be started with `webserver/` as the working directory. Its `/api/trip` and
+`/api/stop` routes are proxied to `fast-static-gtfs/webserver` on `127.0.0.1:5016`,
+which has to be running too (see [fast-static-gtfs/README.md](fast-static-gtfs/README.md)).
 
 ---
 

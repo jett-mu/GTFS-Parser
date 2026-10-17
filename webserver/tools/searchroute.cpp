@@ -24,16 +24,16 @@ int main(int argc, char* argv[]) {
 
     std::vector<gtfs::routematch> matches = gtfs::searchRoute(feed, argv[1]);
 
-    std::cout << "{\n\t\"query\": \"" << argv[1] << "\",\n\t\"matches\": [\n";
+    std::cout << "{\n\t\"query\": \"" << gtfs::jsonEscape(argv[1]) << "\",\n\t\"matches\": [\n";
 
     const int matchesLen = std::min((int)matches.size(), top);
 
     for (int i = 0; i < matchesLen; i++) {
         gtfs::routematch x = matches[i];
 
-        std::cout << "\t\t{ \"route_id\": \"" << x.route_id <<
-                "\", \"route_short_name\": \"" << x.route_short_name <<
-                "\", \"route_long_name\": \"" << x.route_long_name <<
+        std::cout << "\t\t{ \"route_id\": \"" << gtfs::jsonEscape(x.route_id) <<
+                "\", \"route_short_name\": \"" << gtfs::jsonEscape(x.route_short_name) <<
+                "\", \"route_long_name\": \"" << gtfs::jsonEscape(x.route_long_name) <<
                 "\", \"score\": " << x.score <<
                 ((matchesLen - 1) == i ? " }\n" : " },\n");
     }

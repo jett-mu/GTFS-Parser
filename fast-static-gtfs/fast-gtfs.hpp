@@ -85,14 +85,15 @@ inline void sortFile(const string& path, const string& keyColumn, const string& 
 
         string line;
         while (std::getline(in, line)) {
-            if (line.empty()) continue;
-            string key = gtfs::parseDataCSV(line)[keyIdx];
-            keyedLines.emplace_back(std::move(key), std::move(line));
+            vector<string> row = gtfs::parseDataCSV(line);
+            if (!gtfs::normalizeRow(row, refs)) continue;
+            keyedLines.emplace_back(std::move(row[keyIdx]), std::move(line));
         }
         in.close();
     }
 
-    std::sort(keyedLines.begin(), keyedLines.end(),
+    // stable, so rows sharing a key keep their source order (e.g. a trip's stop_times stay in stop_sequence order)
+    std::stable_sort(keyedLines.begin(), keyedLines.end(),
         [](const std::pair<string, string>& a,
            const std::pair<string, string>& b) { return a.first < b.first; });
 
@@ -119,8 +120,9 @@ inline bool isSorted(const string& path, const string& keyColumn) {
     string line, previous;
     bool first = true;
     while (std::getline(in, line)) {
-        if (line.empty()) continue;
-        string key = gtfs::parseDataCSV(line)[find->second];
+        vector<string> row = gtfs::parseDataCSV(line);
+        if (!gtfs::normalizeRow(row, refs)) continue;
+        string key = std::move(row[find->second]);
         if (!first && key < previous) return false;
         previous = std::move(key);
         first = false;
@@ -138,8 +140,8 @@ inline vector<pair<string, vector<string>>> createMap(const string& path, const 
     string currentLine;
 
     while (getline(stopFile, currentLine)) {
-        if (currentLine.empty()) continue;
         vector<string> parsedCurrentLine = gtfs::parseDataCSV(currentLine);
+        if (!gtfs::normalizeRow(parsedCurrentLine, refs)) continue;
         lines.emplace_back(parsedCurrentLine[refs[key]], parsedCurrentLine);
     }
 
@@ -399,6 +401,12 @@ inline vector<gtfs::trip_segment> getAllStops(const string& trip_id, const vecto
 
             output.push_back(x);
     }
+
+    // the sorted file only guarantees grouping by trip_id (files sorted before sortFile
+    // became stable have each trip's rows scrambled), so restore stop_sequence order.
+    std::sort(output.begin(), output.end(),
+        [](const gtfs::trip_segment& a, const gtfs::trip_segment& b) { return a.stop.stop_sequence < b.stop.stop_sequence; });
+
     return output;
 }
 inline vector<gtfs::shape> getShapeInfo(const string& shape_id, const vector<pair<string, vector<string>>>& lines, const std::unordered_map<string, int>& refs) { // shapes.txt by shape_id

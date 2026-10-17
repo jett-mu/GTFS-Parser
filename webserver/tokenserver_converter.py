@@ -64,18 +64,18 @@ def main():
         src
     )
 
-    # 4. Add @require_token under every @app.route(...) EXCEPT excluded ones
+    # 4. Add @require_token once per view, under its last @app.route(...) line, unless every
+    #    route on that view is excluded. A view can sit under several stacked routes (e.g.
+    #    /api/feedstatus); a @require_token between them would wrap it twice, and Flask
+    #    refuses to register the second wrapper under the same endpoint name.
     def inject_decorator(match):
-        route_decorator = match.group(0)
-        route_path_match = re.search(r"@app\.route\('([^']+)'", route_decorator)
-        if route_path_match and route_path_match.group(1) in EXCLUDED_ROUTES:
-            return route_decorator  # skip excluded routes
-        # Only add if not already there
-        if '@require_token' not in route_decorator:
-            return route_decorator + '@require_token\n'
-        return route_decorator
+        route_stack = match.group(0)
+        paths = re.findall(r"@app\.route\(['\"]([^'\"]+)['\"]", route_stack)
+        if paths and all(p in EXCLUDED_ROUTES for p in paths):
+            return route_stack  # skip excluded routes
+        return route_stack + '@require_token\n'
 
-    src = re.sub(r"@app\.route\([^\)]+\)\n", inject_decorator, src)
+    src = re.sub(r"(?:@app\.route\([^\)]+\)\n)+", inject_decorator, src)
 
     # 5. Serve every page from tksweb/ (token-aware copies made by
     #    tokenindex_converter.py) instead of web/

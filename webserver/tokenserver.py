@@ -5,6 +5,9 @@ from t_confidental_info import token
 import subprocess
 import json
 import os
+import urllib.error
+import urllib.parse
+import urllib.request
 
 app = Flask(__name__)
 
@@ -19,14 +22,31 @@ def require_token(f):
         return f(*args, **kwargs)
     return decorated
 
+# /api/trip and /api/stop are answered by fast-static-gtfs/webserver, which must be running (see its README).
+FAST_SERVER = 'http://127.0.0.1:5016'
+FAST_TIMEOUT = 10   # seconds
+TOOL_TIMEOUT = 120  # seconds per tools/ or decoder run; getTrips alone takes ~10 s on YRT
+
+def fast_get(path):
+    """GET a fast-static-gtfs endpoint -> (data, status). Its own errors (e.g. 503 while loading) pass through."""
+    try:
+        with urllib.request.urlopen(FAST_SERVER + path, timeout=FAST_TIMEOUT) as resp:
+            return json.loads(resp.read()), resp.status
+    except urllib.error.HTTPError as e:
+        try:
+            return json.loads(e.read()), e.code
+        except ValueError:
+            return {'error': f'fast-static-gtfs returned HTTP {e.code}'}, e.code
+    except (urllib.error.URLError, TimeoutError) as e:
+        return {'error': f'fast-static-gtfs server at {FAST_SERVER} is not reachable: {e}'}, 503
+
 @app.route('/api/trip/<trip_id>')
 @require_token
 def get_trip(trip_id):
     try:
-        result = subprocess.run(['curl', 'http://localhost:5016/api/trip/' + trip_id], capture_output=True, text=True)
-        if result.returncode != 0:
-            return jsonify({'error': result.stderr}), 500
-        data = json.loads(result.stdout)
+        data, status = fast_get('/api/trip/' + urllib.parse.quote(trip_id, safe=''))
+        if status != 200:
+            return jsonify(data), status
         if not data:
             return jsonify(data), 422
         return jsonify(data)
@@ -37,11 +57,13 @@ def get_trip(trip_id):
 @require_token
 def get_stop(stop_id, date):
     try:
-        year, month, day = date.split('-')
-        result = subprocess.run(['curl', f"http://localhost:5016/api/stop/{stop_id}/{year}/{month}/{day}/"], capture_output=True, text=True)
-        if result.returncode != 0:
-            return jsonify({'error': result.stderr}), 500
-        data = json.loads(result.stdout)
+        try:
+            year, month, day = (int(part) for part in date.split('-'))
+        except ValueError:
+            return jsonify({'error': 'date must be YYYY-MM-DD'}), 400
+        data, status = fast_get(f"/api/stop/{urllib.parse.quote(stop_id, safe='')}/{year}/{month}/{day}/")
+        if status != 200:
+            return jsonify(data), status
         if not data:
             return jsonify(data), 422
         return jsonify(data)
@@ -52,7 +74,7 @@ def get_stop(stop_id, date):
 @require_token
 def get_stop_info(stop_id):
     try:
-        result = subprocess.run(['./tools/stopinfo', stop_id], capture_output=True, text=True)
+        result = subprocess.run(['./tools/stopinfo', stop_id], capture_output=True, text=True, timeout=TOOL_TIMEOUT)
         if result.returncode != 0:
             return jsonify({'error': result.stderr}), 500
         data = json.loads(result.stdout)
@@ -63,7 +85,6 @@ def get_stop_info(stop_id):
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/feedstatus')
-@require_token
 @app.route('/api/feedstatus/<year>/<month>/<day>')
 @require_token
 def get_feed_status(year=None, month=None, day=None):
@@ -71,7 +92,7 @@ def get_feed_status(year=None, month=None, day=None):
         cmd = ['./tools/gtfsVerify']
         if year is not None:
             cmd += [year, month, day]
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=TOOL_TIMEOUT)
         if result.returncode != 0:
             return jsonify({'error': result.stderr}), 500
         data = json.loads(result.stdout)
@@ -85,7 +106,7 @@ def get_feed_status(year=None, month=None, day=None):
 @require_token
 def search_stop(query):
     try:
-        result = subprocess.run(['./tools/searchstop', query, '-t', '50'], capture_output=True, text=True)
+        result = subprocess.run(['./tools/searchstop', query, '-t', '50'], capture_output=True, text=True, timeout=TOOL_TIMEOUT)
         if result.returncode != 0:
             return jsonify({'error': result.stderr}), 500
         data = json.loads(result.stdout)
@@ -99,7 +120,7 @@ def search_stop(query):
 @require_token
 def search_route(query):
     try:
-        result = subprocess.run(['./tools/searchroute', query, '-t', '50'], capture_output=True, text=True)
+        result = subprocess.run(['./tools/searchroute', query, '-t', '50'], capture_output=True, text=True, timeout=TOOL_TIMEOUT)
         if result.returncode != 0:
             return jsonify({'error': result.stderr}), 500
         data = json.loads(result.stdout)
@@ -114,7 +135,7 @@ def search_route(query):
 def get_nearest_stops(lat, lon):
     try:
         limit = request.args.get('limit', '10')
-        result = subprocess.run(['./tools/getneareststopsjson', lat, lon, '-t', limit], capture_output=True, text=True)
+        result = subprocess.run(['./tools/getneareststopsjson', lat, lon, '-t', limit], capture_output=True, text=True, timeout=TOOL_TIMEOUT)
         if result.returncode != 0:
             return jsonify({'error': result.stderr}), 500
         data = json.loads(result.stdout)
@@ -128,7 +149,7 @@ def get_nearest_stops(lat, lon):
 @require_token
 def get_rt_location(tripID):
     try:
-        result = subprocess.run(['../gtfs-rt/proto-conversion/webserver-implementation/./decodeTrip', tripID], capture_output=True, text=True)
+        result = subprocess.run(['../gtfs-rt/proto-conversion/webserver-implementation/./decodeTrip', tripID], capture_output=True, text=True, timeout=TOOL_TIMEOUT)
         if result.returncode != 0:
             return jsonify({'error': result.stderr}), 500
         data = json.loads(result.stdout)
@@ -142,7 +163,7 @@ def get_rt_location(tripID):
 @require_token
 def get_rt_stop(stopID):
     try:
-        result = subprocess.run(['../gtfs-rt/proto-conversion/webserver-implementation/./decodeStop', stopID], capture_output=True, text=True)
+        result = subprocess.run(['../gtfs-rt/proto-conversion/webserver-implementation/./decodeStop', stopID], capture_output=True, text=True, timeout=TOOL_TIMEOUT)
         if result.returncode != 0:
             return jsonify({'error': result.stderr}), 500
         data = json.loads(result.stdout)
@@ -156,7 +177,7 @@ def get_rt_stop(stopID):
 @require_token
 def get_rt_alerts():
     try:
-        result = subprocess.run(['../gtfs-rt/proto-conversion/webserver-implementation/./decodeAlerts'], capture_output=True, text=True)
+        result = subprocess.run(['../gtfs-rt/proto-conversion/webserver-implementation/./decodeAlerts'], capture_output=True, text=True, timeout=TOOL_TIMEOUT)
         if result.returncode != 0:
             return jsonify({'error': result.stderr}), 500
         data = json.loads(result.stdout)
@@ -210,7 +231,7 @@ def tiles(z, x, y):
 @require_token
 def get_route_info(route_id):
     try:
-        result = subprocess.run(['./tools/routeinfo', route_id], capture_output=True, text=True)
+        result = subprocess.run(['./tools/routeinfo', route_id], capture_output=True, text=True, timeout=TOOL_TIMEOUT)
         if result.returncode != 0:
             return jsonify({'error': result.stderr}), 500
         data = json.loads(result.stdout)
@@ -224,7 +245,7 @@ def get_route_info(route_id):
 @require_token
 def get_trip_root(route_id, year, month, day):
     try:
-        result = subprocess.run(['./tools/getTrips', route_id, year, month, day], capture_output=True, text=True)
+        result = subprocess.run(['./tools/getTrips', route_id, year, month, day], capture_output=True, text=True, timeout=TOOL_TIMEOUT)
         if result.returncode != 0:
             return jsonify({'error': result.stderr}), 500
         data = json.loads(result.stdout)

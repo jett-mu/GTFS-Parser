@@ -35,7 +35,7 @@ Then follow the README in whichever component you need:
 1. [static-gtfs](static-gtfs/readme.md) — parse schedule data
 2. [gtfs-rt](gtfs-rt/readme.md) — decode realtime feeds
 3. [webserver](webserver/README.md) — run the full web UI
-4. [fast-static-gtfs](fast-static-gtfs/README.md) — optional indexed server on port 5016
+4. [fast-static-gtfs](fast-static-gtfs/README.md) — indexed server on `127.0.0.1:5016`; the webserver's `/api/trip` and `/api/stop` need it running
 
 ## Build via Makefile
 

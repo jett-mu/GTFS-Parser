@@ -24,6 +24,7 @@ unordered_map<string, gtfs::time> getFirstDepartures(const data_feed& feed, cons
             firstLine = false;
             continue;
         }
+        if (!normalizeRow(parsedCurrentLine, refs)) continue;
 
         const string& trip_id = parsedCurrentLine[refs["trip_id"]];
         if (wanted.find(trip_id) == wanted.end()) continue;
@@ -109,12 +110,12 @@ int main(int argc, char* argv[]) {
         return firstDepartures[a.trip_id] < firstDepartures[b.trip_id];
     });
 
-    cout << "{\n\t\"query_route_id\": \"" << argv[1] << "\",\n\t\"trips\": [\n";
+    cout << "{\n\t\"query_route_id\": \"" << gtfs::jsonEscape(argv[1]) << "\",\n\t\"trips\": [\n";
     for (int i = 0; i < x.size(); i++) {
         trip x_a = x[i];
         string first_departure = firstDepartures.count(x_a.trip_id) ? firstDepartures[x_a.trip_id].leadingRoundedTime() : "";
-        cout << "\t\t{ \"trip_id\": \"" << x_a.trip_id <<
-                "\", \"trip_headsign\": \"" << x_a.trip_headsign <<
+        cout << "\t\t{ \"trip_id\": \"" << gtfs::jsonEscape(x_a.trip_id) <<
+                "\", \"trip_headsign\": \"" << gtfs::jsonEscape(x_a.trip_headsign) <<
                 "\", \"departure_time\": \"" << first_departure << "\" }" <<
                 ((i == (x.size() - 1)) ? "\n" : ",\n");
     }

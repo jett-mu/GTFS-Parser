@@ -42,9 +42,9 @@ int main(int argc, char* argv[]) {
         return a.stop.arrival_time < b.stop.arrival_time;
     });
 
-    std::cout << "{\n\t\"stop_id\": \"" << argv[1] << "\",\n"
-                << "\t\"stop_code\": \"" << st.stop_code << "\",\n"
-                << "\t\"stop_name\": \"" << st.stop_name << "\",\n"
+    std::cout << "{\n\t\"stop_id\": \"" << gtfs::jsonEscape(argv[1]) << "\",\n"
+                << "\t\"stop_code\": \"" << gtfs::jsonEscape(st.stop_code) << "\",\n"
+                << "\t\"stop_name\": \"" << gtfs::jsonEscape(st.stop_name) << "\",\n"
                 << "\t\"lat\": " << st.stop_lat << ",\n"
                 << "\t\"lon\": " << st.stop_lon << ",\n";
     
@@ -56,14 +56,14 @@ int main(int argc, char* argv[]) {
 
         gtfs::route routeInfo = gtfs::getRouteInfo(feed, x.route_id);
         gtfs::trip tripInfo = gtfs::getTripInfo(feed, x.stop.trip_id);
-        cout << "\t\t{ \"route_id\": \"" << routeInfo.route_short_name << 
+        cout << "\t\t{ \"route_id\": \"" << gtfs::jsonEscape(routeInfo.route_short_name) << 
                 "\", \"arrival_time\": \"" << x.stop.arrival_time.leadingRoundedTime() << 
-                "\", \"trip_id\": \"" << x.stop.trip_id << 
-                "\", \"trip_headsign\": \"" << tripInfo.trip_headsign << 
+                "\", \"trip_id\": \"" << gtfs::jsonEscape(x.stop.trip_id) << 
+                "\", \"trip_headsign\": \"" << gtfs::jsonEscape(tripInfo.trip_headsign) << 
                 "\", \"direction_id\": " << tripInfo.direction_id << 
                 ", \"pickup_type\": " << std::max(0, static_cast<int>(x.stop.pickup_type)) <<
                 ", \"drop_off_type\": " << std::max(0, static_cast<int>(x.stop.drop_off_type)) <<
-                ", \"route_color\": \"" << routeInfo.route_color << 
+                ", \"route_color\": \"" << gtfs::jsonEscape(routeInfo.route_color) << 
                 (i == (tsLen-1) ? "\" } \n" : "\" }, \n");
     }
 

@@ -496,13 +496,50 @@
     }
 
     function todayStr() {
-      const d = new Date();
+      return dateStr(new Date());
+    }
+
+    function dateStr(d) {
       return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     }
 
     function parseTime(t) {
       const p = t.split(':').map(Number);
       return p[0]*3600 + p[1]*60 + (p[2]||0);
+    }
+
+    // Yesterday's service keeps running past midnight ("25:10:00"; some feeds reach 30:xx),
+    // so until this time of day today's board also pulls in yesterday's departures.
+    const PREV_DAY_WINDOW_SECS = 8 * 3600;
+
+    // /api/stop for one service date. For today, early in the morning, also merges in
+    // yesterday's past-midnight departures re-timed onto today's clock ("25:10:00" ->
+    // "01:10:00"). Those carry prev_day: true, so trip_id dedupes (depKey) don't collapse
+    // them with tonight's run of the same trip.
+    function fetchStopDay(stopId, date) {
+      const day = fetch(`/api/stop/${stopId}/${date}`).then(r => r.json());
+      if (date !== todayStr() || nowInSeconds() >= PREV_DAY_WINDOW_SECS) return day;
+      const y = new Date();
+      y.setDate(y.getDate() - 1);
+      const prev = fetch(`/api/stop/${stopId}/${dateStr(y)}`).then(r => r.ok ? r.json() : null).catch(() => null);
+      return Promise.all([day, prev]).then(([d, p]) => {
+        if (d.error || !p || !Array.isArray(p.departures)) return d;
+        const carried = p.departures
+          .filter(dep => parseTime(dep.arrival_time) >= 86400)
+          .map(dep => ({ ...dep, arrival_time: shiftBackOneDay(dep.arrival_time), prev_day: true }));
+        return carried.length ? { ...d, departures: [...carried, ...(d.departures || [])] } : d;
+      });
+    }
+
+    // "25:10:00" -> "01:10:00"
+    function shiftBackOneDay(t) {
+      const [h, ...rest] = t.split(':');
+      return [String(Number(h) - 24).padStart(2, '0'), ...rest].join(':');
+    }
+
+    // Dedupe key for a departure: around midnight a trip_id can appear twice (see fetchStopDay).
+    function depKey(dep) {
+      return dep.prev_day ? `${dep.trip_id}|prev` : dep.trip_id;
     }
 
     function fmtClockShort(totalSeconds) {
@@ -1436,10 +1473,14 @@
           if (!stops.length) return Promise.reject('no-stops');
           const date = todayStr();
           return Promise.all(stops.map(s =>
-            fetch(`/api/stop/${s.stop_id}/${date}`).then(r => r.json())
+            fetchStopDay(s.stop_id, date)
               .then(sd => ({ ...sd, _distanceKM: s.distanceKM, _stopName: s.stop_name || sd.stop_name || '' }))
               .catch(() => ({ error: true }))
-          )).then(stopDatas => stopDatas.filter(s => !s.error));
+          )).then(stopDatas => {
+            const ok = stopDatas.filter(s => !s.error);
+            // every stop failing is a server problem (e.g. the departures server is down), not an empty board
+            return ok.length ? ok : Promise.reject('load-failed');
+          });
         });
     }
 
@@ -1451,8 +1492,8 @@
       }));
       const byTrip = new Map();
       combined.forEach(dep => {
-        const existing = byTrip.get(dep.trip_id);
-        if (!existing || dep._distanceKM < existing._distanceKM) byTrip.set(dep.trip_id, dep);
+        const existing = byTrip.get(depKey(dep));
+        if (!existing || dep._distanceKM < existing._distanceKM) byTrip.set(depKey(dep), dep);
       });
       const now = nowInSeconds();
       return [...byTrip.values()].filter(dep => expectedSecs(dep) >= now);

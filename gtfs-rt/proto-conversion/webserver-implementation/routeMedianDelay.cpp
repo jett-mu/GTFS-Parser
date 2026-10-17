@@ -150,8 +150,8 @@ int main(int argc, char* argv[]) {
     }
 
     cout << "{"
-         << "\"route_id\":\"" << route.route_id << "\","
-         << "\"route_short_name\":\"" << route.route_short_name << "\","
+         << "\"route_id\":\"" << gtfs::jsonEscape(route.route_id) << "\","
+         << "\"route_short_name\":\"" << gtfs::jsonEscape(route.route_short_name) << "\","
          << "\"sample_count\":" << delays.size() << ",";
 
     if (delays.empty()) {

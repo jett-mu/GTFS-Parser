@@ -80,7 +80,7 @@ Notes on responses:
 - `/api/rt/alerts` is polled by the main page to fill the Alerts list in the sidebar and mobile tab.
 - `/api/rt/*` routes need the GTFS-RT decoders built and the `rt_*_url` keys set in `config/config.json`.
 
-The experimental server in [`../fast-static-gtfs`](../fast-static-gtfs/README.md) exposes a faster `/api/trip` and `/api/stop` on port 5016; the frontend does not use it.
+`/api/trip` and `/api/stop` are proxied to the indexed server in [`../fast-static-gtfs`](../fast-static-gtfs/README.md) on `127.0.0.1:5016`, so it must be running and loaded. If it isn't reachable (or is still loading), those routes return 503 with an `error` message and the pages say so instead of showing an empty board.
 
 For a list of what the web UI does, see [features.md](features.md).
 

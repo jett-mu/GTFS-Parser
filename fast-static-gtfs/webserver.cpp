@@ -250,9 +250,10 @@ int main() {
         res.set_content(json, "application/json");
     });
 
+    // loopback only: there's no token check here, so server.py (5015) is the only way in from outside
     const int port = 5016;
-    std::cout << "listening on http://localhost:" << port << "\n";
-    svr.listen("0.0.0.0", port);
+    std::cout << "listening on http://127.0.0.1:" << port << "\n";
+    svr.listen("127.0.0.1", port);
 
     return 0;
 }

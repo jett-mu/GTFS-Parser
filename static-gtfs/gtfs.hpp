@@ -14,6 +14,7 @@
 #include <cctype>
 #include <iomanip>
 #include <cmath>
+#include <cstdio>
 
 using std::cout;
 using std::string;
@@ -205,23 +206,22 @@ public:
         output.month = this->month + other.month;
         output.day = this->day + other.day;
 
-        if (output.month > 12) {
-            output.year += 1;
-            output.month -= 12;
-        }
-
-        if ((output.year % 4 == 0 && output.year % 100 != 0 )|| output.year % 400 == 0) {
-            const int leapDays[12] = {31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
-            if (output.day > leapDays[output.month - 1]) {
-                output.day -= leapDays[output.month - 1];
-                output.month++;
-            }
-        } else {
+        // carry month overflow into the year, then day overflow into month (and year again), as often as needed
+        auto carryMonths = [&output] {
+            output.year += (output.month - 1) / 12;
+            output.month = (output.month - 1) % 12 + 1;
+        };
+        auto daysInMonth = [](int year, int month) {
             const int regularDays[12] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
-            if (output.day > regularDays[output.month - 1]) {
-                output.day -= regularDays[output.month - 1];
-                output.month++;
-            }
+            const bool leap = (year % 4 == 0 && year % 100 != 0) || year % 400 == 0;
+            return (month == 2 && leap) ? 29 : regularDays[month - 1];
+        };
+
+        carryMonths();
+        while (output.day > daysInMonth(output.year, output.month)) {
+            output.day -= daysInMonth(output.year, output.month);
+            output.month++;
+            carryMonths();
         }
         return output;
     }
@@ -395,7 +395,7 @@ struct frequency {
 };
 struct fare { // fare_attributes.txt parameters
     enum payment_methods { pm_undef = -1, paid_on_board = 0, paid_before_boarding = 1 };
-    enum transfer { transfer_undef = -1, unlimited = -1, no_transfers = 0, one_transfer = 1, two_transfers = 2 };
+    enum transfer { transfer_undef = -2, unlimited = -1, no_transfers = 0, one_transfer = 1, two_transfers = 2 }; // an empty transfers field means unlimited
 
     string fare_id;
     float price = -1.0;
@@ -439,11 +439,12 @@ inline float to_float(const string& input) {
 
 inline double getDistanceKM(const double& lat1, const double& lon1, const double& lat2, const double& lon2) {
     constexpr double earth_radius = 6371.0;
+    constexpr double pi = 3.14159265358979323846;
 
-    const double lat1_rad = lat1 * 3.1415 / 180.0;
-    const double lon1_rad = lon1 * 3.1415 / 180.0;
-    const double lat2_rad = lat2 * 3.1415 / 180.0;
-    const double lon2_rad = lon2 * 3.1415 / 180.0;
+    const double lat1_rad = lat1 * pi / 180.0;
+    const double lon1_rad = lon1 * pi / 180.0;
+    const double lat2_rad = lat2 * pi / 180.0;
+    const double lon2_rad = lon2 * pi / 180.0;
 
     const double delta_lat = lat2_rad - lat1_rad;
     const double delta_lon = lon2_rad - lon1_rad;
@@ -598,8 +599,8 @@ inline time parseFormattedTime(const string& input) {
     }
 
     output.h = stoi(h);
-    output.m = stoi(m);
-    output.s = static_cast<float>(stoi(s)); // always .0 resultant
+    output.m = to_integer(m);
+    output.s = static_cast<float>(to_integer(s)); // always .0 resultant; "HH:MM" (no seconds) reads as :00
 
     return output;
 }
@@ -642,6 +643,41 @@ inline std::unordered_map<string, int> createMapFromVector(const std::vector<str
     }    
     return output;
 }
+// For data rows (not the header): returns false for a blank line so the caller can skip it, and pads a
+// short row (trailing optional fields left off) with empty fields so every refs index stays in bounds.
+template <typename Refs>
+inline bool normalizeRow(std::vector<string>& row, const Refs& refs) {
+    if (row.size() == 1 && row[0].empty()) return false;
+    size_t width = 0;
+    for (const auto& r : refs) width = std::max(width, static_cast<size_t>(r.second) + 1);
+    if (row.size() < width) row.resize(width);
+    return true;
+}
+// Escapes a string for use inside a JSON string literal (the CLI tools hand-print their JSON).
+inline string jsonEscape(const string& in) {
+    string out;
+    out.reserve(in.size() + 8);
+    for (unsigned char c : in) {
+        switch (c) {
+            case '"':  out += "\\\""; break;
+            case '\\': out += "\\\\"; break;
+            case '\b': out += "\\b";  break;
+            case '\f': out += "\\f";  break;
+            case '\n': out += "\\n";  break;
+            case '\r': out += "\\r";  break;
+            case '\t': out += "\\t";  break;
+            default:
+                if (c < 0x20) {
+                    char buf[8];
+                    std::snprintf(buf, sizeof(buf), "\\u%04x", c);
+                    out += buf;
+                } else {
+                    out += static_cast<char>(c);
+                }
+        }
+    }
+    return out;
+}
 inline double getScore(string input) {
     std::vector<int> weights = {1};
     double total = 0;
@@ -680,6 +716,8 @@ inline trip getTripInfo(const data_feed& d, const string& trip_id) { // requirem
             firstLine = false;
             continue;
         }
+
+        if (!normalizeRow(parsedCurrentLine, refs)) continue;
 
         if (parsedCurrentLine[refs["trip_id"]] == trip_id) {
             // required fields
@@ -748,6 +786,7 @@ inline bool isTripValid(const data_feed& d, const string& trip_id, const int& ye
             firstLine = false;
             continue;
         }
+        if (!normalizeRow(parsedCurrentLine, refs)) continue;
         if (parsedCurrentLine[refs["service_id"]] == service_id) {
             string test;
 
@@ -819,6 +858,8 @@ inline bool isTripValid(const data_feed& d, const string& trip_id, const int& ye
             continue;
         }
 
+        if (!normalizeRow(parsedCurrentLine, refs)) continue;
+
         if (parsedCurrentLine[refs["service_id"]] == service_id && parsedCurrentLine[refs["date"]] == constructedDate) {
             if (parsedCurrentLine[refs["exception_type"]] == "1") output = true;
             else output = false;
@@ -856,6 +897,7 @@ inline feedStatus verifyGTFS(const data_feed& d, const int& year, const int& mon
         }
 
         if (lineNumber == 2) {
+            if (!normalizeRow(parsedCurrentLine, refs)) return no_result;
             calendar_day x;
             calendar_day y;
 
@@ -900,6 +942,7 @@ inline calendar_day getStartDate(const data_feed& d) {
         }
 
         if (lineNumber == 2) {
+            if (!normalizeRow(parsedCurrentLine, refs)) continue;
             if (refs.find("feed_start_date") == refs.end()) continue;
             else output = parseFormattedDate(parsedCurrentLine[refs["feed_start_date"]]);
 
@@ -931,6 +974,7 @@ inline calendar_day getEndDate(const data_feed& d) {
         }
 
         if (lineNumber == 2) {
+            if (!normalizeRow(parsedCurrentLine, refs)) continue;
             if (refs.find("feed_end_date") == refs.end()) continue;
             else output = parseFormattedDate(parsedCurrentLine[refs["feed_end_date"]]);
 
@@ -959,6 +1003,8 @@ inline route getRouteInfo(const data_feed& d, const string& route_id) { // requi
             firstLine = false;
             continue;
         }
+
+        if (!normalizeRow(parsedCurrentLine, refs)) continue;
 
         if (parsedCurrentLine[refs["route_id"]] == route_id) {
             // required fields
@@ -1026,6 +1072,8 @@ inline stop getStopInfo(const data_feed& d, const string& stop_id) { // requirem
             firstLine = false;
             continue;
         }
+
+        if (!normalizeRow(parsedCurrentLine, refs)) continue;
 
         if (parsedCurrentLine[refs["stop_id"]] == stop_id) {
             // required fields
@@ -1100,6 +1148,8 @@ inline std::vector<trip_segment> getDayTimesAtStop(const data_feed& d, const str
             firstLine = false;
             continue;
         }
+
+        if (!normalizeRow(parsedCurrentLine, refs)) continue;
 
         if (parsedCurrentLine[refs["stop_id"]] == stop_id) {
             trip_segment x;
@@ -1179,6 +1229,8 @@ inline std::vector<trip_segment> getDayTimesAtStop(const data_feed& d, const str
             continue;
         }
 
+        if (!normalizeRow(parsedCurrentLine, refs)) continue;
+
         for (trip_segment& a : output) {
             if (a.stop.trip_id == parsedCurrentLine[refs["trip_id"]]) {
                 a.route_id = parsedCurrentLine[refs["route_id"]];
@@ -1222,12 +1274,13 @@ inline std::vector<agency> getAgencyInfo(const data_feed& d) { // requirements: 
     while (getline(agencyFile, currentLine)) {
         lineNo++;
         parsedCurrentLine = parseDataCSV(currentLine);
-        if (parsedCurrentLine.empty() || (parsedCurrentLine.empty() && parsedCurrentLine[0].empty())) continue;
 
         if (lineNo == 1) {
             refs = createMapFromVector(parsedCurrentLine);
             continue;
-        } 
+        }
+        if (!normalizeRow(parsedCurrentLine, refs)) continue;
+
         agency temp;
         // required fields
         temp.agency_name = parsedCurrentLine[refs["agency_name"]];
@@ -1277,6 +1330,8 @@ inline std::vector<shape> getShapeInfo(const data_feed& d, const string& shape_i
             continue;
         }
         
+        if (!normalizeRow(parsedCurrentLine, refs)) continue;
+
         if (parsedCurrentLine[refs["shape_id"]] == shape_id) {
             shape temp;
 
@@ -1330,6 +1385,7 @@ inline std::vector<matchsearch> searchStop(const data_feed& d, const string& nam
                 refs[parsedCurrentLine[i]] = i;
             }
         } else {
+            if (!normalizeRow(parsedCurrentLine, refs)) continue;
             const string& stopIdStr = parsedCurrentLine[refs.at("stop_id")];
             stopSearchEntry entry;
             entry.text = intstr(parsedCurrentLine[refs.at("stop_name")]);
@@ -1407,6 +1463,7 @@ inline std::vector<routematch> searchRoute(const data_feed& d, const string& nam
                 refs[parsedCurrentLine[i]] = i;
             }
         } else {
+            if (!normalizeRow(parsedCurrentLine, refs)) continue;
             route temp;
             temp.route_id = parsedCurrentLine[refs.at("route_id")];
 
@@ -1472,6 +1529,7 @@ inline std::vector<trip_segment> getAllStops(const data_feed& d, const string& t
             firstLine = false;
             continue;
         }
+        if (!normalizeRow(parsedCurrentLine, refs)) continue;
         if (parsedCurrentLine[refs["trip_id"]] == trip_id) {
             trip_segment x;
 
@@ -1551,6 +1609,8 @@ inline std::vector<trip_segment> getAllStops(const data_feed& d, const string& t
             continue;
         }
 
+        if (!normalizeRow(parsedCurrentLine, refs)) continue;
+
         if (parsedCurrentLine[refs["trip_id"]] == trip_id) {
             for (trip_segment& a : output) {
                 const string routeID = parsedCurrentLine[refs["route_id"]];
@@ -1582,6 +1642,8 @@ inline std::vector<stop> getNearestStops(const data_feed& d, const double& lat, 
             firstLine = false;
             continue;
         }
+
+        if (!normalizeRow(parsedCurrentLine, refs)) continue;
 
         auto latFind = refs.find("stop_lat");
         auto lonFind = refs.find("stop_lon");
@@ -1677,6 +1739,8 @@ inline std::vector<trip> getAllTrips(const data_feed& d, const string& route_id)
             continue;
         }
 
+        if (!normalizeRow(parsedCurrentLine, refs)) continue;
+
         if (parsedCurrentLine[refs["route_id"]] == route_id) {
             trip temp;
             temp.trip_id = parsedCurrentLine[refs["trip_id"]];
@@ -1709,6 +1773,8 @@ inline service getServiceInfo(const data_feed& d, const string& service_id) {
             firstLine = false;
             continue;
         }
+
+        if (!normalizeRow(parsedCurrentLine, refs)) continue;
 
         if (parsedCurrentLine[refs["service_id"]] == service_id) {
             output.schedule.start_date = parseFormattedDate(parsedCurrentLine[refs["start_date"]]);
@@ -1743,6 +1809,8 @@ inline service getServiceInfo(const data_feed& d, const string& service_id) {
             continue;
         }
 
+        if (!normalizeRow(parsedCurrentLine, refs)) continue;
+
         if (parsedCurrentLine[refs["service_id"]] == service_id) {
             calendar_date::exception x = static_cast<calendar_date::exception>(std::stoi(parsedCurrentLine[refs["exception_type"]]));
             calendar_day y = parseFormattedDate(parsedCurrentLine[refs["date"]]);
@@ -1775,6 +1843,8 @@ inline std::vector<trip> getAllBlockId(const data_feed& d, const string& block_i
             continue;
         }
 
+        if (!normalizeRow(parsedCurrentLine, refs)) continue;
+
         if (parsedCurrentLine[refs["block_id"]] == block_id) {
             trip temp;
             temp.trip_id = parsedCurrentLine[refs["trip_id"]];
@@ -1802,7 +1872,7 @@ inline std::vector<trip_segment> getStopTimeInfo(const data_feed& d, const strin
             firstLine = false;
             continue;
         }
-        
+        if (!normalizeRow(parsedCurrentLine, refs)) continue;
 
         if (parsedCurrentLine[refs["trip_id"]] == trip_id) {
             trip_segment x;
@@ -1890,6 +1960,8 @@ inline std::vector<frequency> getFrequencies(const data_feed& d, const string& t
             continue;
         }
 
+        if (!normalizeRow(parsedCurrentLine, refs)) continue;
+
         if (parsedCurrentLine[refs["trip_id"]] == trip_id) {
             frequency temp;
             temp.start_time = parseFormattedTime(parsedCurrentLine[refs["start_time"]]);
@@ -1925,13 +1997,18 @@ inline fare getFareInfo(const data_feed& d, const string& fare_id) {
             continue;
         }   
 
+        if (!normalizeRow(parsedCurrentLine, refs)) continue;
+
         if (parsedCurrentLine[refs["fare_id"]] == fare_id) {
             output.fare_id = fare_id;
 
             output.price = static_cast<float>(to_double(parsedCurrentLine[refs["price"]]));
             output.currency_type = parsedCurrentLine[refs["currency_type"]];
             output.payment_method = static_cast<fare::payment_methods>(to_integer(parsedCurrentLine[refs["payment_method"]]));
-            output.transfers = static_cast<fare::transfer>(to_integer(parsedCurrentLine[refs["transfers"]]));
+
+            // required column, but an empty value is meaningful: unlimited transfers
+            { const string& t = parsedCurrentLine[refs["transfers"]];
+            output.transfers = (t.empty() || t == " ") ? fare::unlimited : static_cast<fare::transfer>(to_integer(t)); }
             
             { auto find = refs.find("agency_id");
             if (find != refs.end()) output.agency_id = parsedCurrentLine[find->second]; }

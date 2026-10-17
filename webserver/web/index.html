@@ -3482,13 +3482,58 @@
     }
 
     function todayStr() {
-      const d = new Date();
+      return dateStr(new Date());
+    }
+
+    function dateStr(d) {
       return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     }
 
     function parseTime(t) {
       const p = t.split(':').map(Number);
       return p[0]*3600 + p[1]*60 + (p[2]||0);
+    }
+
+    // Yesterday's service keeps running past midnight ("25:10:00"; some feeds reach 30:xx),
+    // so until this time of day today's board also pulls in yesterday's departures.
+    const PREV_DAY_WINDOW_SECS = 8 * 3600;
+
+    // /api/stop for one service date. For today, early in the morning, also merges in
+    // yesterday's past-midnight departures re-timed onto today's clock ("25:10:00" ->
+    // "01:10:00"). Those carry prev_day: true, so trip_id dedupes (depKey) don't collapse
+    // them with tonight's run of the same trip.
+    function fetchStopDay(stopId, date) {
+      const day = fetch(`/api/stop/${stopId}/${date}`).then(r => r.json());
+      if (date !== todayStr() || nowInSeconds() >= PREV_DAY_WINDOW_SECS) return day;
+      const y = new Date();
+      y.setDate(y.getDate() - 1);
+      const prev = fetch(`/api/stop/${stopId}/${dateStr(y)}`).then(r => r.ok ? r.json() : null).catch(() => null);
+      return Promise.all([day, prev]).then(([d, p]) => {
+        if (d.error || !p || !Array.isArray(p.departures)) return d;
+        const carried = p.departures
+          .filter(dep => parseTime(dep.arrival_time) >= 86400)
+          .map(dep => ({ ...dep, arrival_time: shiftBackOneDay(dep.arrival_time), prev_day: true }));
+        return carried.length ? { ...d, departures: [...carried, ...(d.departures || [])] } : d;
+      });
+    }
+
+    // "25:10:00" -> "01:10:00"
+    function shiftBackOneDay(t) {
+      const [h, ...rest] = t.split(':');
+      return [String(Number(h) - 24).padStart(2, '0'), ...rest].join(':');
+    }
+
+    // Dedupe key for a departure: around midnight a trip_id can appear twice (see fetchStopDay).
+    function depKey(dep) {
+      return dep.prev_day ? `${dep.trip_id}|prev` : dep.trip_id;
+    }
+
+    // Drops stops whose /api/stop call failed. If every one failed that's a server problem
+    // (e.g. the departures server is down), so throw rather than show an empty board.
+    function okStops(stops) {
+      const ok = stops.filter(s => !s.error);
+      if (stops.length && !ok.length) throw new Error(stops[0].error || 'departures unavailable');
+      return ok;
     }
 
     // Pill for a departure card when boarding/alighting at this stop isn't the regular kind.
@@ -5076,12 +5121,16 @@
       hideEls(['stopHeader','m-stopHeader']);
       if (isMobile()) switchTab('m-tab-departures'); // the skeleton lives in that tab
       withMinSpinner(['stopLoading','m-stopLoading'], 'flex', () =>
-        fetch(`/api/stop/${stopId}/${date}`).then(r => r.json())
+        fetchStopDay(stopId, date)
       )
-        .then(data => displayStop(data))
+        .then(data => {
+          if (data.error) throw new Error(data.error);
+          displayStop(data);
+        })
         .catch(() => {
           hideEls(['stopHeader','m-stopHeader']);
           hideEls(['departuresSection','m-departuresSection']);
+          showToast('Error loading stop.');
         });
     }
 
@@ -5134,16 +5183,17 @@
       const radiusKM = includeNearbyRadiusM() / 1000;
       currentStopView = { kind: 'nearby', stopId: String(stopId) };
 
-      const run = () => fetch(`/api/stop/${stopId}/${date}`).then(r => r.json())
+      const run = () => fetchStopDay(stopId, date)
         .then(origin => {
-          if (requestId !== multiStopsRequestId || origin.error) return null;
+          if (requestId !== multiStopsRequestId) return null;
+          if (origin.error) throw new Error(origin.error);
           return fetch(`/api/nearest/${origin.lat}/${origin.lon}?limit=${NEARBY_STOPS_FETCH_LIMIT}`).then(r => r.json())
             .then(data => {
               if (requestId !== multiStopsRequestId) return null;
               const nearby = (data.nearest_stops || [])
                 .filter(n => n.distanceKM <= radiusKM && String(n.stop_id) !== String(origin.stop_id));
               if (!nearby.length) return { name: origin.stop_name, stops: [origin] };
-              return Promise.all(nearby.map(n => fetch(`/api/stop/${n.stop_id}/${date}`).then(r => r.json())))
+              return Promise.all(nearby.map(n => fetchStopDay(n.stop_id, date)))
                 .then(nearbyStops => ({ name: origin.stop_name, stops: [origin, ...nearbyStops.filter(s => !s.error)] }));
             });
         })
@@ -5182,8 +5232,8 @@
           let chosen = includeNearbyEnabled() ? list.filter(n => n.distanceKM <= radiusKM) : [];
           if (!chosen.length) chosen = [list[0]];
           chosen = chosen.slice(0, NEARBY_STOPS_FETCH_LIMIT);
-          return Promise.all(chosen.map(n => fetch(`/api/stop/${n.stop_id}/${date}`).then(r => r.json())))
-            .then(stops => ({ stops: stops.filter(s => !s.error) }));
+          return Promise.all(chosen.map(n => fetchStopDay(n.stop_id, date)))
+            .then(stops => ({ stops: okStops(stops) }));
         })
         .then(result => {
           if (!result || requestId !== multiStopsRequestId) return;
@@ -5873,7 +5923,7 @@
           });
           if (!exact.length) { if (!isRefresh) showToast('No exact-name matches found.'); return; }
 
-          return Promise.all(exact.map(m => fetch(`/api/stop/${m.stop_id}/${date}`).then(r => r.json())))
+          return Promise.all(exact.map(m => fetchStopDay(m.stop_id, date)))
             .then(exactStops => {
               if (requestId !== multiStopsRequestId) return;
               if (!includeNearby) return exactStops;
@@ -5892,13 +5942,13 @@
                   if (n.distanceKM <= radiusKM && !known.has(String(n.stop_id))) nearby.set(String(n.stop_id), n);
                 }));
                 if (!nearby.size) return exactStops;
-                return Promise.all([...nearby.keys()].map(id => fetch(`/api/stop/${id}/${date}`).then(r => r.json())))
+                return Promise.all([...nearby.keys()].map(id => fetchStopDay(id, date)))
                   .then(nearbyStops => [...exactStops, ...nearbyStops]);
               });
             })
             .then(stops => {
               if (requestId !== multiStopsRequestId) return;
-              displayMultiStops(stopName, stops.filter(s => !s.error), isRefresh);
+              displayMultiStops(stopName, okStops(stops), isRefresh);
             });
         })
         .catch(() => { if (requestId === multiStopsRequestId && !isRefresh) showToast('Error searching stops.'); });
@@ -5936,9 +5986,9 @@
       const bestByTrip = new Map();
       departures.forEach(dep => {
         const dist = distanceMeters(dep._stopLat, dep._stopLon, centroidLat, centroidLon);
-        const existing = bestByTrip.get(dep.trip_id);
+        const existing = bestByTrip.get(depKey(dep));
         if (!existing || dist < existing._dist) {
-          bestByTrip.set(dep.trip_id, { ...dep, _dist: dist });
+          bestByTrip.set(depKey(dep), { ...dep, _dist: dist });
         }
       });
       return Array.from(bestByTrip.values());

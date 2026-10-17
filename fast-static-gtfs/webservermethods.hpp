@@ -41,11 +41,11 @@ inline string getTrip(const string& trip_id,
 
     out << "{\n";
     out << "\t\"total\": " << length << ",\n";
-    out << "\t\"trip_id\": \"" << tx.trip_id << "\",\n";
-    out << "\t\"route_id\": \"" << tx.route_id << "\",\n";
-    out << "\t\"route_short_name\": \"" << bx.route_short_name << "\",\n";
-    out << "\t\"route_long_name\": \"" << bx.route_long_name << "\",\n";
-    out << "\t\"route_color\": \"#" << bx.route_color << "\",\n";
+    out << "\t\"trip_id\": \"" << gtfs::jsonEscape(tx.trip_id) << "\",\n";
+    out << "\t\"route_id\": \"" << gtfs::jsonEscape(tx.route_id) << "\",\n";
+    out << "\t\"route_short_name\": \"" << gtfs::jsonEscape(bx.route_short_name) << "\",\n";
+    out << "\t\"route_long_name\": \"" << gtfs::jsonEscape(bx.route_long_name) << "\",\n";
+    out << "\t\"route_color\": \"#" << gtfs::jsonEscape(bx.route_color) << "\",\n";
 
     out << "\t\"stops\": [\n";
     for (int i = 0; i < length; i++) {
@@ -53,9 +53,9 @@ inline string getTrip(const string& trip_id,
         const gtfs::trip_segment& y = tripSegments[i];
         out << "\t\t{ \"lat\": " << x.stop_lat <<
                 ", \"lng\": " << x.stop_lon <<
-                ", \"code\": \""<< x.stop_code <<
-                "\", \"id\": \"" << x.stop_id <<
-                "\", \"name\": \"" << x.stop_name <<
+                ", \"code\": \""<< gtfs::jsonEscape(x.stop_code) <<
+                "\", \"id\": \"" << gtfs::jsonEscape(x.stop_id) <<
+                "\", \"name\": \"" << gtfs::jsonEscape(x.stop_name) <<
                 "\", \"time\": \"" << y.stop.arrival_time.leadingRoundedTime() << "\"" <<
                 ", \"stop_sequence\": " << y.stop.stop_sequence <<
                 ", \"pickup_type\": " << std::max(0, static_cast<int>(y.stop.pickup_type)) <<
@@ -110,9 +110,9 @@ inline string getStopDayTimes(const string& stop_id, const int& year, const int&
 
     const size_t length = segments.size();
 
-    out << "{\n\t\"stop_id\": \"" << stop_id << "\",\n"
-            << "\t\"stop_code\": \"" << st.stop_code << "\",\n"
-            << "\t\"stop_name\": \"" << st.stop_name << "\",\n"
+    out << "{\n\t\"stop_id\": \"" << gtfs::jsonEscape(stop_id) << "\",\n"
+            << "\t\"stop_code\": \"" << gtfs::jsonEscape(st.stop_code) << "\",\n"
+            << "\t\"stop_name\": \"" << gtfs::jsonEscape(st.stop_name) << "\",\n"
             << "\t\"lat\": " << st.stop_lat << ",\n"
             << "\t\"lon\": " << st.stop_lon << ",\n";
 
@@ -123,14 +123,14 @@ inline string getStopDayTimes(const string& stop_id, const int& year, const int&
         gtfs::route routeInfo = fast_gtfs::bin_search::getRouteInfo(x.route_id, routelines, routerefs);
         gtfs::trip tripInfo = fast_gtfs::bin_search::getTripInfo(x.stop.trip_id, triplines, triprefs);
 
-        out << "\t\t{ \"route_id\": \"" << routeInfo.route_short_name <<
+        out << "\t\t{ \"route_id\": \"" << gtfs::jsonEscape(routeInfo.route_short_name) <<
                 "\", \"arrival_time\": \"" << x.stop.arrival_time.leadingRoundedTime() <<
-                "\", \"trip_id\": \"" << x.stop.trip_id <<
-                "\", \"trip_headsign\": \"" << tripInfo.trip_headsign <<
+                "\", \"trip_id\": \"" << gtfs::jsonEscape(x.stop.trip_id) <<
+                "\", \"trip_headsign\": \"" << gtfs::jsonEscape(tripInfo.trip_headsign) <<
                 "\", \"direction_id\": " << tripInfo.direction_id <<
                 ", \"pickup_type\": " << std::max(0, static_cast<int>(x.stop.pickup_type)) <<
                 ", \"drop_off_type\": " << std::max(0, static_cast<int>(x.stop.drop_off_type)) <<
-                ", \"route_color\": \"" << routeInfo.route_color <<
+                ", \"route_color\": \"" << gtfs::jsonEscape(routeInfo.route_color) <<
                 (i == (length - 1) ? "\" } \n" : "\" }, \n");
     }
     out << "\t]\n}\n";

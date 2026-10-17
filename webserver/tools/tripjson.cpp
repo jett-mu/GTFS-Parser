@@ -43,11 +43,11 @@ int main(int argc, char* argv[]) {
 
     std::cout << "{\n";
     std::cout << "\t\"total\": " << length << ",\n";
-    std::cout << "\t\"trip_id\": \"" << tx.trip_id << "\",\n";
-    std::cout << "\t\"route_id\": \"" << tx.route_id << "\",\n";
-    std::cout << "\t\"route_short_name\": \"" << bx.route_short_name << "\",\n";
-    std::cout << "\t\"route_long_name\": \"" << bx.route_long_name << "\",\n";
-    std::cout << "\t\"route_color\": \"#" << bx.route_color << "\",\n";
+    std::cout << "\t\"trip_id\": \"" << gtfs::jsonEscape(tx.trip_id) << "\",\n";
+    std::cout << "\t\"route_id\": \"" << gtfs::jsonEscape(tx.route_id) << "\",\n";
+    std::cout << "\t\"route_short_name\": \"" << gtfs::jsonEscape(bx.route_short_name) << "\",\n";
+    std::cout << "\t\"route_long_name\": \"" << gtfs::jsonEscape(bx.route_long_name) << "\",\n";
+    std::cout << "\t\"route_color\": \"#" << gtfs::jsonEscape(bx.route_color) << "\",\n";
     
     std::cout << "\t\"stops\": [\n";
     for (int i = 0; i < length; i++) {
@@ -55,9 +55,9 @@ int main(int argc, char* argv[]) {
         gtfs::trip_segment y = tripSegments[i];
         std::cout << "\t\t{ \"lat\": " << x.stop_lat <<
                 ", \"lng\": " << x.stop_lon <<
-                ", \"code\": \""<< x.stop_code <<
-                "\", \"id\": \"" << x.stop_id <<
-                "\", \"name\": \"" << x.stop_name <<
+                ", \"code\": \""<< gtfs::jsonEscape(x.stop_code) <<
+                "\", \"id\": \"" << gtfs::jsonEscape(x.stop_id) <<
+                "\", \"name\": \"" << gtfs::jsonEscape(x.stop_name) <<
                 "\", \"time\": \"" << y.stop.arrival_time.leadingRoundedTime() << "\"" <<
                 ", \"stop_sequence\": " << y.stop.stop_sequence <<
                 ", \"pickup_type\": " << std::max(0, static_cast<int>(y.stop.pickup_type)) <<
