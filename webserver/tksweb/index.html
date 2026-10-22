@@ -2116,6 +2116,11 @@
     .dep-time-clear:active { transform: translateY(-50%) scale(0.9); }
     .dep-time-clear[hidden] { display: none; }
     .dep-filter-route { padding: 2px 0; }
+    .dep-filter-stop-list { display: flex; flex-direction: column; }
+    .dep-filter-stop-row { align-items: flex-start; }
+    .dep-filter-stop-row input { margin-top: 2px; }
+    .dep-filter-stop-text { display: flex; flex-direction: column; min-width: 0; overflow-wrap: anywhere; }
+    .dep-filter-stop-meta { font-weight: 400; font-size: 11.5px; color: var(--text-muted); }
     .dep-filter-route-row,
     .dep-filter-headsign-row {
       display: flex;
@@ -3733,19 +3738,25 @@
     // hide everything (e.g. "Hide pick-up only" + "Show only pick-up only")
     // list each other in `excludes`, and turning one on turns the others off.
     //
-    // Loading another stop resets the routes (they differ per stop) but keeps
-    // the times and pick-up / drop-off rules.
+    // st.stops is a Set of stop_ids (as strings) on a merged multi-stop board
+    // (departures carry _stopId); empty means every stop passes.
+    //
+    // Loading another stop resets the routes and stops (they differ per stop)
+    // but keeps the times and pick-up / drop-off rules.
     const depFilterState = {};
     function getDepFilterState(key) {
-      return depFilterState[key] || (depFilterState[key] = { selected: new Map(), after: null, before: null, pd: new Set() });
+      return depFilterState[key] || (depFilterState[key] = { selected: new Map(), stops: new Set(), after: null, before: null, pd: new Set() });
     }
     function resetDepFilterState(key) {
-      getDepFilterState(key).selected = new Map();
+      const st = getDepFilterState(key);
+      st.selected = new Map();
+      st.stops = new Set();
     }
-    // "Clear all": routes, times and pick-up / drop-off rules.
+    // "Clear all": routes, stops, times and pick-up / drop-off rules.
     function clearDepFilterState(key) {
       const st = getDepFilterState(key);
       st.selected = new Map();
+      st.stops = new Set();
       st.after = st.before = null;
       st.pd = new Set();
     }
@@ -3783,18 +3794,19 @@
       const st = getDepFilterState(key);
       let route = 0;
       st.selected.forEach(v => { route += v === 'ALL' ? 1 : v.size; });
-      return { time: (st.after !== null) + (st.before !== null), pd: st.pd.size, route };
+      return { time: (st.after !== null) + (st.before !== null), pd: st.pd.size, stop: st.stops.size, route };
     }
     function depFilterActiveCount(key) {
       const c = depFilterCounts(key);
-      return c.time + c.pd + c.route;
+      return c.time + c.pd + c.stop + c.route;
     }
     function applyDepFilter(departures, key) {
       const st = getDepFilterState(key);
       const { after, before } = depTimeBounds(key);
       const pdTests = PD_FILTERS.filter(f => st.pd.has(f.key)).map(f => f.test);
-      if (st.selected.size === 0 && after === null && before === null && !pdTests.length) return departures;
+      if (st.selected.size === 0 && st.stops.size === 0 && after === null && before === null && !pdTests.length) return departures;
       return departures.filter(d => {
+        if (st.stops.size && !st.stops.has(String(d._stopId))) return false;
         if (st.selected.size) {
           const v = st.selected.get(d.route_id);
           if (!v || (v !== 'ALL' && !v.has(d.trip_headsign))) return false;
@@ -3827,7 +3839,7 @@
       if (!n) return (after !== null ? `No departures in the 3 hours from ${fmtClock(after)}` : 'No departures in the next 3 hours') + until;
       return (after !== null ? `3 hours from ${fmtClock(after)}` : 'Next 3 hours') + ` – ${deps}` + until;
     }
-    // The Time and Pick-up / drop-off sections plus the Route / destination
+    // The Time, Pick-up / drop-off and Stop sections plus the Route / destination
     // heading, built once above each popover's route tree. Later calls re-point
     // it at the current view (args) and refresh values, counts and Clear links.
     function syncDepFilterSections(tree, args) {
@@ -3870,6 +3882,10 @@
             </div>
             <div class="dep-pd-empty" hidden>Every departure here has regular pick-up and drop-off.</div>
           </section>
+          <section class="dep-filter-section dep-filter-section-stops" hidden>
+            ${head('stop', 'Stop')}
+            <div class="dep-filter-stop-list"></div>
+          </section>
           <section class="dep-filter-section dep-filter-section-routes">
             ${head('route', 'Route / destination')}
           </section>`;
@@ -3883,6 +3899,7 @@
           renderDepFilterPanel(...box._args);
           if (!syncDepWindowToTime(k, hadTime)) onChange();
         };
+        box._commit = commit;
         box.querySelectorAll('.dep-time-input input').forEach(inp =>
           inp.addEventListener('change', () => commit(st => { st[inp.dataset.bound] = inp.value ? parseTime(inp.value) : null; })));
         box.querySelectorAll('.dep-time-clear').forEach(btn =>
@@ -3900,6 +3917,7 @@
           btn.addEventListener('click', () => commit(st => {
             if (btn.dataset.clear === 'time') st.after = st.before = null;
             else if (btn.dataset.clear === 'pd') st.pd = new Set();
+            else if (btn.dataset.clear === 'stop') st.stops = new Set();
             else st.selected = new Map();
           })));
       }
@@ -3930,6 +3948,31 @@
       box.querySelector('.dep-pd-chips').hidden = !anyUseful;
       box.querySelector('.dep-pd-empty').hidden = anyUseful;
 
+      // One checkbox per stop on a merged board; hidden when the departures
+      // come from a single stop (and nothing is selected).
+      const stops = new Map();
+      departures.forEach(d => {
+        if (d._stopId == null) return;
+        const id = String(d._stopId);
+        if (!stops.has(id)) stops.set(id, { code: d._stopCode, name: d._stopName });
+      });
+      const stopList = box.querySelector('.dep-filter-stop-list');
+      box.querySelector('.dep-filter-section-stops').hidden = stops.size < 2 && !st.stops.size;
+      stopList.innerHTML = [...stops.entries()]
+        .sort((a, b) => a[0].localeCompare(b[0], undefined, { numeric: true, sensitivity: 'base' }))
+        .map(([id, s]) => `
+          <label class="dep-filter-route-row dep-filter-stop-row">
+            <input type="checkbox" class="dep-filter-stop-cb" data-stop="${escapeHtml(id)}" ${st.stops.has(id) ? 'checked' : ''}>
+            <span class="dep-filter-stop-text">
+              <span>${escapeHtml(s.name || '#' + id)}</span>
+              <span class="dep-filter-stop-meta">#${escapeHtml(id)}${s.code && String(s.code) !== id ? ' · Code ' + escapeHtml(s.code) : ''}</span>
+            </span>
+          </label>`).join('');
+      stopList.querySelectorAll('.dep-filter-stop-cb').forEach(cb =>
+        cb.addEventListener('change', () => box._commit(st => {
+          if (cb.checked) st.stops.add(cb.dataset.stop); else st.stops.delete(cb.dataset.stop);
+        })));
+
       const counts = depFilterCounts(key);
       box.querySelectorAll('.dep-filter-count').forEach(el => {
         const n = counts[el.dataset.count];
@@ -3937,7 +3980,7 @@
         el.hidden = !n;
       });
       box.querySelectorAll('.dep-filter-section-clear').forEach(btn => { btn.hidden = !counts[btn.dataset.clear]; });
-      tree.closest('.dep-filter-popover')?.classList.toggle('has-filters', counts.time + counts.pd + counts.route > 0);
+      tree.closest('.dep-filter-popover')?.classList.toggle('has-filters', counts.time + counts.pd + counts.stop + counts.route > 0);
       updateDepFilterBadge(badgeId, key);
     }
     function buildRouteHeadsignTree(departures) {
