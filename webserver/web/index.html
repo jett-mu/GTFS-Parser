@@ -460,6 +460,7 @@
       transition: left 0.28s cubic-bezier(0.4, 0, 0.2, 1), width 0.28s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.28s ease;
     }
     #sidebar-tabs[data-active="sb-tab-stop"]      .sb-tab-indicator { background: var(--negative); }
+    #sidebar-tabs[data-active="sb-tab-trip"]      .sb-tab-indicator { background: var(--positive); }
     #sidebar-tabs[data-active="sb-tab-triproute"] .sb-tab-indicator { background: var(--accent); }
     #sidebar-tabs[data-active="sb-tab-discover"]  .sb-tab-indicator { background: var(--accent2); }
     #sidebar-tabs[data-active="sb-tab-alerts"]    .sb-tab-indicator { background: rgb(var(--warn-rgb)); }
@@ -512,6 +513,7 @@
     .sb-tab:hover { background: none; color: var(--text-muted); }
     .sb-tab.active { color: var(--accent); }
     .sb-tab.active[data-sb-tab="sb-tab-stop"]      { color: var(--negative); }
+    .sb-tab.active[data-sb-tab="sb-tab-trip"]      { color: var(--positive); }
     .sb-tab.active[data-sb-tab="sb-tab-triproute"] { color: var(--accent); }
     .sb-tab.active[data-sb-tab="sb-tab-discover"]  { color: var(--accent2); }
     .sb-tab.active[data-sb-tab="sb-tab-alerts"]    { color: rgb(var(--warn-rgb)); }
@@ -629,6 +631,7 @@
     .m-tab.active[data-tab="m-tab-stop"],
     .m-tab.active[data-tab="m-tab-departures"] { color: var(--negative); border-bottom-color: var(--negative); }
     .m-tab[hidden] { display: none; }
+    .m-tab.active[data-tab="m-tab-trip"]   { color: var(--positive); border-bottom-color: var(--positive); }
     .m-tab.active[data-tab="m-tab-route"]  { color: var(--accent);   border-bottom-color: var(--accent); }
     .m-tab.active[data-tab="m-tab-nearby"] { color: var(--accent2);  border-bottom-color: var(--accent2); }
     .m-tab.active[data-tab="m-tab-alerts"] { color: rgb(var(--warn-rgb)); border-bottom-color: rgb(var(--warn-rgb)); }
@@ -645,6 +648,10 @@
     #sb-tab-stop, #m-tab-stop, #m-tab-departures {
       --accent: var(--negative);
       --accent-rgb: var(--negative-rgb);
+    }
+    #sb-tab-trip, #m-tab-trip {
+      --accent: var(--positive);
+      --accent-rgb: var(--positive-rgb);
     }
     #sb-tab-discover, #m-tab-nearby {
       --accent: var(--accent2);
@@ -1292,6 +1299,56 @@
     .nearest-stop-item .ns-only-btn:hover { background: none; border: none; text-decoration: underline; }
     .nearest-hint { font-size: 12px; color: var(--text-muted); line-height: 1.4; margin-bottom: 8px; }
 
+    /* ===== FAVOURITES ===== */
+    .fav-panel[hidden], .fav-btn[hidden] { display: none; }
+    .stop-header-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+    .fav-btn {
+      flex-shrink: 0;
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 3px 10px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .fav-btn:hover { background: var(--surface3); color: var(--text); }
+    .fav-btn[aria-pressed="true"] { color: rgb(var(--warn-rgb)); border-color: rgba(var(--warn-rgb), 0.5); background: rgba(var(--warn-rgb), 0.1); }
+    .fav-list { display: flex; flex-direction: column; gap: 6px; }
+    .fav-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--card-radius);
+      padding: 8px 6px 8px 12px;
+      cursor: pointer;
+      transition: border-color var(--transition), background var(--transition);
+    }
+    .fav-item:hover { border-color: var(--border2); background: var(--surface3); }
+    .fav-main { display: flex; flex-direction: column; gap: 5px; min-width: 0; flex: 1; }
+    .fav-label { font-size: 13.5px; color: var(--text); line-height: 1.3; overflow-wrap: anywhere; }
+    .fav-kind { font-size: 10.5px; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; margin-right: 6px; }
+    .fav-deps { display: flex; flex-wrap: wrap; gap: 4px; font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); min-height: 18px; }
+    .fav-dep { display: inline-flex; align-items: center; gap: 4px; background: var(--surface3); border: 1px solid var(--border); border-radius: 20px; padding: 1px 7px; white-space: nowrap; }
+    .fav-dep.late { color: var(--negative); }
+    .fav-dep.early { color: var(--positive); }
+    .fav-remove { background: none; border: none; color: var(--text-dim); font-size: 16px; padding: 4px 8px; cursor: pointer; flex-shrink: 0; }
+    .fav-remove:hover { background: none; color: var(--text); }
+
+    /* ===== TRIP BETWEEN STOPS ===== */
+    .trip-ends { display: flex; flex-direction: column; gap: var(--space-2); }
+    .trip-swap-row { display: flex; justify-content: flex-end; margin: -4px 0; }
+    .trip-swap-btn { background: none; border: 1px solid var(--border); border-radius: 999px; padding: 2px 10px; font-size: 14px; color: var(--text-muted); cursor: pointer; }
+    .trip-swap-btn:hover { background: var(--surface3); color: var(--text); }
+    .between-times { display: flex; align-items: baseline; gap: 6px; font-family: var(--font-mono); font-size: 13px; color: var(--text); flex-wrap: wrap; }
+    .between-arrow { color: var(--text-dim); }
+    .between-ride { font-size: 11px; color: var(--text-muted); }
+    .between-empty { font-size: 12.5px; color: var(--text-muted); padding: 8px 2px; }
+
     .date-row {
       display: flex;
       gap: 6px;
@@ -1373,6 +1430,10 @@
       font-weight: 700;
       color: var(--text);
     }
+    .stop-popup-time-sched.struck { text-decoration: line-through; opacity: 0.55; font-weight: 600; }
+    .stop-popup-time-live { display: block; }
+    .stop-popup-time-live.late { color: var(--negative); }
+    .stop-popup-time-live.early { color: var(--positive); }
     .stop-popup-btn {
       width: 100%;
       margin-top: 8px;
@@ -2831,6 +2892,7 @@
         <div id="sidebar-tabs">
           <span class="sb-tab-indicator" id="sbTabIndicator" aria-hidden="true"></span>
           <button class="sb-tab active" data-sb-tab="sb-tab-stop">Stops</button>
+          <button class="sb-tab" data-sb-tab="sb-tab-trip">Trip</button>
           <button class="sb-tab" data-sb-tab="sb-tab-triproute">Routes</button>
           <button class="sb-tab" data-sb-tab="sb-tab-discover">Nearby</button>
           <button class="sb-tab sb-tab-icon tab-end" data-sb-tab="sb-tab-alerts" id="sbAlertsTab" aria-label="Alerts" title="Alerts"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg><span class="tab-badge" id="sbAlertsBadge" hidden></span></button>
@@ -2839,6 +2901,10 @@
         <div id="sidebar-body">
 
       <div class="sidebar-section active" id="sb-tab-stop">
+        <div class="panel fav-panel" id="favPanel" hidden>
+          <div class="panel-heading">Favourites</div>
+          <div class="fav-list" id="favList"></div>
+        </div>
         <div class="panel">
           <div class="panel-heading-row settings-popover-wrap">
             <div class="panel-heading">Find a stop</div>
@@ -2896,7 +2962,7 @@
         </div>
 
         <div id="stopHeader" class="stop-header">
-          <div class="stop-name" id="stopNameDisplay"></div>
+          <div class="stop-header-row"><div class="stop-name" id="stopNameDisplay"></div><button type="button" class="fav-btn" data-fav="stop" aria-pressed="false" title="Save to favourites">&#x2606;&#xFE0E; Save</button></div>
           <div class="stop-meta" id="stopMetaDisplay"></div>
         </div>
 
@@ -2923,7 +2989,7 @@
         </div>
 
         <div id="multiStopHeader" class="stop-header">
-          <div class="stop-name" id="multiStopNameDisplay"></div>
+          <div class="stop-header-row"><div class="stop-name" id="multiStopNameDisplay"></div><button type="button" class="fav-btn" data-fav="stop" aria-pressed="false" title="Save to favourites">&#x2606;&#xFE0E; Save</button></div>
           <div class="stop-meta" id="multiStopMetaDisplay"></div>
         </div>
 
@@ -2965,6 +3031,55 @@
             <div class="rt-row"><span class="rt-label">Occupancy</span><span class="rt-val" id="rv-occ">—</span></div>
             <div class="rt-timestamp" id="rtTimestamp"></div>
           </div>
+        </div>
+      </div>
+
+      <div class="sidebar-section" id="sb-tab-trip">
+        <div class="panel">
+          <div class="panel-heading-row">
+            <div class="panel-heading">Trip between stops</div>
+            <button type="button" class="fav-btn" data-fav="trip" aria-pressed="false" title="Save to favourites" hidden>&#x2606;&#xFE0E; Save</button>
+          </div>
+          <div class="trip-ends">
+          <div class="field-block stop-search-wrap">
+            <label class="input-row-label" for="tripFromInput">From</label>
+            <div class="stop-search-field">
+              <input type="text" id="tripFromInput" placeholder="e.g. Main St or 1867" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="From stop, by name, ID or code" />
+              <button type="button" class="stop-search-clear" aria-label="Clear search" hidden>&times;</button>
+            </div>
+            <div class="stop-search-results" id="tripFromResults"></div>
+          </div>
+          <div class="trip-swap-row"><button type="button" class="trip-swap-btn" onclick="swapTripEnds()" aria-label="Swap from and to" title="Swap from and to">&#x21C5;&#xFE0E;</button></div>
+          <div class="field-block stop-search-wrap">
+            <label class="input-row-label" for="tripToInput">To</label>
+            <div class="stop-search-field">
+              <input type="text" id="tripToInput" placeholder="e.g. Main St or 1867" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="To stop, by name, ID or code" />
+              <button type="button" class="stop-search-clear" aria-label="Clear search" hidden>&times;</button>
+            </div>
+            <div class="stop-search-results" id="tripToResults"></div>
+          </div>
+          </div>
+          <div class="field-block">
+            <label class="input-row-label" for="tripDateInput">Date</label>
+            <div class="date-row joined">
+              <input type="date" id="tripDateInput" />
+              <button class="secondary today-btn is-today btn-ico" data-for="tripDateInput" title="Jump back to today" onclick="setDateToday('tripDateInput')"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg><span class="ico-uni" aria-hidden="true">&#x21BA;&#xFE0E;</span><span class="btn-label">Today</span></button>
+            </div>
+          </div>
+          <div class="nearest-hint">Direct trips only. Stops within the "Include all stops within" distance (Stops tab settings) count as the same stop.</div>
+        </div>
+        <div id="betweenLoading" class="departures-grid" style="display:none">
+          <div class="skel-dep-card"><div class="skel-row-top"><div class="skel-block skel-route-pill"></div></div><div class="skel-row-time"><div class="skel-block skel-time-big"></div><div class="skel-block skel-eta-pill"></div></div><div class="skel-block skel-headsign-line"></div><div class="skel-row-footer"><div class="skel-block skel-trip-line"></div></div></div>
+          <div class="skel-dep-card"><div class="skel-row-top"><div class="skel-block skel-route-pill"></div></div><div class="skel-row-time"><div class="skel-block skel-time-big"></div><div class="skel-block skel-eta-pill"></div></div><div class="skel-block skel-headsign-line"></div><div class="skel-row-footer"><div class="skel-block skel-trip-line"></div></div></div>
+          <div class="skel-dep-card"><div class="skel-row-top"><div class="skel-block skel-route-pill"></div></div><div class="skel-row-time"><div class="skel-block skel-time-big"></div><div class="skel-block skel-eta-pill"></div></div><div class="skel-block skel-headsign-line"></div><div class="skel-row-footer"><div class="skel-block skel-trip-line"></div></div></div>
+        </div>
+        <div id="betweenSection" style="display:none">
+          <div class="departures-section-header">
+            <div class="section-title">Direct trips</div>
+            <div class="dep-header-actions"><div class="seg" id="betweenSeg" data-mode="3h" role="group" aria-label="Time window"><span class="seg-thumb" aria-hidden="true"></span><button type="button" data-mode="3h" aria-pressed="true" title="Next 3 hours" onclick="setBetweenWindow('3h')">3h</button><button type="button" data-mode="n4" aria-pressed="false" title="Next 4 trips" onclick="setBetweenWindow('n4')">Next 4</button><button type="button" data-mode="all" aria-pressed="false" title="All trips that day" onclick="setBetweenWindow('all')">All</button></div></div>
+          </div>
+          <div class="dep-window-label" id="betweenMeta"></div>
+          <div class="departures-grid" id="betweenGrid"></div>
         </div>
       </div>
 
@@ -3105,6 +3220,7 @@
     <div id="mobile-tabs">
       <button class="m-tab active" data-tab="m-tab-stop">Stops</button>
       <button class="m-tab" data-tab="m-tab-departures" id="mDeparturesTab" hidden>Departures</button>
+      <button class="m-tab" data-tab="m-tab-trip">Trip</button>
       <button class="m-tab" data-tab="m-tab-route">Routes</button>
       <button class="m-tab" data-tab="m-tab-nearby">Nearby</button>
       <button class="m-tab m-tab-icon tab-end" data-tab="m-tab-alerts" aria-label="Alerts" title="Alerts"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg><span class="tab-badge" id="mAlertsBadge" hidden></span></button>
@@ -3115,6 +3231,10 @@
 
       <!-- STOP TAB -->
       <div class="tab-panel active" id="m-tab-stop">
+        <div class="field-block fav-panel" id="m-favPanel" hidden>
+          <div class="panel-heading">Favourites</div>
+          <div class="fav-list" id="m-favList"></div>
+        </div>
         <div class="panel-heading-row settings-popover-wrap">
           <div class="panel-heading">Find a stop</div>
           <button type="button" class="gear-btn" id="m-stopSettingsBtn" aria-label="Stop search settings" aria-haspopup="true" aria-expanded="false" title="Stop search settings"><span class="gear-ico" aria-hidden="true">&#9881;&#xFE0E;</span></button>
@@ -3171,7 +3291,7 @@
         </div>
 
         <div id="m-stopHeader" class="stop-header">
-          <div class="stop-name" id="m-stopNameDisplay"></div>
+          <div class="stop-header-row"><div class="stop-name" id="m-stopNameDisplay"></div><button type="button" class="fav-btn" data-fav="stop" aria-pressed="false" title="Save to favourites">&#x2606;&#xFE0E; Save</button></div>
           <div class="stop-meta" id="m-stopMetaDisplay"></div>
         </div>
 
@@ -3202,7 +3322,7 @@
         </div>
 
         <div id="m-multiStopHeader" class="stop-header">
-          <div class="stop-name" id="m-multiStopNameDisplay"></div>
+          <div class="stop-header-row"><div class="stop-name" id="m-multiStopNameDisplay"></div><button type="button" class="fav-btn" data-fav="stop" aria-pressed="false" title="Save to favourites">&#x2606;&#xFE0E; Save</button></div>
           <div class="stop-meta" id="m-multiStopMetaDisplay"></div>
         </div>
 
@@ -3248,6 +3368,54 @@
             <div class="rt-row"><span class="rt-label">Occupancy</span><span class="rt-val" id="m-rv-occ">—</span></div>
             <div class="rt-timestamp" id="m-rtTimestamp"></div>
           </div>
+        </div>
+      </div>
+
+      <!-- TRIP TAB: direct trips from one stop to another -->
+      <div class="tab-panel" id="m-tab-trip">
+        <div class="panel-heading-row">
+            <div class="panel-heading">Trip between stops</div>
+            <button type="button" class="fav-btn" data-fav="trip" aria-pressed="false" title="Save to favourites" hidden>&#x2606;&#xFE0E; Save</button>
+          </div>
+          <div class="trip-ends">
+          <div class="field-block stop-search-wrap">
+            <label class="input-row-label" for="m-tripFromInput">From</label>
+            <div class="stop-search-field">
+              <input type="text" id="m-tripFromInput" placeholder="e.g. Main St or 1867" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="From stop, by name, ID or code" />
+              <button type="button" class="stop-search-clear" aria-label="Clear search" hidden>&times;</button>
+            </div>
+            <div class="stop-search-results" id="m-tripFromResults"></div>
+          </div>
+          <div class="trip-swap-row"><button type="button" class="trip-swap-btn" onclick="swapTripEnds()" aria-label="Swap from and to" title="Swap from and to">&#x21C5;&#xFE0E;</button></div>
+          <div class="field-block stop-search-wrap">
+            <label class="input-row-label" for="m-tripToInput">To</label>
+            <div class="stop-search-field">
+              <input type="text" id="m-tripToInput" placeholder="e.g. Main St or 1867" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="To stop, by name, ID or code" />
+              <button type="button" class="stop-search-clear" aria-label="Clear search" hidden>&times;</button>
+            </div>
+            <div class="stop-search-results" id="m-tripToResults"></div>
+          </div>
+          </div>
+          <div class="field-block">
+            <label class="input-row-label" for="m-tripDateInput">Date</label>
+            <div class="date-row joined">
+              <input type="date" id="m-tripDateInput" />
+              <button class="secondary today-btn is-today btn-ico" data-for="m-tripDateInput" title="Jump back to today" onclick="setDateToday('m-tripDateInput')"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg><span class="ico-uni" aria-hidden="true">&#x21BA;&#xFE0E;</span><span class="btn-label">Today</span></button>
+            </div>
+          </div>
+          <div class="nearest-hint">Direct trips only. Stops within the "Include all stops within" distance (Stops tab settings) count as the same stop.</div>
+        <div id="m-betweenLoading" class="departures-grid" style="display:none">
+          <div class="skel-dep-card"><div class="skel-row-top"><div class="skel-block skel-route-pill"></div></div><div class="skel-row-time"><div class="skel-block skel-time-big"></div><div class="skel-block skel-eta-pill"></div></div><div class="skel-block skel-headsign-line"></div><div class="skel-row-footer"><div class="skel-block skel-trip-line"></div></div></div>
+          <div class="skel-dep-card"><div class="skel-row-top"><div class="skel-block skel-route-pill"></div></div><div class="skel-row-time"><div class="skel-block skel-time-big"></div><div class="skel-block skel-eta-pill"></div></div><div class="skel-block skel-headsign-line"></div><div class="skel-row-footer"><div class="skel-block skel-trip-line"></div></div></div>
+          <div class="skel-dep-card"><div class="skel-row-top"><div class="skel-block skel-route-pill"></div></div><div class="skel-row-time"><div class="skel-block skel-time-big"></div><div class="skel-block skel-eta-pill"></div></div><div class="skel-block skel-headsign-line"></div><div class="skel-row-footer"><div class="skel-block skel-trip-line"></div></div></div>
+        </div>
+        <div id="m-betweenSection" style="display:none">
+          <div class="departures-section-header">
+            <div class="section-title">Direct trips</div>
+            <div class="dep-header-actions"><div class="seg" id="m-betweenSeg" data-mode="3h" role="group" aria-label="Time window"><span class="seg-thumb" aria-hidden="true"></span><button type="button" data-mode="3h" aria-pressed="true" title="Next 3 hours" onclick="setBetweenWindow('3h')">3h</button><button type="button" data-mode="n4" aria-pressed="false" title="Next 4 trips" onclick="setBetweenWindow('n4')">Next 4</button><button type="button" data-mode="all" aria-pressed="false" title="All trips that day" onclick="setBetweenWindow('all')">All</button></div></div>
+          </div>
+          <div class="dep-window-label" id="m-betweenMeta"></div>
+          <div class="departures-grid" id="m-betweenGrid"></div>
         </div>
       </div>
 
@@ -3434,6 +3602,8 @@
     let multiStopsRequestId = 0;
     let currentMultiStopName = null;
     let currentMultiStopIds = [];
+    let currentStopMeta = null;   // {stop_id, stop_name, stop_code, lat, lon} of the single-stop board
+    let currentMultiStops = [];   // same, for every stop on the merged board
 
     // What the Stops tab is showing right now, so a date change, the 15 s
     // refresh and the search-settings toggles re-run the *same* view instead
@@ -3614,16 +3784,17 @@
     // date field, so a card's scheduled time-of-day can be compared against the
     // service date being viewed rather than against today. Negative for a later
     // date, > 86400 for an earlier one. Falls back to today if the field is empty.
-    function selectedDateOffset() {
-      const v = document.getElementById(isMobile() ? 'm-dateInput' : 'dateInput')?.value;
+    // `v` is a YYYY-MM-DD to measure against instead of the Stops tab's date (the Trip tab has its own).
+    function selectedDateOffset(v) {
+      v = v ?? document.getElementById(isMobile() ? 'm-dateInput' : 'dateInput')?.value;
       const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v || '');
       if (!m || v === todayStr()) return { secs: nowInSeconds(), isToday: true };
       const midnight = new Date(+m[1], +m[2] - 1, +m[3]);
       return { secs: Math.round((Date.now() - midnight.getTime()) / 1000), isToday: false };
     }
 
-    function fmtETA(arrivalTime, tripId) {
-      const { secs, isToday } = selectedDateOffset();
+    function fmtETA(arrivalTime, tripId, date) {
+      const { secs, isToday } = selectedDateOffset(date);
       // Realtime delays only describe today's trips, so ignore them for any other date.
       const delay = isToday ? getRTDelaySeconds(tripId, arrivalTime) : 0;
       const eta = parseTime(arrivalTime) + delay - secs;
@@ -3639,7 +3810,7 @@
 
     function updateGridETAs(grid) {
       grid.querySelectorAll('.dep-eta').forEach(el => {
-        const [text, cls] = fmtETA(el.dataset.arrival, el.dataset.tripId);
+        const [text, cls] = fmtETA(el.dataset.arrival, el.dataset.tripId, grid.dataset.date);
         el.textContent = text;
         el.className = `dep-eta ${cls}`;
       });
@@ -4704,14 +4875,26 @@
           color:data.route_color,fillColor:irregular ? irregularFill(stop) : stopFill,fillOpacity:1,radius:4.5,weight:2.5
         }).addTo(map);
         m.isTerminal = isTerminal(stop);
-        const headerTextColor = readableTextColor(data.route_color);
-        m.bindPopup(`
+        m.tripStop = stop;
+        m.bindPopup(tripStopPopupHtml(stop, data, null));
+        stopMarkers.push(m);
+      });
+      layoutRouteStops();
+      tripPopupData = data;
+      refreshTripStopDelays(true);
+    }
+
+    function tripStopPopupHtml(stop, data, delay) {
+      const pd = pickupDropoffLabels(stop);
+      const irregular = pd.short.length > 0;
+      const headerTextColor = readableTextColor(data.route_color);
+      return `
           <div class="stop-popup">
             <div class="stop-popup-header" style="background:${data.route_color}; color:${headerTextColor}; text-shadow:${headerTextColor === '#fff' ? '0 1px 2px rgba(0,0,0,0.25)' : 'none'}">${escapeHtml(stop.name)}</div>
             <div class="stop-popup-cards">
               <div class="stop-popup-card">
                 <div class="stop-popup-card-label">Time</div>
-                <div class="stop-popup-card-val" style="color:var(--accent2)">${escapeHtml(stop.time)}</div>
+                <div class="stop-popup-card-val" style="color:var(--accent2)">${tripStopTimeHtml(stop.time, delay)}</div>
               </div>
               <div class="stop-popup-card">
                 <div class="stop-popup-card-label">Code</div>
@@ -4732,10 +4915,73 @@
             </div>
             <button class="secondary stop-popup-btn" style="background:${data.route_color}; color:${headerTextColor}" onclick="handleStopMarkerClick('${stop.id}')">Show departures</button>
           </div>
-        `);
-        stopMarkers.push(m);
+`;
+    }
+
+    // Scheduled "HH:MM:SS", struck out with the predicted time under it when RT says
+    // the bus is off schedule (same thresholds as the departure-card badges).
+    function tripStopTimeHtml(time, delay) {
+      const late = delay > 0, early = delay < 0 && Math.round(-delay / 60) > 0;
+      if (delay == null || !(late || early)) return escapeHtml(time);
+      const t = parseTime(time) + delay;
+      const hms = [Math.floor(t / 3600), Math.floor(t % 3600 / 60), t % 60].map(n => String(n).padStart(2, '0')).join(':');
+      const mins = Math.round(Math.abs(delay) / 60);
+      const note = late ? (delay > 60 ? `${mins}m late` : `${delay}s late`) : `${mins}m early`;
+      return `<span class="stop-popup-time-sched struck">${escapeHtml(time)}</span>`
+        + `<span class="stop-popup-time-live ${late ? 'late' : 'early'}" title="${note}">${hms}</span>`;
+    }
+
+    // ===== TRIP STOP DELAYS (route polyline popups) =====
+    // The trip updates feed is only reachable per stop (/api/rt/stop), but each matching
+    // entity carries the whole trip's stop_time_updates. Asking for the trip's last stop
+    // (always still ahead of the bus) gets them; delays then carry forward to stops the
+    // update leaves out, per the GTFS-RT spec, and stops before the first update (already
+    // passed) keep their plain scheduled time.
+    let tripPopupData = null;
+    const TRIP_DELAYS_MAX_AGE_MS = 25 * 1000;
+
+    function tripStopDelays(data, tu) {
+      const stops = [...(data.stops || [])].sort((a, b) => a.stop_sequence - b.stop_sequence);
+      const delays = new Map();
+      let carried = null;
+      stops.forEach(stop => {
+        const d = rtStopDelay(tu, stop.id, stop.time);
+        if (d !== null) carried = d;
+        delays.set(stop, d !== null ? d : carried);
       });
-      layoutRouteStops();
+      return delays;
+    }
+
+    function cachedTripUpdate(tripId) {
+      for (const { data, receivedAt } of rtStopCache.values()) {
+        if (Date.now() - receivedAt > RT_STALE_MS) continue;
+        const e = (data.entity || []).find(e => e.trip_update?.trip?.trip_id === tripId);
+        if (e) return { tu: e.trip_update, receivedAt };
+      }
+      return null;
+    }
+
+    function applyTripStopDelays() {
+      const data = tripPopupData;
+      if (!data) return;
+      const cached = cachedTripUpdate(data.trip_id);
+      const delays = cached ? tripStopDelays(data, cached.tu) : new Map();
+      stopMarkers.forEach(m => {
+        if (m.tripStop) m.setPopupContent(tripStopPopupHtml(m.tripStop, data, delays.get(m.tripStop) ?? null));
+      });
+    }
+
+    // `force`: fetch even if a recent copy of this trip's update is cached
+    function refreshTripStopDelays(force) {
+      const data = tripPopupData;
+      if (!data || !data.stops || !data.stops.length) return;
+      applyTripStopDelays();
+      const cached = cachedTripUpdate(data.trip_id);
+      if (!force && cached && Date.now() - cached.receivedAt < TRIP_DELAYS_MAX_AGE_MS) return;
+      const last = data.stops.reduce((a, b) => (+b.stop_sequence > +a.stop_sequence ? b : a));
+      loadRTStopUpdates(String(last.id)).then(() => {
+        if (tripPopupData === data) applyTripStopDelays();
+      });
     }
 
     // ===== RT VEHICLE =====
@@ -4752,7 +4998,7 @@
         if (el) el.className = 'rt-pulse';
       });
       fetchRTLocation();
-      rtIntervalId = setInterval(fetchRTLocation, 10000);
+      rtIntervalId = setInterval(() => { fetchRTLocation(); refreshTripStopDelays(); }, 10000);
       rtRelativeId = setInterval(() => {
         if (rtLastVehTs) {
           const txt = `GPS ${fmtUnixTime(rtLastVehTs)} – ${timeAgo(rtLastVehTs)}`;
@@ -4851,7 +5097,7 @@
 
     // ===== RT STOP =====
     function loadRTStopUpdates(stopId) {
-      fetch(`/api/rt/stop/${stopId}`)
+      return fetch(`/api/rt/stop/${stopId}`)
         .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
         .then(data => { rtStopCache.set(stopId, {data, receivedAt: Date.now()}); applyRTtoDepartures(data, stopId); })
         .catch(() => {
@@ -5526,10 +5772,30 @@
 
     function renderRecentStops(results, onSelect) {
       const recents = getRecentStops();
+      const favs = getFavourites().filter(f => f.type === 'stop' && f.match);
       results.innerHTML = '';
       results.removeAttribute('aria-busy');
-      if (!recents.length) { results.dataset.mode = 'empty'; hideStopSearchResults(results); return; }
+      if (!recents.length && !favs.length) { results.dataset.mode = 'empty'; hideStopSearchResults(results); return; }
       results.dataset.mode = 'recent';
+
+      if (favs.length) {
+        const favHeader = document.createElement('div');
+        favHeader.className = 'stop-search-section';
+        favHeader.textContent = 'Favourites';
+        results.appendChild(favHeader);
+        favs.forEach((f, i) => {
+          const m = f.match;
+          makeSearchRow(results, {
+            id: `${results.id}-fav-${i}`,
+            primary: f.label,
+            badge: m._group && m._members && m._members.length > 1 ? `${m._members.length} stops` : '',
+            secondary: m._group ? '' : (m.stop_code || m.stop_id),
+            pick: () => onSelect({ ...m }, results),
+            preview: () => showSearchPreview(m._group && m._members ? m._members : [m])
+          });
+        });
+      }
+      if (!recents.length) { showStopSearchResults(results); return; }
 
       const header = document.createElement('div');
       header.className = 'stop-search-section';
@@ -5541,8 +5807,7 @@
       clearBtn.addEventListener('mousedown', e => {
         e.preventDefault();
         clearRecentStops();
-        results.innerHTML = '';
-        hideStopSearchResults(results);
+        renderRecentStops(results, onSelect);
       });
       header.appendChild(title);
       header.appendChild(clearBtn);
@@ -6042,6 +6307,8 @@
 
       currentMultiStopName = stopName;
       currentMultiStopIds = stops.map(s => s.stop_id);
+      currentMultiStops = stops.map(s => ({ stop_id: String(s.stop_id), stop_name: s.stop_name, stop_code: s.stop_code, lat: s.lat, lon: s.lon }));
+      syncFavButtons();
 
       ['multiStopHeader', 'm-multiStopHeader'].forEach(id => {
         const el = document.getElementById(id);
@@ -6247,6 +6514,8 @@
       showingAllDeps_m = defaultShowAll || depHasTimeFilter('dep-m'); showingNext4_m = false;
       currentStopId = data.stop_id;
       currentStopView = { kind: 'single', stopId: String(data.stop_id) };
+      currentStopMeta = { stop_id: String(data.stop_id), stop_name: data.stop_name, stop_code: data.stop_code, lat: data.lat, lon: data.lon };
+      syncFavButtons();
 
       resetDepFilterState('dep-d'); resetDepFilterState('dep-m');
       renderDepFilterPanel(allDepartures, 'depFilterTree', 'depFilterBadge', 'dep-d', () => updateDeparturesView(currentStopId));
@@ -6695,12 +6964,541 @@
       update();
     })();
 
+    // ===== TRIP BETWEEN STOPS =====
+    // Direct trips from one stop to another (/api/between). Each end expands to every
+    // stop within the include-nearby radius when that setting is on, so picking either
+    // side of the street still finds the bus going your way.
+    const BETWEEN_MAX_IDS = 20; // per side, same cap as server.py
+    const tripState = { from: null, to: null, trips: [], fromStops: [], toStops: [], window: '3h', requestId: 0 };
+    const nearbyIdsCache = new Map(); // "ids|radiusKM" -> Promise<[stop_id, ...]>
+    let betweenMarkers = null;
+    let betweenRefreshId = null;
+
+    // {stop_id, stop_name, ...} without the dropdown's private fields, safe to store
+    function plainStopMatch(m) {
+      const out = { stop_id: String(m.stop_id), stop_name: m.stop_name || '', stop_code: m.stop_code || '', lat: m.lat, lon: m.lon };
+      if (m._group && m._members) {
+        out._group = true;
+        out._members = m._members.map(x => ({ stop_id: String(x.stop_id), lat: x.lat, lon: x.lon }));
+      }
+      return out;
+    }
+
+    // [stop_id, ...] for a picked stop: the stop (or its same-name group), plus every stop
+    // within the include-nearby radius when that setting is on, closest first.
+    function expandNearbyIds(match) {
+      const base = match._group && match._members && match._members.length ? match._members : [match];
+      const ids = base.map(m => String(m.stop_id));
+      if (!includeNearbyEnabled()) return Promise.resolve(ids.slice(0, BETWEEN_MAX_IDS));
+      const radiusKM = includeNearbyRadiusM() / 1000;
+      const key = `${ids.join(',')}|${radiusKM}`;
+      if (!nearbyIdsCache.has(key)) {
+        const pts = base.filter(m => Number.isFinite(parseFloat(m.lat)) && Number.isFinite(parseFloat(m.lon)));
+        const p = Promise.all(pts.map(m =>
+          fetch(`/api/nearest/${m.lat}/${m.lon}?limit=${NEARBY_STOPS_FETCH_LIMIT}`).then(r => r.ok ? r.json() : Promise.reject())
+        )).then(results => {
+          const near = results.flatMap(d => d.nearest_stops || [])
+            .filter(n => n.distanceKM <= radiusKM)
+            .sort((a, b) => a.distanceKM - b.distanceKM)
+            .map(n => String(n.stop_id));
+          return [...new Set([...ids, ...near])].slice(0, BETWEEN_MAX_IDS);
+        }).catch(() => {
+          nearbyIdsCache.delete(key); // don't remember a failed lookup
+          return ids.slice(0, BETWEEN_MAX_IDS);
+        });
+        nearbyIdsCache.set(key, p);
+      }
+      return nearbyIdsCache.get(key);
+    }
+
+    // /api/between for one service date. Like fetchStopDay, early on today's date it also
+    // carries yesterday's past-midnight trips onto today's clock, with prev_day: true.
+    function fetchBetweenDay(fromIds, toIds, date) {
+      const ids = list => list.map(encodeURIComponent).join(',');
+      const url = d => `/api/between/${ids(fromIds)}/${ids(toIds)}/${d}`;
+      const day = fetch(url(date)).then(r => r.json());
+      if (date !== todayStr() || nowInSeconds() >= PREV_DAY_WINDOW_SECS) return day;
+      const y = new Date();
+      y.setDate(y.getDate() - 1);
+      const prev = fetch(url(dateStr(y))).then(r => r.ok ? r.json() : null).catch(() => null);
+      return Promise.all([day, prev]).then(([d, p]) => {
+        if (d.error || !p || !Array.isArray(p.trips)) return d;
+        const carried = p.trips
+          .filter(t => parseTime(t.depart_time) >= 86400)
+          .map(t => ({ ...t, depart_time: shiftBackOneDay(t.depart_time), arrive_time: shiftBackOneDay(t.arrive_time), prev_day: true }));
+        return carried.length ? { ...d, trips: [...carried, ...(d.trips || [])] } : d;
+      });
+    }
+
+    function tripDateStr() {
+      return document.getElementById(isMobile() ? 'm-tripDateInput' : 'tripDateInput')?.value || todayStr();
+    }
+
+    function tripEndInputIds(end) {
+      const name = end === 'from' ? 'tripFromInput' : 'tripToInput';
+      return [name, 'm-' + name];
+    }
+
+    function setTripEnd(end, match) {
+      tripState[end] = match ? plainStopMatch(match) : null;
+      tripEndInputIds(end).forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.value = match ? match.stop_name || match.stop_id : '';
+        const clearBtn = el.parentElement ? el.parentElement.querySelector('.stop-search-clear') : null;
+        if (clearBtn) clearBtn.hidden = !el.value;
+      });
+    }
+
+    function selectTripEndFromSearch(end) {
+      return (match, results) => {
+        hideStopSearchResults(results);
+        if (results._input) results._input.blur();
+        rememberRecentStop(match);
+        setTripEnd(end, match);
+        loadBetween();
+      };
+    }
+
+    // Emptying a From/To box (typing or the x) forgets that end and the results.
+    function initTripEndClearing(end) {
+      tripEndInputIds(end).forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const onEmpty = () => {
+          if (el.value.trim() || !tripState[end]) return;
+          tripState[end] = null;
+          tripEndInputIds(end).forEach(other => { const o = document.getElementById(other); if (o && o !== el) o.value = ''; });
+          loadBetween();
+        };
+        el.addEventListener('input', onEmpty);
+        el.parentElement?.querySelector('.stop-search-clear')?.addEventListener('mousedown', onEmpty);
+      });
+    }
+
+    function swapTripEnds() {
+      const { from, to } = tripState;
+      setTripEnd('from', to);
+      setTripEnd('to', from);
+      loadBetween();
+    }
+
+    function clearBetweenMarkers() {
+      if (betweenMarkers) { map.removeLayer(betweenMarkers); betweenMarkers = null; }
+    }
+
+    function drawBetweenMarkers() {
+      clearBetweenMarkers();
+      const css = getComputedStyle(document.documentElement);
+      const layer = (stops, color, label) => stops
+        // an unknown stop_id comes back with an empty name at 0,0
+        .filter(s => s.stop_name && Number.isFinite(parseFloat(s.lat)) && Number.isFinite(parseFloat(s.lon)))
+        .map(s => L.circleMarker([s.lat, s.lon], { radius: 7, color, weight: 2, fillColor: color, fillOpacity: 0.35 })
+          .bindTooltip(`${label}: ${escapeHtml(s.stop_name)} (${escapeHtml(s.stop_code || s.stop_id)})`));
+      const markers = [
+        ...layer(tripState.fromStops, css.getPropertyValue('--positive').trim() || '#4fa876', 'From'),
+        ...layer(tripState.toStops, css.getPropertyValue('--negative').trim() || '#d0574f', 'To')
+      ];
+      if (!markers.length) return;
+      betweenMarkers = L.featureGroup(markers).addTo(map);
+      map.fitBounds(betweenMarkers.getBounds(), { padding: [40, 40], maxZoom: 16 });
+    }
+
+    function loadBetween(isRefresh) {
+      const { from, to } = tripState;
+      syncFavButtons();
+      if (!from || !to) {
+        ++tripState.requestId;
+        tripState.trips = [];
+        hideEls(['betweenSection', 'm-betweenSection']);
+        clearBetweenMarkers();
+        return Promise.resolve();
+      }
+      const requestId = ++tripState.requestId;
+      const date = tripDateStr();
+      const run = () => Promise.all([expandNearbyIds(from), expandNearbyIds(to)])
+        .then(([fromIds, toIds]) => fetchBetweenDay(fromIds, toIds, date))
+        .then(data => {
+          if (requestId !== tripState.requestId) return;
+          if (data.error) throw new Error(data.error);
+          displayBetween(data, date, isRefresh);
+        })
+        .catch(() => { if (requestId === tripState.requestId && !isRefresh) showToast('Error loading trips.'); });
+      if (isRefresh) return run();
+      hideEls(['betweenSection', 'm-betweenSection']);
+      return withMinSpinner(['betweenLoading', 'm-betweenLoading'], 'flex', run);
+    }
+
+    function displayBetween(data, date, isRefresh) {
+      tripState.trips = (data.trips || []).slice().sort((a, b) => parseTime(a.depart_time) - parseTime(b.depart_time));
+      tripState.fromStops = data.from_stops || [];
+      tripState.toStops = data.to_stops || [];
+      tripState.date = date;
+      if (!isRefresh) {
+        // "Next 3h" only means something for today; any other date opens on all trips.
+        setBetweenWindow(date === todayStr() ? '3h' : 'all', true);
+        drawBetweenMarkers();
+      }
+      showEls(['betweenSection', 'm-betweenSection'], 'block');
+      renderBetween();
+      startBetweenRefresh();
+    }
+
+    function setBetweenWindow(mode, skipRender) {
+      tripState.window = mode;
+      ['betweenSeg', 'm-betweenSeg'].forEach(id => setSegMode(document.getElementById(id), mode));
+      if (!skipRender) renderBetween();
+    }
+
+    function betweenShownTrips() {
+      const { secs, isToday } = selectedDateOffset(tripState.date);
+      const eff = t => parseTime(t.depart_time) + (isToday ? getRTDelaySeconds(t.trip_id, t.depart_time, t.from_stop_id) : 0);
+      const all = tripState.trips;
+      if (tripState.window === '3h') return all.filter(t => eff(t) >= secs && eff(t) <= secs + 3 * 3600);
+      if (tripState.window === 'n4') return all.filter(t => eff(t) >= secs).slice(0, 4);
+      return all;
+    }
+
+    function renderBetween() {
+      const all = tripState.trips;
+      const shown = betweenShownTrips();
+      const stopsById = new Map([...tripState.fromStops, ...tripState.toStops].map(s => [String(s.stop_id), s]));
+      const multi = tripState.fromStops.length > 1 || tripState.toStops.length > 1;
+      const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+      const meta = all.length
+        ? `${shown.length} of ${plural(all.length, 'direct trip')} · ${plural(tripState.fromStops.length, 'stop')} → ${plural(tripState.toStops.length, 'stop')}`
+        : '';
+
+      ['', 'm-'].forEach(p => {
+        setVal(p + 'betweenMeta', meta);
+        const grid = document.getElementById(p + 'betweenGrid');
+        if (!grid) return;
+        grid.dataset.date = tripState.date;
+        const key = shown.length ? shown.map(depKey).join(',') : `empty:${all.length}`;
+        if (grid.dataset.tripKey !== key) {
+          grid.dataset.tripKey = key;
+          grid.innerHTML = '';
+          if (!shown.length) {
+            const msg = document.createElement('div');
+            msg.className = 'between-empty';
+            msg.textContent = all.length
+              ? 'No trips in this window. Try "All".'
+              : 'No direct trips between these stops on this date.';
+            grid.appendChild(msg);
+          }
+          shown.forEach(t => grid.appendChild(betweenCard(t, stopsById, multi)));
+        }
+        updateGridETAs(grid);
+      });
+
+      if (tripState.date === todayStr()) {
+        const fromIds = [...new Set(shown.map(t => String(t.from_stop_id)))].slice(0, 5);
+        fromIds.forEach(id => { reapplyCachedRT(id); loadRTStopUpdates(id); });
+      }
+    }
+
+    function betweenCard(t, stopsById, multi) {
+      const card = document.createElement('div');
+      card.className = 'dep-card';
+      card.dataset.tripId = t.trip_id;
+      card.dataset.arrival = t.depart_time;
+      card.dataset.stopId = t.from_stop_id;
+      const dot = t.route_color ? `<span class="dep-dot" style="background:#${escapeHtml(t.route_color)}"></span>` : '';
+      const ride = Math.max(0, Math.round((parseTime(t.arrive_time) - parseTime(t.depart_time)) / 60));
+      const stopLabel = id => { const s = stopsById.get(String(id)); return escapeHtml(s ? (s.stop_code || s.stop_id) : id); };
+      card.innerHTML = `
+        <div class="dep-card-top">
+          <div class="dep-route">${dot}${escapeHtml(t.route_id)}</div>
+          <div class="dep-badge-slot"></div>
+        </div>
+        <div class="dep-time-row">
+          <div class="dep-time"><span class="dep-time-sched">${fmtTime(t.depart_time)}</span><span class="dep-time-actual"></span></div>
+          <div class="dep-eta" data-arrival="${escapeHtml(t.depart_time)}" data-trip-id="${escapeHtml(t.trip_id)}"></div>
+        </div>
+        <div class="between-times"><span class="between-arrow">&rarr;</span><span>arrives ${fmtTime(t.arrive_time)}</span><span class="between-ride">${ride} min ride</span></div>
+        ${(t.trip_headsign || t.direction_id != null) ? `<div class="dep-headsign-row">${t.direction_id != null ? `<span class="dep-dir" title="Direction ${t.direction_id}">${t.direction_id ? '↙︎' : '↗︎'}</span>` : ''}${t.trip_headsign ? `<div class="dep-headsign">${escapeHtml(t.trip_headsign)}</div>` : ''}</div>` : ''}
+        <div class="dep-card-footer">
+          <div class="dep-trip">${multi ? `Stop ${stopLabel(t.from_stop_id)} → ${stopLabel(t.to_stop_id)} · ` : ''}Trip ${escapeHtml(t.trip_id)}</div>
+        </div>
+      `;
+      card.addEventListener('click', () => {
+        loadTrip(t.trip_id, card);
+        // loadTrip jumps to the stop board (where the live-vehicle panel is); stay on the
+        // trip list instead, and on phones lower the sheet so the route shows on the map
+        switchTab('m-tab-trip');
+        if (isMobile()) collapseSheet();
+      });
+      return card;
+    }
+
+    function betweenVisible() {
+      const el = document.getElementById(isMobile() ? 'm-betweenSection' : 'betweenSection');
+      return !!el && el.offsetParent !== null && !document.hidden;
+    }
+
+    // ETAs + RT badges while the results are on screen
+    function refreshBetween() {
+      if (tripState.trips.length && betweenVisible()) renderBetween();
+    }
+
+    function startBetweenRefresh() {
+      if (betweenRefreshId !== null) return;
+      betweenRefreshId = setInterval(refreshBetween, 15000);
+    }
+
+    ['tripDateInput', 'm-tripDateInput'].forEach((id, i, ids) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.value = todayStr();
+      el.addEventListener('change', () => {
+        const other = document.getElementById(ids[1 - i]);
+        if (other) other.value = el.value;
+        syncTodayBtns();
+        loadBetween();
+      });
+    });
+
+    // ===== FAVOURITES =====
+    // Starred stop boards and From → To trips, kept in localStorage and shown with their
+    // next few departures at the top of the Stops tab. Stop entries remember the view
+    // they were starred from (single / nearby / same-name) and the stops it covered.
+    const FAVOURITES_KEY = 'gtfs-favourites';
+    const FAVOURITES_MAX = 12;
+    const FAVOURITE_DEPS = 3;
+    const FAVOURITES_REFRESH_MS = 30000;
+    let favRefreshRequestId = 0;
+    let favLastRefresh = 0;
+
+    function getFavourites() {
+      try {
+        const v = JSON.parse(localStorage.getItem(FAVOURITES_KEY) || '[]');
+        return Array.isArray(v) ? v.filter(f => f && f.key && (f.type === 'stop' ? f.view && f.match : f.from && f.to)) : [];
+      } catch (e) { return []; }
+    }
+
+    function saveFavourites(list) {
+      try { localStorage.setItem(FAVOURITES_KEY, JSON.stringify(list.slice(0, FAVOURITES_MAX))); } catch (e) {}
+      renderFavourites();
+      syncFavButtons();
+    }
+
+    function isFavourite(key) {
+      return getFavourites().some(f => f.key === key);
+    }
+
+    function toggleFavourite(entry) {
+      if (!entry) return;
+      const list = getFavourites();
+      if (list.some(f => f.key === entry.key)) { saveFavourites(list.filter(f => f.key !== entry.key)); return; }
+      if (list.length >= FAVOURITES_MAX) { showToast(`Up to ${FAVOURITES_MAX} favourites. Remove one first.`); return; }
+      saveFavourites([entry, ...list]);
+    }
+
+    // The favourite for whatever the stop board is showing, or null (nothing loaded / a map point)
+    function favEntryForCurrentStop() {
+      const v = currentStopView;
+      if (!v) return null;
+      if (v.kind === 'single') {
+        const s = currentStopMeta;
+        if (!s || s.stop_id !== v.stopId) return null;
+        return { type: 'stop', key: `stop:${v.stopId}`, label: s.stop_name, view: { kind: 'single', stopId: v.stopId }, members: [v.stopId], match: plainStopMatch(s) };
+      }
+      const stops = currentMultiStops;
+      if (!stops.length) return null;
+      const members = stops.map(s => s.stop_id).slice(0, BETWEEN_MAX_IDS);
+      if (v.kind === 'nearby') {
+        const origin = stops.find(s => s.stop_id === v.stopId) || stops[0];
+        return { type: 'stop', key: `stop:${v.stopId}`, label: origin.stop_name, view: { kind: 'nearby', stopId: v.stopId }, members, match: plainStopMatch(origin) };
+      }
+      if (v.kind === 'name') {
+        const match = plainStopMatch({ ...stops[0], stop_name: v.name, stop_code: '', _group: true, _members: stops });
+        return { type: 'stop', key: `name:${v.name.trim().toUpperCase()}`, label: v.name, view: { kind: 'name', name: v.name }, members, match };
+      }
+      return null;
+    }
+
+    function tripEndKey(m) {
+      return m._group ? `g:${String(m.stop_name).trim().toUpperCase()}` : String(m.stop_id);
+    }
+
+    function favEntryForTrip() {
+      const { from, to } = tripState;
+      if (!from || !to) return null;
+      return { type: 'pair', key: `pair:${tripEndKey(from)}>${tripEndKey(to)}`, label: `${from.stop_name} → ${to.stop_name}`, from, to };
+    }
+
+    function syncFavButtons() {
+      const set = (btn, entry) => {
+        btn.hidden = !entry;
+        const on = !!entry && isFavourite(entry.key);
+        btn.setAttribute('aria-pressed', on);
+        btn.innerHTML = on ? '&#x2605;&#xFE0E; Saved' : '&#x2606;&#xFE0E; Save';
+        btn.title = on ? 'Remove from favourites' : 'Save to favourites';
+      };
+      const stopEntry = favEntryForCurrentStop();
+      const tripEntry = favEntryForTrip();
+      document.querySelectorAll('.fav-btn[data-fav="stop"]').forEach(b => set(b, stopEntry));
+      document.querySelectorAll('.fav-btn[data-fav="trip"]').forEach(b => set(b, tripEntry));
+    }
+
+    document.addEventListener('click', e => {
+      const btn = e.target.closest('.fav-btn');
+      if (!btn) return;
+      e.stopPropagation();
+      toggleFavourite(btn.dataset.fav === 'trip' ? favEntryForTrip() : favEntryForCurrentStop());
+    });
+
+    function openFavourite(f) {
+      if (f.type === 'pair') {
+        setTripEnd('from', f.from);
+        setTripEnd('to', f.to);
+        switchTab('m-tab-trip');
+        loadBetween();
+        return;
+      }
+      ['stopSearchInput', 'm-stopSearchInput'].forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.value = f.label;
+        const clearBtn = el.parentElement ? el.parentElement.querySelector('.stop-search-clear') : null;
+        if (clearBtn) clearBtn.hidden = false;
+      });
+      const date = currentDateStr();
+      if (f.view.kind === 'name') loadMultiStops(f.view.name, date);
+      else if (f.view.kind === 'nearby') handleStopMarkerClick(f.view.stopId, date);
+      else loadStopOnly(f.view.stopId, date);
+    }
+
+    function renderFavourites() {
+      const favs = getFavourites();
+      ['', 'm-'].forEach(p => {
+        const panel = document.getElementById(p + 'favPanel');
+        const list = document.getElementById(p + 'favList');
+        if (!panel || !list) return;
+        panel.hidden = !favs.length;
+        list.innerHTML = '';
+        favs.forEach(f => {
+          const row = document.createElement('div');
+          row.className = 'fav-item';
+          row.dataset.key = f.key;
+          row.tabIndex = 0;
+          row.setAttribute('role', 'button');
+          const kind = f.type === 'pair' ? 'Trip' : f.view.kind === 'name' ? `${f.members.length} stops` : '';
+          row.innerHTML = `
+            <div class="fav-main">
+              <div class="fav-label">${kind ? `<span class="fav-kind">${escapeHtml(kind)}</span>` : ''}${escapeHtml(f.label)}</div>
+              <div class="fav-deps"></div>
+            </div>
+            <button type="button" class="fav-remove" aria-label="Remove from favourites" title="Remove">&times;</button>`;
+          row.addEventListener('click', e => {
+            if (e.target.closest('.fav-remove')) { saveFavourites(getFavourites().filter(x => x.key !== f.key)); return; }
+            openFavourite(f);
+          });
+          row.addEventListener('keydown', e => { if (e.key === 'Enter') openFavourite(f); });
+          list.appendChild(row);
+        });
+      });
+      refreshFavouriteDeps(true);
+    }
+
+    // Today's upcoming departures for one favourite as {route, color, trip_id, time, stopId, arrive?}
+    function favouriteDepartures(f) {
+      const date = todayStr();
+      if (f.type === 'pair') {
+        return Promise.all([expandNearbyIds(f.from), expandNearbyIds(f.to)])
+          .then(([fromIds, toIds]) => fetchBetweenDay(fromIds, toIds, date))
+          .then(d => (d.trips || []).map(t => ({ route: t.route_id, color: t.route_color, trip_id: t.trip_id, time: t.depart_time, stopId: String(t.from_stop_id), arrive: t.arrive_time })));
+      }
+      return Promise.all(f.members.map(id => fetchStopDay(id, date).catch(() => null))).then(stops => {
+        const seen = new Set();
+        const deps = [];
+        stops.forEach(s => (s && !s.error ? s.departures || [] : []).forEach(d => {
+          if (d.pickup_type === 1 || seen.has(depKey(d))) return; // no boarding here (e.g. last stop)
+          seen.add(depKey(d));
+          deps.push({ route: d.route_id, color: d.route_color, trip_id: d.trip_id, time: d.arrival_time, stopId: String(s.stop_id) });
+        }));
+        return deps;
+      });
+    }
+
+    function nextFavouriteDeps(deps) {
+      const now = nowInSeconds();
+      return deps
+        .map(d => ({ ...d, delay: getRTDelaySeconds(d.trip_id, d.time, d.stopId) }))
+        .map(d => ({ ...d, eff: parseTime(d.time) + d.delay }))
+        .filter(d => d.eff >= now - 30)
+        .sort((a, b) => a.eff - b.eff)
+        .slice(0, FAVOURITE_DEPS);
+    }
+
+    function renderFavouriteDeps(key, deps, failed) {
+      const now = nowInSeconds();
+      document.querySelectorAll(`.fav-item[data-key="${CSS.escape(key)}"] .fav-deps`).forEach(el => {
+        el.innerHTML = '';
+        if (failed) { el.textContent = 'Couldn’t load departures'; return; }
+        if (!deps.length) { el.textContent = 'No more departures today'; return; }
+        deps.forEach(d => {
+          const chip = document.createElement('span');
+          chip.className = 'fav-dep' + (d.delay > 60 ? ' late' : d.delay < -60 ? ' early' : '');
+          const mins = Math.round((d.eff - now) / 60);
+          const when = mins <= 0 ? 'Due' : mins < 60 ? `${mins} min` : fmtClockShort(d.eff);
+          chip.innerHTML = `${d.color ? `<span class="dep-dot" style="background:#${escapeHtml(d.color)}"></span>` : ''}${escapeHtml(d.route)} · ${when}${d.arrive ? ` → ${fmtClockShort(parseTime(d.arrive) + d.delay)}` : ''}`;
+          chip.title = d.delay ? `${d.delay > 0 ? 'Late' : 'Early'} ${Math.round(Math.abs(d.delay) / 60)} min (live)` : 'Scheduled';
+          el.appendChild(chip);
+        });
+      });
+    }
+
+    function favouritesVisible() {
+      const el = document.getElementById(isMobile() ? 'm-favPanel' : 'favPanel');
+      return !!el && !el.hidden && el.offsetParent !== null && !document.hidden;
+    }
+
+    // Fetches and redraws every favourite's next departures, then again once the RT
+    // updates for the stops they leave from are in. Skipped while the panel is off
+    // screen; `force` ignores the 10 s minimum gap between runs.
+    function refreshFavouriteDeps(force) {
+      if (!favouritesVisible()) return;
+      if (!force && Date.now() - favLastRefresh < 10000) return;
+      favLastRefresh = Date.now();
+      const requestId = ++favRefreshRequestId;
+      getFavourites().forEach(f => {
+        favouriteDepartures(f)
+          .then(deps => {
+            if (requestId !== favRefreshRequestId) return;
+            const next = nextFavouriteDeps(deps);
+            renderFavouriteDeps(f.key, next);
+            const stopIds = [...new Set(next.map(d => d.stopId))];
+            return Promise.all(stopIds.map(id => loadRTStopUpdates(id))).then(() => {
+              if (requestId === favRefreshRequestId) renderFavouriteDeps(f.key, nextFavouriteDeps(deps));
+            });
+          })
+          .catch(() => { if (requestId === favRefreshRequestId) renderFavouriteDeps(f.key, [], true); });
+      });
+    }
+
+    setInterval(() => refreshFavouriteDeps(), FAVOURITES_REFRESH_MS);
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) return;
+      refreshFavouriteDeps();
+      refreshBetween();
+    });
+    window.addEventListener('storage', e => { if (e.key === FAVOURITES_KEY) { renderFavourites(); syncFavButtons(); } });
+
+    // The include-nearby setting decides which stops each Trip end covers
+    ['includeNearbyToggle', 'm-includeNearbyToggle', 'includeNearbyRadius', 'm-includeNearbyRadius'].forEach(id => {
+      document.getElementById(id)?.addEventListener('change', () => {
+        if (tripState.from && tripState.to) loadBetween(true);
+        refreshFavouriteDeps(true);
+      });
+    });
+
     // ===== MOBILE TABS =====
     function switchTab(tabId) {
       if (tabId === 'm-tab-departures') document.getElementById('mDeparturesTab')?.removeAttribute('hidden');
       document.querySelectorAll('.m-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tabId));
       document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === tabId));
-      const sbTabId = { 'm-tab-stop': 'sb-tab-stop', 'm-tab-departures': 'sb-tab-stop', 'm-tab-route': 'sb-tab-triproute', 'm-tab-nearby': 'sb-tab-discover', 'm-tab-more': 'sb-tab-more' }[tabId];
+      const sbTabId = { 'm-tab-stop': 'sb-tab-stop', 'm-tab-departures': 'sb-tab-stop', 'm-tab-trip': 'sb-tab-trip', 'm-tab-route': 'sb-tab-triproute', 'm-tab-nearby': 'sb-tab-discover', 'm-tab-more': 'sb-tab-more' }[tabId];
       if (sbTabId) switchSidebarTab(sbTabId);
     }
 
@@ -6717,6 +7515,8 @@
       document.querySelectorAll('.sidebar-section').forEach(p => p.classList.toggle('active', p.id === tabId));
       try { localStorage.setItem('gtfs-sidebar-tab', tabId); } catch (e) {}
       syncSidebarTabIndicator();
+      if (tabId === 'sb-tab-stop') refreshFavouriteDeps();
+      if (tabId === 'sb-tab-trip') refreshBetween();
     }
 
     function syncSidebarTabIndicator() {
@@ -6853,6 +7653,14 @@
     initStopSearch('m-nearbyStopSearchInput', 'm-nearbyStopSearchResults', selectNearbyFromStopSearch);
     initRouteSearch('routeSearchInput', 'routeSearchResults', 'dateInput');
     initRouteSearch('m-routeSearchInput', 'm-routeSearchResults', 'm-dateInput');
+    initStopSearch('tripFromInput', 'tripFromResults', selectTripEndFromSearch('from'));
+    initStopSearch('m-tripFromInput', 'm-tripFromResults', selectTripEndFromSearch('from'));
+    initStopSearch('tripToInput', 'tripToResults', selectTripEndFromSearch('to'));
+    initStopSearch('m-tripToInput', 'm-tripToResults', selectTripEndFromSearch('to'));
+    initTripEndClearing('from');
+    initTripEndClearing('to');
+    renderFavourites();
+    syncFavButtons();
 
     // ===== SERVICE ALERTS =====
     function alertText(t) {

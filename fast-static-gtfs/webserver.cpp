@@ -250,6 +250,30 @@ int main() {
         res.set_content(json, "application/json");
     });
 
+    // :from and :to are comma-separated stop_id lists (e.g. both sides of a street)
+    svr.Get("/api/between/:from/:to/:year/:month/:day", [](const Request& req, Response& res) {
+        if (!requireLoaded(res)) return;
+        std::shared_lock lock(dataMutex);
+        const vector<string> from = splitIdList(req.path_params.at("from"));
+        const vector<string> to = splitIdList(req.path_params.at("to"));
+        const int year = std::stoi(req.path_params.at("year"));
+        const int month = std::stoi(req.path_params.at("month"));
+        const int day = std::stoi(req.path_params.at("day"));
+
+        auto start = std::chrono::steady_clock::now();
+        string json = getBetweenDayTimes(from, to, year, month, day,
+                               stoptimesstopidlines, stoptimesstopidrefs, triplines, triprefs,
+                               calendarlines, calendarrefs, calendardatelines, calendardaterefs,
+                               stoplines, stoprefs, routelines, routerefs);
+        auto elapsed = std::chrono::steady_clock::now() - start;
+
+        std::cout << "GET /api/between/" << req.path_params.at("from") << "/" << req.path_params.at("to") << "/"
+                << year << "/" << month << "/" << day << " -> "
+                << std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count() << " µs\n";
+
+        res.set_content(json, "application/json");
+    });
+
     // loopback only: there's no token check here, so server.py (5015) is the only way in from outside
     const int port = 5016;
     std::cout << "listening on http://127.0.0.1:" << port << "\n";

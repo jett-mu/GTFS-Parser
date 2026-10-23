@@ -54,6 +54,31 @@ def get_stop(stop_id, date):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+MAX_BETWEEN_IDS = 20  # per side of /api/between
+
+@app.route('/api/between/<from_ids>/<to_ids>/<date>')
+def get_between(from_ids, to_ids, date):
+    """Direct trips from any stop in from_ids to any stop in to_ids (comma-separated stop_id lists)."""
+    try:
+        try:
+            year, month, day = (int(part) for part in date.split('-'))
+        except ValueError:
+            return jsonify({'error': 'date must be YYYY-MM-DD'}), 400
+        sides = [[s for s in ids.split(',') if s] for ids in (from_ids, to_ids)]
+        if not all(sides):
+            return jsonify({'error': 'need at least one stop on each side'}), 400
+        if any(len(ids) > MAX_BETWEEN_IDS for ids in sides):
+            return jsonify({'error': f'at most {MAX_BETWEEN_IDS} stops per side'}), 400
+        frm, to = (','.join(urllib.parse.quote(s, safe='') for s in ids) for ids in sides)
+        data, status = fast_get(f"/api/between/{frm}/{to}/{year}/{month}/{day}/")
+        if status != 200:
+            return jsonify(data), status
+        if not data:
+            return jsonify(data), 422
+        return jsonify(data)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/stopinfo/<stop_id>')
 def get_stop_info(stop_id):
     try:

@@ -137,3 +137,123 @@ inline string getStopDayTimes(const string& stop_id, const int& year, const int&
 
     return out.str();
 }
+// "12,34,,12" -> {"12", "34"}: comma list from a URL segment, blanks and repeats dropped
+inline vector<string> splitIdList(const string& list) {
+    vector<string> out;
+    std::istringstream in(list);
+    string id;
+    while (std::getline(in, id, ',')) {
+        if (!id.empty() && std::find(out.begin(), out.end(), id) == out.end()) out.push_back(id);
+    }
+    return out;
+}
+
+// Direct trips that call at one of fromIds and later at one of toIds on the given service day.
+// Each trip is listed once, boarding at the From stop closest before the first reachable To stop
+// (the shortest ride), so passing both sides of a street only keeps the direction that gets there.
+inline string getBetweenDayTimes(const vector<string>& fromIds, const vector<string>& toIds,
+                     const int& year, const int& month, const int& day,
+                     const vector<pair<string, vector<string>>>& stoptimesstopidlines,
+                     const std::unordered_map<string, int>& stoptimesstopidrefs,
+                     const vector<pair<string, vector<string>>>& triplines,
+                     const std::unordered_map<string, int>& triprefs,
+                     const vector<pair<string, vector<string>>>& calendarlines,
+                     const std::unordered_map<string, int>& calendarrefs,
+                     const vector<pair<string, vector<string>>>& calendardatelines,
+                     const std::unordered_map<string, int>& calendardaterefs,
+                     const vector<pair<string, vector<string>>>& stoplines,
+                     const std::unordered_map<string, int>& stoprefs,
+                     const vector<pair<string, vector<string>>>& routelines,
+                     const std::unordered_map<string, int>& routerefs,
+                     const int& precision = 6) {
+
+    ostringstream out;
+    out << std::fixed << std::setprecision(precision);
+
+    // trip_id -> that trip's calls at the From / To stops
+    std::unordered_map<string, pair<vector<gtfs::trip_segment>, vector<gtfs::trip_segment>>> calls;
+    auto collect = [&](const vector<string>& ids, const bool isFrom) {
+        for (const string& id : ids) {
+            for (gtfs::trip_segment& x : fast_gtfs::bin_search::getDayTimesAtStop(id, year, month, day,
+                    stoptimesstopidlines, stoptimesstopidrefs, triplines, triprefs,
+                    calendarlines, calendarrefs, calendardatelines, calendardaterefs)) {
+                auto& entry = calls[x.stop.trip_id];
+                (isFrom ? entry.first : entry.second).push_back(std::move(x));
+            }
+        }
+    };
+    collect(fromIds, true);
+    collect(toIds, false);
+
+    // an unset time parses as -1:-1:-1 (or stays 00:00:00 when the column is missing)
+    auto isSet = [](const gtfs::time& t) { return t.h >= 0 && !(t == gtfs::time()); };
+
+    struct ride { gtfs::trip_segment from, to; gtfs::time depart, arrive; };
+    vector<ride> rides;
+    for (auto& [trip_id, fromTo] : calls) {
+        auto& [boards, alights] = fromTo;
+        if (boards.empty() || alights.empty()) continue;
+        std::sort(alights.begin(), alights.end(), [](const gtfs::trip_segment& a, const gtfs::trip_segment& b) {
+            return a.stop.stop_sequence < b.stop.stop_sequence;
+        });
+        for (const gtfs::trip_segment& to : alights) {
+            if (to.stop.drop_off_type == gtfs::stop_time::not_available) continue;
+            const gtfs::trip_segment* best = nullptr;
+            for (const gtfs::trip_segment& from : boards) {
+                if (from.stop.pickup_type == gtfs::stop_time::not_available) continue;
+                if (from.stop.stop_sequence >= to.stop.stop_sequence) continue;
+                if (!best || from.stop.stop_sequence > best->stop.stop_sequence) best = &from;
+            }
+            if (!best) continue;
+            const gtfs::time depart = isSet(best->stop.departure_time) ? best->stop.departure_time : best->stop.arrival_time;
+            const gtfs::time arrive = isSet(to.stop.arrival_time) ? to.stop.arrival_time : to.stop.departure_time;
+            if (depart.h >= 0 && arrive.h >= 0) rides.push_back({*best, to, depart, arrive});
+            break;
+        }
+    }
+
+    std::sort(rides.begin(), rides.end(), [](const ride& a, const ride& b) { return a.depart < b.depart; });
+
+    auto printStops = [&](const char* key, const vector<string>& ids) {
+        out << "\t\"" << key << "\": [\n";
+        for (size_t i = 0; i < ids.size(); i++) {
+            const gtfs::stop st = fast_gtfs::bin_search::getStopInfo(ids[i], stoplines, stoprefs);
+            out << "\t\t{ \"stop_id\": \"" << gtfs::jsonEscape(ids[i]) <<
+                    "\", \"stop_code\": \"" << gtfs::jsonEscape(st.stop_code) <<
+                    "\", \"stop_name\": \"" << gtfs::jsonEscape(st.stop_name) <<
+                    "\", \"lat\": " << st.stop_lat <<
+                    ", \"lon\": " << st.stop_lon <<
+                    (i == (ids.size() - 1) ? " }\n" : " },\n");
+        }
+        out << "\t],\n";
+    };
+
+    out << "{\n";
+    printStops("from_stops", fromIds);
+    printStops("to_stops", toIds);
+
+    const size_t length = rides.size();
+    out << "\t\"trips\": [\n";
+    for (size_t i = 0; i < length; i++) {
+        const ride& r = rides[i];
+
+        gtfs::route routeInfo = fast_gtfs::bin_search::getRouteInfo(r.from.route_id, routelines, routerefs);
+        gtfs::trip tripInfo = fast_gtfs::bin_search::getTripInfo(r.from.stop.trip_id, triplines, triprefs);
+
+        out << "\t\t{ \"route_id\": \"" << gtfs::jsonEscape(routeInfo.route_short_name) <<
+                "\", \"route_color\": \"" << gtfs::jsonEscape(routeInfo.route_color) <<
+                "\", \"trip_id\": \"" << gtfs::jsonEscape(r.from.stop.trip_id) <<
+                "\", \"trip_headsign\": \"" << gtfs::jsonEscape(tripInfo.trip_headsign) <<
+                "\", \"direction_id\": " << tripInfo.direction_id <<
+                ", \"from_stop_id\": \"" << gtfs::jsonEscape(r.from.stop.stop_id) <<
+                "\", \"to_stop_id\": \"" << gtfs::jsonEscape(r.to.stop.stop_id) <<
+                "\", \"from_sequence\": " << r.from.stop.stop_sequence <<
+                ", \"to_sequence\": " << r.to.stop.stop_sequence <<
+                ", \"depart_time\": \"" << r.depart.leadingRoundedTime() <<
+                "\", \"arrive_time\": \"" << r.arrive.leadingRoundedTime() <<
+                (i == (length - 1) ? "\" }\n" : "\" },\n");
+    }
+    out << "\t]\n}\n";
+
+    return out.str();
+}
