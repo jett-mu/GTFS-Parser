@@ -1180,6 +1180,10 @@
       touch-action: manipulation;
     }
     .dep-card:last-child { border-bottom: 0; }
+    /* End rows follow the board's rounded corners so the hover/active fill and
+       outline aren't clipped by its overflow */
+    .departures-grid > .dep-card:first-child { border-top-left-radius: calc(var(--radius) - 1px); border-top-right-radius: calc(var(--radius) - 1px); }
+    .departures-grid > .dep-card:last-child { border-bottom-left-radius: calc(var(--radius) - 1px); border-bottom-right-radius: calc(var(--radius) - 1px); }
     .dep-card:hover { background: var(--board-hover); }
     .dep-card:active { background: var(--surface3); }
     .dep-card.active {
@@ -1224,7 +1228,6 @@
       gap: 4px;
       min-width: 0;
     }
-    .dep-badge-slot > .rt-delay-badge { flex-shrink: 0; }
 
     .dep-time {
       grid-area: time;
@@ -1252,10 +1255,17 @@
 
     /* Countdown: the biggest thing on the board. updateGridETAs() splits it
        into number / unit spans so the digits can roll when they change. */
-    .dep-eta {
+    /* Countdown with the RT delay pill stacked directly under it */
+    .dep-eta-col {
       grid-area: eta;
       justify-self: end;
       align-self: center;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 3px;
+    }
+    .dep-eta {
       display: inline-flex;
       align-items: baseline;
       justify-content: flex-end;
@@ -2386,6 +2396,31 @@
       word-break: break-word;
     }
 
+    /* Route map legend: one row per distinct shape, its swatch shaded like its line */
+    .route-variants { display: flex; flex-direction: column; gap: 2px; }
+    .route-variants[hidden] { display: none; }
+    .route-variants-head { font-size: 12.5px; color: var(--text-muted); line-height: 1.45; margin-bottom: 6px; }
+    button.route-variant {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      padding: 8px 10px;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: var(--card-radius);
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 500;
+      text-align: left;
+      white-space: normal;
+    }
+    button.route-variant:hover { background: var(--board-hover); border-color: transparent; }
+    button.route-variant.is-focused { background: rgba(var(--accent-rgb), 0.1); border-color: rgba(var(--accent-rgb), 0.5); }
+    .rv-swatch { flex-shrink: 0; width: 26px; height: 6px; border-radius: 3px; box-shadow: 0 0 0 1px rgba(0,0,0,0.35); }
+    .rv-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+    .rv-trips { flex-shrink: 0; font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+
     .route-trips-section {
       display: none;
       flex-direction: column;
@@ -3220,6 +3255,8 @@
           <div class="route-header-meta" id="routeMetaDisplay"></div>
         </div>
 
+        <div class="route-variants" id="routeVariants" hidden></div>
+
         <div id="routeTripsSection" class="route-trips-section">
           <div class="route-trips-section-header">
             <div class="section-title">Trips</div>
@@ -3529,6 +3566,8 @@
           </div>
           <div class="route-header-meta" id="m-routeMetaDisplay"></div>
         </div>
+
+        <div class="route-variants" id="m-routeVariants" hidden></div>
 
         <div id="m-routeTripsSection" class="route-trips-section">
           <div class="route-trips-section-header">
@@ -4546,20 +4585,36 @@
 
     // Trace SVG polylines from start to end (stroke-dashoffset), then hand the
     // stroke back to Leaflet. Skipped under reduced motion.
+    // pathLength="1" makes the dash a fraction of the whole line rather than a
+    // measured pixel length, so it still covers all of it when Leaflet
+    // re-projects or re-clips the path mid-draw (the fitBounds zoom that comes
+    // with loading a trip, or a pan). The draw starts once the map has settled.
     function drawPathsIn(layers, ms = 900) {
       if (reduceMotion()) return;
-      layers.forEach(layer => {
-        const path = layer && layer._path;
-        if (!path || !path.getTotalLength) return;
-        const len = path.getTotalLength();
-        if (!len) return;
-        path.style.strokeDasharray = `${len} ${len}`;
-        path.style.strokeDashoffset = len;
-        path.getBoundingClientRect();
-        path.style.transition = `stroke-dashoffset ${ms}ms var(--ease-out)`;
-        path.style.strokeDashoffset = 0;
-        setTimeout(() => { path.style.strokeDasharray = path.style.strokeDashoffset = path.style.transition = ''; }, ms + 60);
+      const paths = layers.map(l => l && l._path).filter(Boolean);
+      if (!paths.length) return;
+      paths.forEach(p => {
+        p.setAttribute('pathLength', '1');
+        p.style.strokeDasharray = '1 2';
+        p.style.strokeDashoffset = '1.01'; // just past the start, so a round cap doesn't leave a dot
       });
+      let started = false;
+      const start = () => {
+        if (started) return;
+        started = true;
+        paths.forEach(p => {
+          p.getBoundingClientRect();
+          p.style.transition = `stroke-dashoffset ${ms}ms var(--ease-out)`;
+          p.style.strokeDashoffset = '0';
+        });
+        setTimeout(() => paths.forEach(p => {
+          p.removeAttribute('pathLength');
+          p.style.strokeDasharray = p.style.strokeDashoffset = p.style.transition = '';
+        }), ms + 60);
+      };
+      const moving = map._animatingZoom || (map._panAnim && map._panAnim._inProgress);
+      if (moving) { map.once('moveend', start); setTimeout(start, 700); }
+      else requestAnimationFrame(start);
     }
 
     // Ease a marker (and its permanent tooltip) to its next setLatLng rather
@@ -4576,6 +4631,7 @@
 
     function clearRouteLine() {
       if (journeyLayer) { map.removeLayer(journeyLayer); journeyLayer = null; }
+      if (routeMapLayer) { map.removeLayer(routeMapLayer); routeMapLayer = null; routeMapLines = []; routeMapDots = []; }
       if (polyline) { map.removeLayer(polyline); polyline = null; }
       if (routeCasing) { map.removeLayer(routeCasing); routeCasing = null; }
       routeArrows.markers.forEach(m => map.removeLayer(m));
@@ -5295,7 +5351,7 @@
           if (!badge) {
             badge = document.createElement('div');
             badge.className = 'rt-delay-badge';
-            (card.querySelector('.dep-badge-slot') || card).appendChild(badge);
+            (card.querySelector('.dep-eta-col') || card.querySelector('.dep-badge-slot') || card).appendChild(badge);
           }
           let isEarly = false, isLate = false;
           if (delay === null) { badge.textContent='Live'; badge.className='rt-delay-badge rt-live-only'; }
@@ -5355,7 +5411,7 @@
             </div>
             <div class="dep-time-row">
               <div class="dep-time"><span class="dep-time-sched">${fmtTime(dep.arrival_time)}</span><span class="dep-time-actual"></span></div>
-              <div class="dep-eta" data-arrival="${dep.arrival_time}" data-trip-id="${dep.trip_id}"></div>
+              <div class="dep-eta-col"><div class="dep-eta" data-arrival="${dep.arrival_time}" data-trip-id="${dep.trip_id}"></div></div>
             </div>
             ${dep.trip_headsign ? `<div class="dep-headsign-row"><div class="dep-headsign">${dep.trip_headsign}</div></div>` : ''}
             <div class="dep-card-footer">
@@ -5497,8 +5553,165 @@
       });
     }
 
+    // ===== ROUTE MAP =====
+    // Picking a route draws every distinct shape it runs that day (/api/routemap), stacked
+    // with the busiest on top and each faded toward white the fewer trips use it, plus every
+    // stop those trips serve; tapping a stop offers its departures. The variant list under
+    // the route sign highlights one shape (hover previews, tap pins).
+    let routeMapLayer = null;
+    let routeMapLines = []; // { shape, line, casing }, busiest last
+    let routeMapRequestId = 0;
+    let routeMapPinned = null;
+    let routeMapDots = [];
+    let routeMapZoomHooked = false;
+
+    // Stop dots shrink as you zoom out so a whole route's stops don't merge into a blob:
+    // [radius, outline] per zoom level, full size from zoom 15 in.
+    function routeStopDotSize(z) {
+      return z >= 15 ? [5, 2] : z >= 14 ? [4.5, 2] : z >= 13 ? [3.5, 1.5] : z >= 12 ? [2.5, 1.5] : z >= 11 ? [1.8, 1] : [1.2, 0.8];
+    }
+
+    function sizeRouteMapDots() {
+      if (!routeMapDots.length) return;
+      const [radius, weight] = routeStopDotSize(map.getZoom());
+      routeMapDots.forEach(d => d.setRadius(radius).setStyle({ weight }));
+    }
+
+    // hex blended toward white: w = 1 keeps the colour, 0 is white
+    function mixWithWhite(hex, w) {
+      const h = String(hex).replace('#', '');
+      return '#' + [0, 2, 4].map(i => Math.round(255 - (255 - parseInt(h.slice(i, i + 2), 16)) * w).toString(16).padStart(2, '0')).join('');
+    }
+
+    const tripsLabel = n => `${n} trip${n === 1 ? '' : 's'}`;
+
+    function loadRouteMap(routeId, date) {
+      const requestId = ++routeMapRequestId;
+      routeMapPinned = null;
+      ['', 'm-'].forEach(p => { const el = document.getElementById(p + 'routeVariants'); if (el) { el.hidden = true; el.innerHTML = ''; } });
+      apiFetch(`/api/routemap/${encodeURIComponent(routeId)}/${date}`)
+        .then(r => r.json().then(d => { if (!r.ok) throw new Error(d.error || `HTTP ${r.status}`); return d; }))
+        .then(data => { if (requestId === routeMapRequestId) drawRouteMap(data); })
+        .catch(err => { if (requestId === routeMapRequestId) showToast(`Couldn’t draw the route: ${err.message}`); });
+    }
+
+    function drawRouteMap(data) {
+      stopMarkers.forEach(m => map.removeLayer(m));
+      stopMarkers = [];
+      clearRouteLine();
+      const shapes = (data.shapes || []).filter(s => Array.isArray(s.points) && s.points.length > 1);
+      if (!shapes.length) return;
+      const color = /^[0-9a-fA-F]{6}$/.test(data.route_color || '') ? '#' + data.route_color : '#7a828c';
+      const fg = readableTextColor(color);
+      // linear in share of trips, so rare variants go almost fully white; the 5% floor keeps a hint of the route colour
+      const shadeOf = most => n => mixWithWhite(color, 0.05 + 0.95 * (n / most));
+      const shade = shadeOf(Math.max(...shapes.map(s => s.trips)));
+
+      const casings = [], lines = [];
+      routeMapLines = [...shapes].sort((a, b) => a.trips - b.trips).map(s => {
+        const casing = L.polyline(s.points, { color: '#000', weight: ROUTE_LINE_WEIGHT + 3, opacity: 0.28, lineJoin: 'round', lineCap: 'round', interactive: false });
+        const line = L.polyline(s.points, { color: shade(s.trips), weight: ROUTE_LINE_WEIGHT, opacity: 1, lineJoin: 'round', lineCap: 'round' })
+          .bindTooltip(`${escapeHtml(s.headsign || 'Route variant')} · ${tripsLabel(s.trips)}`, { sticky: true });
+        casings.push(casing);
+        lines.push(line);
+        return { shape: s, line, casing };
+      });
+
+      const stops = (data.stops || []).filter(s => Number.isFinite(s.lat) && Number.isFinite(s.lon) && (s.lat || s.lon));
+      const stopShade = shadeOf(Math.max(1, ...stops.map(s => s.trips)));
+      const [radius, weight] = routeStopDotSize(map.getZoom());
+      const dots = stops.map(s => L.circleMarker([s.lat, s.lon], {
+          pane: 'routeStops', radius, weight, color: stopShade(s.trips), fillColor: '#fff', fillOpacity: 1
+        })
+        .bindTooltip(escapeHtml(s.stop_name), { direction: 'top', offset: [0, -5] })
+        .bindPopup(routeMapStopPopupHtml(s, data, color, fg)));
+
+      // casings under every line, the busiest line drawn last so it sits on top
+      routeMapDots = dots;
+      if (!routeMapZoomHooked) { map.on('zoomend', sizeRouteMapDots); routeMapZoomHooked = true; }
+      routeMapLayer = L.featureGroup([...casings, ...lines, ...dots]).addTo(map);
+      map.fitBounds(L.featureGroup(lines).getBounds(), { padding: [40, 40] });
+      drawPathsIn([...casings, ...lines]);
+      renderRouteVariants(data, shapes, stops, shade);
+    }
+
+    function routeMapStopPopupHtml(s, data, color, fg) {
+      return `
+          <div class="stop-popup">
+            <div class="stop-popup-header" style="background:${color}; color:${fg}">${escapeHtml(s.stop_name)}</div>
+            <div class="stop-popup-cards">
+              <div class="stop-popup-card">
+                <div class="stop-popup-card-label">Code</div>
+                <div class="stop-popup-card-val">${escapeHtml(s.stop_code || s.stop_id)}</div>
+              </div>
+              <div class="stop-popup-card">
+                <div class="stop-popup-card-label">${data.all_days ? 'Trips (all days)' : 'Trips that day'}</div>
+                <div class="stop-popup-card-val">${s.trips}</div>
+              </div>
+            </div>
+            <button class="secondary stop-popup-btn" style="background:${color}; color:${fg}" data-stop-id="${escapeHtml(s.stop_id)}" onclick="openRouteMapStop(this.dataset.stopId)">Show departures</button>
+          </div>`;
+    }
+
+    // The stop board lives on the Stops tab (Departures on phones); the route map stays drawn.
+    function openRouteMapStop(stopId) {
+      map.closePopup();
+      switchTab('m-tab-stop');
+      handleStopMarkerClick(stopId);
+    }
+
+    function renderRouteVariants(data, shapes, stops, shade) {
+      const head = `${shapes.length === 1 ? '1 shape' : `${shapes.length} shapes`} · ${stops.length} stops · `
+        + (data.all_days ? `${tripsLabel(data.trips)} in the feed (none run on this date)` : `${tripsLabel(data.trips)} on this date`)
+        + '. Tap a stop on the map for its departures.';
+      shapes.forEach((s, i) => { s._i = i; });
+      const rows = shapes.map((s, i) => `
+        <button type="button" class="route-variant" data-i="${i}">
+          <span class="rv-swatch" style="background:${shade(s.trips)}"></span>
+          <span class="rv-name">${escapeHtml(s.headsign || 'Unnamed variant')}</span>
+          <span class="rv-trips">${tripsLabel(s.trips)}</span>
+        </button>`).join('');
+      ['', 'm-'].forEach(p => {
+        const el = document.getElementById(p + 'routeVariants');
+        if (!el) return;
+        el.innerHTML = `<div class="section-title">Shapes</div><div class="route-variants-head">${head}</div>${rows}`;
+        el.hidden = false;
+        el.querySelectorAll('.route-variant').forEach(btn => {
+          const shape = shapes[+btn.dataset.i];
+          btn.addEventListener('click', () => {
+            routeMapPinned = routeMapPinned === shape ? null : shape;
+            focusRouteVariant(routeMapPinned);
+            const hit = routeMapLines.find(r => r.shape === routeMapPinned);
+            if (hit) map.fitBounds(hit.line.getBounds(), { padding: [40, 40] });
+          });
+          if (canHoverPointer) {
+            btn.addEventListener('mouseenter', () => focusRouteVariant(shape));
+            btn.addEventListener('mouseleave', () => focusRouteVariant(routeMapPinned));
+          }
+        });
+      });
+    }
+
+    // Dim every shape but `shape` (null: show them all, busiest on top again)
+    function focusRouteVariant(shape) {
+      if (!routeMapLayer) return;
+      routeMapLines.forEach(r => {
+        const on = !shape || r.shape === shape;
+        r.line.setStyle({ opacity: on ? 1 : 0.15 });
+        r.casing.setStyle({ opacity: on ? 0.28 : 0.04 });
+      });
+      routeMapLines.forEach(r => r.casing.bringToFront());
+      routeMapLines.forEach(r => r.line.bringToFront());
+      const hit = shape && routeMapLines.find(r => r.shape === shape);
+      if (hit) { hit.casing.bringToFront(); hit.line.bringToFront(); }
+      document.querySelectorAll('.route-variant').forEach(btn => {
+        btn.classList.toggle('is-focused', !!routeMapPinned && btn.dataset.i === String(routeMapPinned._i));
+      });
+    }
+
     function loadRouteTrips(routeId, dateVal) {
       document.body.classList.add('has-route-view');
+      loadRouteMap(routeId, dateVal || todayStr());
       const [year,month,day] = (dateVal || todayStr()).split('-');
       loadRouteInfo(routeId);
       ['','m-'].forEach(p => {
@@ -6690,7 +6903,7 @@
             </div>
             <div class="dep-time-row">
               <div class="dep-time"><span class="dep-time-sched">${fmtTime(dep.arrival_time)}</span><span class="dep-time-actual"></span></div>
-              <div class="dep-eta" data-arrival="${dep.arrival_time}" data-trip-id="${dep.trip_id}"></div>
+              <div class="dep-eta-col"><div class="dep-eta" data-arrival="${dep.arrival_time}" data-trip-id="${dep.trip_id}"></div></div>
             </div>
             ${dep.trip_headsign ? `<div class="dep-headsign-row"><div class="dep-headsign">${dep.trip_headsign}</div></div>` : ''}
             <div class="dep-card-footer">
@@ -7564,7 +7777,7 @@
         </div>
         <div class="dep-time-row">
           <div class="dep-time"><span class="dep-time-sched">${fmtTime(t.depart_time)}</span><span class="dep-time-actual"></span></div>
-          <div class="dep-eta" data-arrival="${escapeHtml(t.depart_time)}" data-trip-id="${escapeHtml(t.trip_id)}"></div>
+          <div class="dep-eta-col"><div class="dep-eta" data-arrival="${escapeHtml(t.depart_time)}" data-trip-id="${escapeHtml(t.trip_id)}"></div></div>
         </div>
         <div class="between-times"><span class="between-arrow">&rarr;</span><span>arrives ${fmtTime(t.arrive_time)}</span><span class="between-ride">${ride} min ride</span></div>
         ${t.trip_headsign ? `<div class="dep-headsign-row"><div class="dep-headsign">${escapeHtml(t.trip_headsign)}</div></div>` : ''}
@@ -7611,7 +7824,7 @@
         </div>
         <div class="dep-time-row">
           <div class="dep-time"><span class="dep-time-sched">${fmtTime(j.depart_time)}</span><span class="dep-time-actual"></span></div>
-          <div class="dep-eta" data-arrival="${escapeHtml(j.depart_time)}" data-trip-id="${escapeHtml(j.trip_id)}"></div>
+          <div class="dep-eta-col"><div class="dep-eta" data-arrival="${escapeHtml(j.depart_time)}" data-trip-id="${escapeHtml(j.trip_id)}"></div></div>
         </div>
         <div class="between-times"><span class="between-arrow">&rarr;</span><span>arrives ${fmtTime(j.arrive_time)}</span><span class="between-ride">${total} min · ${transfers}</span></div>
         <ol class="journey-legs">${legs}</ol>

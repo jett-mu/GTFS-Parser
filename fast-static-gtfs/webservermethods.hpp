@@ -2,6 +2,7 @@
 #include <iostream>
 #include <iomanip>
 #include <sstream>
+#include <unordered_set>
 #include "../static-gtfs/gtfs.hpp"
 #include "fast-gtfs.hpp"
 #include "planner.hpp"
@@ -78,6 +79,156 @@ inline string getTrip(const string& trip_id,
                 (i == (tx_length - 1) ? " }\n" : " },\n");
     }
 
+    out << "\t]\n}\n";
+
+    return out.str();
+}
+
+// Every distinct shape a route runs on the given service day (busiest first) and every stop those
+// trips serve, each with its trip count, so the route map can weigh variants by how often they run.
+// Trips without a shape_id are grouped by their stop sequence and drawn stop to stop. If nothing
+// runs that day, every trip of the route is counted instead ("all_days": true).
+inline string getRouteMap(const string& route_id, const int& year, const int& month, const int& day,
+                     const vector<pair<string, vector<string>>>& triplines,
+                     const std::unordered_map<string, int>& triprefs,
+                     const vector<pair<string, vector<string>>>& stoptimesstoplines,
+                     const std::unordered_map<string, int>& stoptimesstoprefs,
+                     const vector<pair<string, vector<string>>>& shapelines,
+                     const std::unordered_map<string, int>& shaperefs,
+                     const vector<pair<string, vector<string>>>& calendarlines,
+                     const std::unordered_map<string, int>& calendarrefs,
+                     const vector<pair<string, vector<string>>>& calendardatelines,
+                     const std::unordered_map<string, int>& calendardaterefs,
+                     const vector<pair<string, vector<string>>>& stoplines,
+                     const std::unordered_map<string, int>& stoprefs,
+                     const vector<pair<string, vector<string>>>& routelines,
+                     const std::unordered_map<string, int>& routerefs,
+                     const int& precision = 6) {
+
+    ostringstream out;
+    out << std::fixed << std::setprecision(precision);
+
+    const int routeCol = triprefs.at("route_id");
+    const int serviceCol = triprefs.at("service_id");
+    auto optionalCol = [&](const char* key) { auto find = triprefs.find(key); return find == triprefs.end() ? -1 : find->second; };
+    const int shapeCol = optionalCol("shape_id");
+    const int headsignCol = optionalCol("trip_headsign");
+    const int directionCol = optionalCol("direction_id");
+
+    // trips.txt is sorted by trip_id, not route_id, so this is one pass over every trip
+    vector<const pair<string, vector<string>>*> allTrips, dayTrips;
+    std::unordered_map<string, bool> runs; // service_id -> runs on the date
+    for (const auto& row : triplines) {
+        if (row.second[routeCol] != route_id) continue;
+        allTrips.push_back(&row);
+        const string& service_id = row.second[serviceCol];
+        auto find = runs.find(service_id);
+        if (find == runs.end()) {
+            find = runs.emplace(service_id, fast_gtfs::bin_search::isServiceActive(service_id, year, month, day,
+                calendarlines, calendarrefs, calendardatelines, calendardaterefs)).first;
+        }
+        if (find->second) dayTrips.push_back(&row);
+    }
+    const bool allDays = dayTrips.empty();
+    const auto& counted = allDays ? allTrips : dayTrips;
+
+    struct variant {
+        string shape_id;
+        int trips = 0;
+        int direction_id = -1;
+        std::map<string, int> headsigns;
+        vector<string> stopIds; // the first trip's calls, for drawing when there are no shape points
+    };
+    std::map<string, variant> variants; // keyed by shape_id, or "stops:" + call sequence when unshaped
+    std::unordered_map<string, int> stopTrips;
+    vector<string> stopOrder; // first-seen order, so the list follows the route
+
+    for (const auto* row : counted) {
+        const vector<gtfs::trip_segment> calls = fast_gtfs::bin_search::getAllStops(row->first, stoptimesstoplines, stoptimesstoprefs);
+        std::unordered_set<string> seen; // a loop that calls twice still counts the trip once
+        string pattern;
+        for (const gtfs::trip_segment& x : calls) {
+            pattern += x.stop.stop_id;
+            pattern += ',';
+            if (seen.insert(x.stop.stop_id).second && stopTrips[x.stop.stop_id]++ == 0) stopOrder.push_back(x.stop.stop_id);
+        }
+        const string shape_id = shapeCol >= 0 ? row->second[shapeCol] : "";
+        variant& v = variants[shape_id.empty() ? "stops:" + pattern : shape_id];
+        if (v.trips++ == 0) {
+            v.shape_id = shape_id;
+            for (const gtfs::trip_segment& x : calls) v.stopIds.push_back(x.stop.stop_id);
+        }
+        if (headsignCol >= 0) v.headsigns[row->second[headsignCol]]++;
+        if (directionCol >= 0 && v.direction_id < 0 && !row->second[directionCol].empty()) v.direction_id = gtfs::to_integer(row->second[directionCol]);
+    }
+
+    vector<const variant*> ordered;
+    for (const auto& [key, v] : variants) ordered.push_back(&v);
+    std::stable_sort(ordered.begin(), ordered.end(), [](const variant* a, const variant* b) { return a->trips > b->trips; });
+
+    std::unordered_map<string, gtfs::stop> stopInfo;
+    auto stopOf = [&](const string& id) -> const gtfs::stop& {
+        auto find = stopInfo.find(id);
+        if (find == stopInfo.end()) find = stopInfo.emplace(id, fast_gtfs::bin_search::getStopInfo(id, stoplines, stoprefs)).first;
+        return find->second;
+    };
+
+    const gtfs::route rx = fast_gtfs::bin_search::getRouteInfo(route_id, routelines, routerefs);
+
+    out << "{\n";
+    out << "\t\"route_id\": \"" << gtfs::jsonEscape(route_id) << "\",\n";
+    out << "\t\"route_short_name\": \"" << gtfs::jsonEscape(rx.route_short_name) << "\",\n";
+    out << "\t\"route_long_name\": \"" << gtfs::jsonEscape(rx.route_long_name) << "\",\n";
+    out << "\t\"route_color\": \"" << gtfs::jsonEscape(rx.route_color) << "\",\n";
+    out << "\t\"route_text_color\": \"" << gtfs::jsonEscape(rx.route_text_color) << "\",\n";
+    out << "\t\"trips\": " << counted.size() << ",\n";
+    out << "\t\"all_days\": " << (allDays ? "true" : "false") << ",\n";
+
+    out << "\t\"shapes\": [\n";
+    for (size_t i = 0; i < ordered.size(); i++) {
+        const variant& v = *ordered[i];
+        string headsign;
+        int best = 0;
+        for (const auto& [h, n] : v.headsigns) if (n > best) { best = n; headsign = h; }
+
+        out << "\t\t{ \"shape_id\": \"" << gtfs::jsonEscape(v.shape_id) <<
+                "\", \"trips\": " << v.trips <<
+                ", \"headsign\": \"" << gtfs::jsonEscape(headsign) <<
+                "\", \"direction_id\": " << v.direction_id <<
+                ", \"points\": [";
+        vector<gtfs::shape> points;
+        if (!v.shape_id.empty()) points = fast_gtfs::bin_search::getShapeInfo(v.shape_id, shapelines, shaperefs);
+        std::stable_sort(points.begin(), points.end(), [](const gtfs::shape& a, const gtfs::shape& b) {
+            return a.shape_pt_sequence < b.shape_pt_sequence;
+        });
+        bool first = true;
+        if (points.size() > 1) {
+            for (const gtfs::shape& pt : points) {
+                out << (first ? "" : ",") << "[" << pt.shape_pt_lat << "," << pt.shape_pt_lon << "]";
+                first = false;
+            }
+        } else {
+            for (const string& id : v.stopIds) {
+                const gtfs::stop& st = stopOf(id);
+                out << (first ? "" : ",") << "[" << st.stop_lat << "," << st.stop_lon << "]";
+                first = false;
+            }
+        }
+        out << "] }" << (i == ordered.size() - 1 ? "\n" : ",\n");
+    }
+    out << "\t],\n";
+
+    out << "\t\"stops\": [\n";
+    for (size_t i = 0; i < stopOrder.size(); i++) {
+        const gtfs::stop& st = stopOf(stopOrder[i]);
+        out << "\t\t{ \"stop_id\": \"" << gtfs::jsonEscape(stopOrder[i]) <<
+                "\", \"stop_code\": \"" << gtfs::jsonEscape(st.stop_code) <<
+                "\", \"stop_name\": \"" << gtfs::jsonEscape(st.stop_name) <<
+                "\", \"lat\": " << st.stop_lat <<
+                ", \"lon\": " << st.stop_lon <<
+                ", \"trips\": " << stopTrips[stopOrder[i]] <<
+                (i == stopOrder.size() - 1 ? " }\n" : " },\n");
+    }
     out << "\t]\n}\n";
 
     return out.str();
