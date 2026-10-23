@@ -957,6 +957,40 @@
       text-align: center;
     }
 
+    /* ===== GLOBAL SEARCH (above the tabs) ===== */
+    .global-search { padding: 0 var(--space-5) var(--space-3); flex-shrink: 0; }
+    #m-globalSearch { padding: 0 14px 8px; }
+    .global-search .stop-search-results { left: var(--space-5); right: var(--space-5); max-height: min(420px, 60vh); }
+    /* --vv-h tracks the visible viewport, so the list stays above the on-screen keyboard */
+    #m-globalSearch .stop-search-results { left: 14px; right: 14px; max-height: min(360px, calc(var(--vv-h, 100dvh) - var(--peek-h, 160px) - 24px)); }
+    .global-search input[type="text"] { padding-left: 32px; }
+    .global-search-ico {
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 15px;
+      height: 15px;
+      color: var(--text-dim);
+      pointer-events: none;
+    }
+    .global-search-kbd {
+      position: absolute;
+      right: 9px;
+      top: 50%;
+      transform: translateY(-50%);
+      padding: 0 6px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      line-height: 17px;
+      color: var(--text-dim);
+      border: 1px solid var(--border2);
+      border-radius: 4px;
+      pointer-events: none;
+    }
+    .global-search input:focus ~ .global-search-kbd,
+    .global-search input:not(:placeholder-shown) ~ .global-search-kbd { display: none; }
+
     .divider {
       height: 1px;
       background: var(--border);
@@ -2903,6 +2937,15 @@
           </div>
           <button class="theme-switch btn-ico" id="themeToggleBtn" title="Switch theme" onclick="toggleTheme()"><span class="theme-switch-knob" aria-hidden="true"><span class="ico-pair ico-sun"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg><span class="ico-uni" aria-hidden="true">&#x2600;&#xFE0E;</span></span><span class="ico-pair ico-moon"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z"/></svg><span class="ico-uni" aria-hidden="true">&#x263E;&#xFE0E;</span></span></span><span class="btn-label">Light theme</span></button>
         </div>
+        <div class="global-search stop-search-wrap" id="globalSearch">
+          <div class="stop-search-field">
+            <svg class="global-search-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+            <input type="text" id="globalSearchInput" placeholder="Search stops, routes, trip IDs" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Search stops, routes and trip IDs" />
+            <kbd class="global-search-kbd" aria-hidden="true">/</kbd>
+            <button type="button" class="stop-search-clear" aria-label="Clear search" hidden>&times;</button>
+          </div>
+          <div class="stop-search-results" id="globalSearchResults"></div>
+        </div>
         <div id="sidebar-tabs">
           <span class="sb-tab-indicator" id="sbTabIndicator" aria-hidden="true"></span>
           <button class="sb-tab active" data-sb-tab="sb-tab-stop">Stops</button>
@@ -3233,6 +3276,15 @@
         <div id="sheet-peek-sub">Tap to search stops &amp; trips</div>
       </div>
       <button class="theme-switch btn-ico" id="mThemeToggleBtn" title="Switch theme" onclick="event.stopPropagation(); toggleTheme()"><span class="theme-switch-knob" aria-hidden="true"><span class="ico-pair ico-sun"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg><span class="ico-uni" aria-hidden="true">&#x2600;&#xFE0E;</span></span><span class="ico-pair ico-moon"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z"/></svg><span class="ico-uni" aria-hidden="true">&#x263E;&#xFE0E;</span></span></span><span class="btn-label">Light theme</span></button>
+    </div>
+
+    <div class="global-search stop-search-wrap" id="m-globalSearch">
+      <div class="stop-search-field">
+        <svg class="global-search-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input type="text" id="m-globalSearchInput" placeholder="Search stops, routes, trip IDs" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Search stops, routes and trip IDs" />
+        <button type="button" class="stop-search-clear" aria-label="Clear search" hidden>&times;</button>
+      </div>
+      <div class="stop-search-results" id="m-globalSearchResults"></div>
     </div>
 
     <div id="mobile-tabs">
@@ -6171,6 +6223,242 @@
       loadRouteTrips(match.route_id, date);
     }
 
+    // ===== GLOBAL SEARCH (stops + routes + trip ID) =====
+    // One box above the tabs: queries stops and routes together (and, for
+    // queries with a digit, whether the text is a trip ID), then hands the
+    // pick to the per-tab select* function and switches to that tab.
+    const GLOBAL_STOP_ROWS = 5;
+    const GLOBAL_ROUTE_ROWS = 4;
+    const TRIP_ID_QUERY_RE = /^(?=.*\d)[\w.:-]{3,}$/;
+    let globalSearchRequestId = 0;
+
+    function initGlobalSearch(inputId, resultsId) {
+      const input = document.getElementById(inputId);
+      const results = document.getElementById(resultsId);
+      if (!input || !results) return;
+      bindSearchDropdown(input, results);
+
+      const clearBtn = input.parentElement.querySelector('.stop-search-clear');
+      const syncClearBtn = () => { if (clearBtn) clearBtn.hidden = !input.value; };
+
+      const debouncedRun = debounce(q => runGlobalSearch(q, results, false), SEARCH_DEBOUNCE_MS);
+
+      const onQueryChange = () => {
+        syncClearBtn();
+        const q = input.value.trim();
+        if (q.length < STOP_SEARCH_MIN_CHARS) {
+          debouncedRun.cancel();
+          ++globalSearchRequestId;
+          renderRecentStops(results, pickGlobalStop);
+          return;
+        }
+        showStopSearchLoading(results);
+        debouncedRun(q);
+      };
+
+      input.addEventListener('input', onQueryChange);
+
+      input.addEventListener('focus', () => {
+        if (inputId.startsWith('m-') && !sheetExpanded) expandSheet();
+        const q = input.value.trim();
+        if (q.length < STOP_SEARCH_MIN_CHARS) renderRecentStops(results, pickGlobalStop);
+        else if (results.childElementCount) showStopSearchResults(results);
+      });
+
+      input.addEventListener('blur', () => {
+        setTimeout(() => hideStopSearchResults(results), 150);
+      });
+
+      if (clearBtn) {
+        clearBtn.addEventListener('mousedown', e => {
+          e.preventDefault();
+          input.value = '';
+          input.focus();
+          onQueryChange();
+        });
+      }
+
+      // Enter with nothing highlighted picks the top result, searching
+      // straight away if the debounced request hasn't fired yet.
+      attachDropdownKeyboard(input, results, (active, items) => {
+        if (active) { active._pick(); return; }
+        const q = input.value.trim();
+        if (q.length < STOP_SEARCH_MIN_CHARS || results.dataset.mode === 'recent') return;
+        debouncedRun.cancel();
+        if (results.dataset.mode === 'search' && results._query === q) {
+          if (items.length) items[0]._pick();
+          return;
+        }
+        showStopSearchLoading(results);
+        runGlobalSearch(q, results, true);
+      });
+    }
+
+    function runGlobalSearch(query, results, pickFirstOnArrive) {
+      const requestId = ++globalSearchRequestId;
+      const q = encodeURIComponent(query);
+      const get = url => apiFetch(url).then(r => r.ok ? r.json() : {}).catch(() => null);
+      Promise.all([
+        get(`/api/searchstop/${q}`),
+        get(`/api/searchroute/${q}`),
+        TRIP_ID_QUERY_RE.test(query) ? get(`/api/trip/${q}`) : Promise.resolve({})
+      ]).then(([stops, routes, trip]) => {
+        if (requestId !== globalSearchRequestId) return; // superseded by a later keystroke
+        results.removeAttribute('aria-busy');
+        if (!stops && !routes) {
+          results.dataset.mode = 'error';
+          renderSearchMessage(results, 'stop-search-empty', 'Couldn’t search right now — try again');
+          return;
+        }
+        renderGlobalSearchResults({
+          stops: (stops && stops.matches) || [],
+          routes: (routes && routes.matches) || [],
+          trip: trip && Array.isArray(trip.stops) && trip.stops.length ? trip : null
+        }, results, query);
+        if (pickFirstOnArrive) results.querySelector('.stop-search-item')?._pick();
+      });
+    }
+
+    function appendGlobalSection(results, title, more) {
+      const header = document.createElement('div');
+      header.className = 'stop-search-section';
+      const label = document.createElement('span');
+      label.textContent = title;
+      header.appendChild(label);
+      if (more) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.textContent = 'See all';
+        btn.addEventListener('mousedown', e => { e.preventDefault(); more(); });
+        header.appendChild(btn);
+      }
+      results.appendChild(header);
+    }
+
+    function renderGlobalSearchResults({ stops, routes, trip }, results, query) {
+      results.innerHTML = '';
+      results.dataset.mode = 'search';
+      results._query = query;
+
+      if (!stops.length && !routes.length && !trip) {
+        renderSearchMessage(results, 'stop-search-empty', `Nothing matches “${query}”`);
+        return;
+      }
+
+      let row = 0;
+      const sections = [];
+
+      if (routes.length) sections.push({ score: routes[0].score, render: () => {
+        appendGlobalSection(results, 'Routes', routes.length > GLOBAL_ROUTE_ROWS ? () => openTabSearch('route', query, results) : null);
+        routes.slice(0, GLOBAL_ROUTE_ROWS).forEach(m => makeSearchRow(results, {
+          id: `${results.id}-opt-${row++}`,
+          primary: m.route_short_name ? `${m.route_short_name} — ${m.route_long_name}` : m.route_long_name,
+          query,
+          secondary: `#${m.route_id}`,
+          pick: () => pickGlobalRoute(m, results)
+        }));
+      } });
+
+      if (stops.length) sections.push({ score: stops[0].score, render: () => {
+        const groups = groupStopMatches(stops);
+        appendGlobalSection(results, 'Stops', groups.length > GLOBAL_STOP_ROWS ? () => openTabSearch('stop', query, results) : null);
+        groups.slice(0, GLOBAL_STOP_ROWS).forEach(g => {
+          const first = g.stops[0];
+          const match = g.stops.length > 1 ? { ...first, _group: true, _members: g.stops } : first;
+          makeSearchRow(results, {
+            id: `${results.id}-opt-${row++}`,
+            primary: g.name,
+            query,
+            badge: g.stops.length > 1 ? `${g.stops.length} stops` : '',
+            secondary: g.stops.length > 1 ? '' : stopSideNumber(first, query),
+            pick: () => pickGlobalStop(match, results),
+            preview: () => showSearchPreview(g.stops)
+          });
+        });
+      } });
+
+      // Only listed when the ID resolves to a real trip, so it counts as exact.
+      if (trip) sections.push({ score: 100, render: () => {
+        appendGlobalSection(results, 'Trip', null);
+        makeSearchRow(results, {
+          id: `${results.id}-opt-${row++}`,
+          primary: `Trip ${trip.trip_id}`,
+          query,
+          secondary: trip.route_short_name || trip.route_id || '',
+          pick: () => pickGlobalTrip(String(trip.trip_id), results)
+        });
+      } });
+
+      // Best-matching kind first; Array.sort is stable, so ties keep the
+      // routes → stops → trip order above.
+      sections.sort((a, b) => b.score - a.score).forEach(s => s.render());
+      showStopSearchResults(results);
+    }
+
+    // Empties both global boxes once a result has been handed off.
+    function finishGlobalSearch(results) {
+      ++globalSearchRequestId;
+      hideStopSearchResults(results);
+      if (results._input) results._input.blur();
+      [['globalSearchInput', 'globalSearchResults'], ['m-globalSearchInput', 'm-globalSearchResults']].forEach(([inputId, resultsId]) => {
+        const el = document.getElementById(inputId);
+        if (el) {
+          el.value = '';
+          const clearBtn = el.parentElement.querySelector('.stop-search-clear');
+          if (clearBtn) clearBtn.hidden = true;
+        }
+        const list = document.getElementById(resultsId);
+        if (list) { list.innerHTML = ''; delete list.dataset.mode; }
+      });
+    }
+
+    function pickGlobalStop(match, results) {
+      finishGlobalSearch(results);
+      switchTab('m-tab-stop');
+      selectStopFromSearch(match, results);
+    }
+
+    function pickGlobalRoute(match, results) {
+      finishGlobalSearch(results);
+      switchTab('m-tab-route');
+      selectRouteFromSearch(match, results, isMobile() ? 'm-dateInput' : 'dateInput');
+    }
+
+    function pickGlobalTrip(tripId, results) {
+      finishGlobalSearch(results);
+      ['tripIdInput', 'm-tripIdInput'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = tripId;
+      });
+      loadTrip(tripId, null);
+    }
+
+    // "See all": run the same query in that tab's own search box.
+    function openTabSearch(kind, query, results) {
+      finishGlobalSearch(results);
+      switchTab(kind === 'stop' ? 'm-tab-stop' : 'm-tab-route');
+      const el = document.getElementById((isMobile() ? 'm-' : '') + (kind === 'stop' ? 'stopSearchInput' : 'routeSearchInput'));
+      if (!el) return;
+      el.value = query;
+      el.focus();
+      el.dispatchEvent(new Event('input'));
+    }
+
+    // "/" or Ctrl/⌘+K focuses the desktop global search from anywhere that isn't a text field.
+    document.addEventListener('keydown', e => {
+      const t = e.target;
+      const typing = t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
+      const isSlash = e.key === '/' && !typing && !e.ctrlKey && !e.metaKey && !e.altKey;
+      const isCmdK = (e.key === 'k' || e.key === 'K') && (e.ctrlKey || e.metaKey) && !e.altKey;
+      if (!isSlash && !isCmdK) return;
+      const input = document.getElementById(isMobile() ? 'm-globalSearchInput' : 'globalSearchInput');
+      if (!input || !input.offsetParent) return;
+      e.preventDefault();
+      if (document.getElementById('app-shell').classList.contains('sidebar-collapsed')) setSidebarCollapsed(false);
+      input.focus();
+      input.select();
+    });
+
     // ===== SEARCH MULTIPLE STOPS (exact name match) =====
 
     // Splits "A / B", "A & B", "A and B", "A at B" into segments regardless of
@@ -6880,10 +7168,15 @@
     const handleArea = document.getElementById('sheet-handle-area');
     const peekArea   = document.getElementById('sheet-peek');
 
-    // Peek height = handle + peek row + tab bar; drives --peek-h so the collapsed sheet and map controls track real sizes.
-    function updatePeekHeight() {
+    // Peek height = handle + peek row + global search + tab bar; drives --peek-h so the collapsed sheet and map controls track real sizes.
+    function sheetPeekHeight() {
+      const search = document.getElementById('m-globalSearch');
       const tabs = document.getElementById('mobile-tabs');
-      const h = handleArea.offsetHeight + peekArea.offsetHeight + (tabs ? tabs.offsetHeight : 0);
+      return handleArea.offsetHeight + peekArea.offsetHeight + (search ? search.offsetHeight : 0) + (tabs ? tabs.offsetHeight : 0);
+    }
+
+    function updatePeekHeight() {
+      const h = sheetPeekHeight();
       if (h > 0) document.documentElement.style.setProperty('--peek-h', h + 'px');
     }
     window.addEventListener('resize', updatePeekHeight);
@@ -6906,7 +7199,7 @@
       const dy = clientY - dragStartY;
       const sheet = document.getElementById('mobile-sheet');
       if (Math.abs(dy) > 6) dragMoved = true;
-      const peekH = handleArea.offsetHeight + peekArea.offsetHeight + (document.getElementById('mobile-tabs')?.offsetHeight || 0);
+      const peekH = sheetPeekHeight();
       const maxTranslate = sheet.offsetHeight - peekH - (parseFloat(getComputedStyle(sheet).paddingBottom) || 0);
 
       if (sheetExpanded) {
@@ -7934,6 +8227,8 @@
     initStopSearch('m-nearbyStopSearchInput', 'm-nearbyStopSearchResults', selectNearbyFromStopSearch);
     initRouteSearch('routeSearchInput', 'routeSearchResults', 'dateInput');
     initRouteSearch('m-routeSearchInput', 'm-routeSearchResults', 'm-dateInput');
+    initGlobalSearch('globalSearchInput', 'globalSearchResults');
+    initGlobalSearch('m-globalSearchInput', 'm-globalSearchResults');
     initStopSearch('tripFromInput', 'tripFromResults', selectTripEndFromSearch('from'));
     initStopSearch('m-tripFromInput', 'm-tripFromResults', selectTripEndFromSearch('from'));
     initStopSearch('tripToInput', 'tripToResults', selectTripEndFromSearch('to'));
