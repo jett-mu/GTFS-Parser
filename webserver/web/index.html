@@ -257,16 +257,6 @@
       color: var(--text);
       line-height: 1.2;
     }
-    /* Signal lamp beside the wordmark */
-    .brand-led {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: var(--eta);
-      box-shadow: 0 0 0 3px rgba(var(--eta-rgb), 0.16), 0 0 10px rgba(var(--eta-rgb), 0.55);
-      flex-shrink: 0;
-    }
-    :root[data-theme="light"] .brand-led { background: var(--accent3); box-shadow: 0 0 0 3px rgba(var(--accent3-rgb), 0.16); }
     /* Station clock: riders read every countdown against it */
     .station-clock {
       display: inline-flex;
@@ -305,17 +295,12 @@
       border-radius: 999px;
       border: 1px solid var(--border2);
       background-color: var(--surface3);
-      background-image:
-        radial-gradient(circle at 11px 8px,  var(--text-dim) 0 1px,   transparent 1.6px),
-        radial-gradient(circle at 19px 17px, var(--text-dim) 0 0.9px, transparent 1.4px),
-        radial-gradient(circle at 8px 19px,  var(--text-dim) 0 0.7px, transparent 1.2px);
       transition: background-color 0.3s ease, border-color 0.3s ease;
     }
     button.theme-switch:hover { background-color: var(--surface3); border-color: var(--text-dim); }
     :root[data-theme="light"] button.theme-switch,
     :root[data-theme="light"] button.theme-switch:hover {
       background-color: rgba(var(--accent3-rgb), 0.16);
-      background-image: none;
       border-color: rgba(var(--accent3-rgb), 0.45);
     }
     .theme-switch-knob {
@@ -1307,12 +1292,6 @@
       gap: 6px;
       min-width: 0;
     }
-    .dep-dir {
-      font-size: 12px;
-      line-height: 1;
-      color: var(--text-dim);
-      flex-shrink: 0;
-    }
     .dep-headsign {
       font-size: 14.5px;
       font-weight: 600;
@@ -1621,12 +1600,6 @@
       background: var(--accent2);
       border: 2px solid white;
       border-radius: 50%;
-      animation: pin-pulse 1.6s ease-out infinite;
-    }
-    @keyframes pin-pulse {
-      0%   { box-shadow: 0 0 0 0 rgba(var(--accent2-rgb), 0.55); }
-      70%  { box-shadow: 0 0 0 10px rgba(var(--accent2-rgb), 0); }
-      100% { box-shadow: 0 0 0 0 rgba(var(--accent2-rgb), 0); }
     }
 
     /* ===== ACTION BUTTONS =====
@@ -1662,22 +1635,6 @@
       border-radius: 50%;
       background: var(--bg);
       color: var(--accent);
-    }
-    .locate-hero .radar::before,
-    .locate-hero .radar::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      border-radius: 50%;
-      border: 2px solid var(--bg);
-      opacity: 0;
-      animation: radar-ping 2.6s cubic-bezier(0,0,0.2,1) infinite;
-      pointer-events: none;
-    }
-    .locate-hero .radar::after { animation-delay: 1.3s; }
-    @keyframes radar-ping {
-      0%   { transform: scale(1);   opacity: 0.55; }
-      100% { transform: scale(2.2); opacity: 0; }
     }
     .locate-hero .radar .ico-svg { width: 16px; height: 16px; transition: transform 0.25s var(--ease-out); }
     .locate-hero:hover .radar .ico-svg { transform: translate(1px,-1px) rotate(-8deg); }
@@ -1716,33 +1673,9 @@
 
     .pick-mode-btn.btn-tile:not(.active):hover .ico-a .ico-svg { transform: rotate(90deg); }
     .show-loc-btn.btn-tile:not(.on):hover .ico-a .ico-svg { transform: scale(1.15); }
-    /* Pick mode armed: dashed outline breathing while it waits for a map tap. */
-    button.pick-mode-btn.btn-tile.active {
-      border-style: dashed;
-      animation: tile-wait 1.6s ease-in-out infinite;
-    }
-    @keyframes tile-wait {
-      0%, 100% { box-shadow: 0 0 0 0 rgba(var(--negative-rgb), 0); }
-      50%      { box-shadow: 0 0 0 3px rgba(var(--negative-rgb), 0.2); }
-    }
-    /* Live location on: a pulsing "live" dot in the corner. */
+    /* Pick mode armed: dashed outline while it waits for a map tap. */
+    button.pick-mode-btn.btn-tile.active { border-style: dashed; }
     button.show-loc-btn.btn-tile.on { border-color: var(--accent); color: var(--accent); }
-    .show-loc-btn.btn-tile.on::after {
-      content: '';
-      position: absolute;
-      top: 8px;
-      right: 8px;
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: var(--accent);
-      animation: loc-live 1.6s ease-out infinite;
-    }
-    @keyframes loc-live {
-      0%   { box-shadow: 0 0 0 0 rgba(var(--accent-rgb), 0.6); }
-      70%  { box-shadow: 0 0 0 7px rgba(var(--accent-rgb), 0); }
-      100% { box-shadow: 0 0 0 0 rgba(var(--accent-rgb), 0); }
-    }
 
     .go-form { display: flex; gap: 6px; min-width: 0; }
     .go-form.stacked { display: grid; grid-template-columns: 1fr auto; }
@@ -1847,13 +1780,6 @@
       color: var(--accent3);
     }
 
-    .rt-pulse {
-      position: relative;
-      width: 7px; height: 7px;
-      border-radius: 50%;
-      background: var(--positive);
-    }
-    .rt-pulse.error { background: var(--negative); opacity: 0.7; }
 
     .rt-body {
       padding: 9px 11px;
@@ -2007,12 +1933,7 @@
       background: var(--eta);
       border: 2.5px solid var(--sign-bg);
       border-radius: 50%;
-      animation: veh-pulse 1.8s ease-out infinite;
-    }
-    @keyframes veh-pulse {
-      0%   { box-shadow: 0 0 0 0 rgba(var(--eta-rgb), 0.55); }
-      70%  { box-shadow: 0 0 0 12px rgba(var(--eta-rgb), 0); }
-      100% { box-shadow: 0 0 0 0 rgba(var(--eta-rgb), 0); }
+      box-shadow: var(--shadow-1);
     }
 
     .veh-time-tooltip {
@@ -3080,26 +3001,6 @@
     .station-clock .eta-roll-1 { animation: digit-roll 560ms var(--ease-out) both; }
     @keyframes digit-roll { from { opacity: 0; transform: translateY(70%); filter: blur(2px); } }
 
-    /* Due now: the lamp breathes */
-    .dep-eta.dep-eta-due .eta-w { animation: lamp-breathe 1.4s ease-in-out infinite; }
-    @keyframes lamp-breathe { 50% { opacity: 0.4; } }
-    .clock-colon { animation: colon-blink 2s steps(1, end) infinite; }
-    @keyframes colon-blink { 50% { opacity: 0.25; } }
-
-    /* Live indicators radiate a ring instead of blinking */
-    .rt-pulse::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      border-radius: 50%;
-      animation: live-ring 2s var(--ease-out) infinite;
-    }
-    .rt-pulse.error::after { display: none; }
-    @keyframes live-ring {
-      from { box-shadow: 0 0 0 0 rgba(var(--positive-rgb), 0.6); }
-      to   { box-shadow: 0 0 0 7px rgba(var(--positive-rgb), 0); }
-    }
-
     /* The live bus: an amber lamp that glides between position updates */
     :root[data-theme="light"] .vehicle-rt-marker div { background: var(--accent3); border-color: #fff; }
     .leaflet-marker-icon.vehicle-rt-marker.gliding,
@@ -3131,7 +3032,6 @@
       <div id="sidebar-inner">
         <div id="sidebar-header">
           <div id="sidebar-header-left">
-            <span class="brand-led" aria-hidden="true"></span>
             <div id="sidebar-header-titles">
               <h1>GTFS Parser</h1>
             </div>
@@ -3236,7 +3136,6 @@
         <div id="rtPanel" class="rt-panel" style="display:none">
           <div class="rt-panel-header">
             <span class="rt-title">Live vehicle</span>
-            <span class="rt-pulse" id="rtPulse"></span>
           </div>
           <div class="rt-body">
             <div class="rt-row"><span class="rt-label">Status</span><span class="rt-val" id="rv-status">—</span></div>
@@ -3547,7 +3446,6 @@
         <div id="m-rtPanel" class="rt-panel" style="display:none">
           <div class="rt-panel-header">
             <span class="rt-title">Live vehicle</span>
-            <span class="rt-pulse" id="m-rtPulse"></span>
           </div>
           <div class="rt-body">
             <div class="rt-row"><span class="rt-label">Status</span><span class="rt-val" id="m-rv-status">—</span></div>
@@ -5249,10 +5147,6 @@
         const el = document.getElementById(id);
         if (el) el.style.display = 'block';
       });
-      ['rtPulse','m-rtPulse'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.className = 'rt-pulse';
-      });
       fetchRTLocation();
       rtIntervalId = setInterval(() => { fetchRTLocation(); refreshTripStopDelays(); }, 10000);
       rtRelativeId = setInterval(() => {
@@ -5277,7 +5171,6 @@
         .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
         .then(renderRTData)
         .catch(err => {
-          ['rtPulse','m-rtPulse'].forEach(id => { const el=document.getElementById(id); if(el) el.className='rt-pulse error'; });
           ['rtTimestamp','m-rtTimestamp'].forEach(id => setVal(id, `Error: ${err.message}`));
         });
     }
@@ -5290,8 +5183,6 @@
         if (vehicleRTMarker) { map.removeLayer(vehicleRTMarker); vehicleRTMarker = null; }
         return;
       }
-
-      ['rtPulse','m-rtPulse'].forEach(id => { const el=document.getElementById(id); if(el) el.className='rt-pulse'; });
 
       const veh  = entity.vehicle;
       const trip = veh.trip     || {};
@@ -5449,7 +5340,7 @@
               <div class="dep-time"><span class="dep-time-sched">${fmtTime(dep.arrival_time)}</span><span class="dep-time-actual"></span></div>
               <div class="dep-eta" data-arrival="${dep.arrival_time}" data-trip-id="${dep.trip_id}"></div>
             </div>
-            ${(dep.trip_headsign || dep.direction_id != null) ? `<div class="dep-headsign-row">${dep.direction_id != null ? `<span class="dep-dir" title="Direction ${dep.direction_id}">${dep.direction_id ? '↙︎' : '↗︎'}</span>` : ''}${dep.trip_headsign ? `<div class="dep-headsign">${dep.trip_headsign}</div>` : ''}</div>` : ''}
+            ${dep.trip_headsign ? `<div class="dep-headsign-row"><div class="dep-headsign">${dep.trip_headsign}</div></div>` : ''}
             <div class="dep-card-footer">
               <div class="dep-trip">Trip ${dep.trip_id}</div>
             </div>
@@ -6784,7 +6675,7 @@
               <div class="dep-time"><span class="dep-time-sched">${fmtTime(dep.arrival_time)}</span><span class="dep-time-actual"></span></div>
               <div class="dep-eta" data-arrival="${dep.arrival_time}" data-trip-id="${dep.trip_id}"></div>
             </div>
-            ${(dep.trip_headsign || dep.direction_id != null) ? `<div class="dep-headsign-row">${dep.direction_id != null ? `<span class="dep-dir" title="Direction ${dep.direction_id}">${dep.direction_id ? '↙︎' : '↗︎'}</span>` : ''}${dep.trip_headsign ? `<div class="dep-headsign">${dep.trip_headsign}</div>` : ''}</div>` : ''}
+            ${dep.trip_headsign ? `<div class="dep-headsign-row"><div class="dep-headsign">${dep.trip_headsign}</div></div>` : ''}
             <div class="dep-card-footer">
               <div class="dep-trip">Trip ${dep.trip_id}</div>
             </div>
@@ -7659,7 +7550,7 @@
           <div class="dep-eta" data-arrival="${escapeHtml(t.depart_time)}" data-trip-id="${escapeHtml(t.trip_id)}"></div>
         </div>
         <div class="between-times"><span class="between-arrow">&rarr;</span><span>arrives ${fmtTime(t.arrive_time)}</span><span class="between-ride">${ride} min ride</span></div>
-        ${(t.trip_headsign || t.direction_id != null) ? `<div class="dep-headsign-row">${t.direction_id != null ? `<span class="dep-dir" title="Direction ${t.direction_id}">${t.direction_id ? '↙︎' : '↗︎'}</span>` : ''}${t.trip_headsign ? `<div class="dep-headsign">${escapeHtml(t.trip_headsign)}</div>` : ''}</div>` : ''}
+        ${t.trip_headsign ? `<div class="dep-headsign-row"><div class="dep-headsign">${escapeHtml(t.trip_headsign)}</div></div>` : ''}
         <div class="dep-card-footer">
           <div class="dep-trip">${multi ? `Stop ${stopLabel(t.from_stop_id)} → ${stopLabel(t.to_stop_id)} · ` : ''}Trip ${escapeHtml(t.trip_id)}</div>
         </div>
