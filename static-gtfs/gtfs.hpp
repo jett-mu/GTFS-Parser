@@ -1488,27 +1488,31 @@ inline std::vector<routematch> searchRoute(const data_feed& d, const string& nam
     std::vector<routematch> results;
     results.reserve(routes.size());
 
+    constexpr int minScore = 25; // same cutoff as searchStop
+
     for (const auto& item : routes) {
-        int bestScore = -1;
+        // Zero-padded short names ("004") also match the plain number ("4").
+        string unpadded = item.route_short_name;
+        unpadded.erase(0, std::min(unpadded.find_first_not_of('0'), unpadded.size()));
 
-        for (const string& field : { item.route_id, item.route_short_name, item.route_long_name }) {
+        int bestScore = 0;
+
+        for (const string& field : { item.route_id, item.route_short_name, unpadded, item.route_long_name }) {
             if (field.empty()) continue;
-
-            int dist   = levenshtein(toLower(field), nameLower);
-            int maxLen = static_cast<int>(std::max(field.size(), name.size()));
-            int score  = (maxLen > 0) ? (100 - (dist * 100 / maxLen)) : 100;
-
-            bestScore = std::max(bestScore, score);
+            bestScore = std::max(bestScore, fuzzyFieldScore(toLower(field), nameLower));
         }
 
-        if (bestScore < 0) bestScore = 0;
+        if (bestScore < minScore) continue;
 
         results.push_back({ item.route_id, item.route_short_name, item.route_long_name, bestScore });
     }
 
+    // Deterministic order: best score first, then short name, then id.
     std::sort(results.begin(), results.end(),
         [](const routematch& a, const routematch& b) {
-            return a.score > b.score;
+            if (a.score != b.score) return a.score > b.score;
+            if (a.route_short_name != b.route_short_name) return a.route_short_name < b.route_short_name;
+            return a.route_id < b.route_id;
         });
 
     return results;
