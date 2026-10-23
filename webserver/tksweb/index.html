@@ -1348,6 +1348,16 @@
     .between-arrow { color: var(--text-dim); }
     .between-ride { font-size: 11px; color: var(--text-muted); }
     .between-empty { font-size: 12.5px; color: var(--text-muted); padding: 8px 2px; }
+    .trip-mode-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .journey-chain { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; min-width: 0; }
+    .journey-chain-sep { color: var(--text-dim); font-size: 12px; }
+    .journey-legs { list-style: none; margin: 2px 0 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+    .journey-leg { display: flex; align-items: baseline; gap: 6px; font-size: 12px; line-height: 1.3; color: var(--text-muted); }
+    .journey-leg-time { font-family: var(--font-mono); color: var(--text); white-space: nowrap; }
+    .journey-leg-route { font-family: var(--font-mono); font-weight: 600; color: var(--text); white-space: nowrap; }
+    .journey-leg-ride { cursor: pointer; }
+    .journey-leg-ride:hover .journey-leg-route { text-decoration: underline; }
+    .journey-leg-walk { font-style: italic; }
 
     .date-row {
       display: flex;
@@ -1918,6 +1928,10 @@
     }
     .seg[data-mode="n4"] .seg-thumb  { transform: translateX(100%); }
     .seg[data-mode="all"] .seg-thumb { transform: translateX(200%); }
+    /* two-option variant (Trip tab: Direct / With transfers) */
+    .seg.seg-2 { grid-template-columns: repeat(2, 1fr); }
+    .seg.seg-2 .seg-thumb { width: calc((100% - 4px) / 2); }
+    .seg.seg-2[data-mode="transfers"] .seg-thumb { transform: translateX(100%); }
     .seg > button {
       position: relative;
       z-index: 1;
@@ -1951,7 +1965,7 @@
     .dep-expanded .dep-expand-btn .ico-expand { display: none; }
     .dep-expanded .dep-expand-btn .ico-collapse { display: block; }
     /* Fill the whole sidebar (not the screen): pinned over #sidebar, which is the positioned, clipping ancestor */
-    #departuresSection.dep-expanded, #multiDeparturesSection.dep-expanded {
+    #departuresSection.dep-expanded, #multiDeparturesSection.dep-expanded, #betweenSection.dep-expanded {
       position: absolute; inset: 0; z-index: 20;
       background: var(--surface);
       padding: var(--space-4);
@@ -3066,7 +3080,18 @@
               <button class="secondary today-btn is-today btn-ico" data-for="tripDateInput" title="Jump back to today" onclick="setDateToday('tripDateInput')"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg><span class="ico-uni" aria-hidden="true">&#x21BA;&#xFE0E;</span><span class="btn-label">Today</span></button>
             </div>
           </div>
-          <div class="nearest-hint">Direct trips only. Stops within the "Include all stops within" distance (Stops tab settings) count as the same stop.</div>
+          <div class="field-block trip-mode-row">
+            <span class="input-row-label">Show</span>
+            <div class="seg seg-2" id="tripModeSeg" data-mode="direct" role="group" aria-label="Trip type"><span class="seg-thumb" aria-hidden="true"></span><button type="button" data-mode="direct" aria-pressed="true" title="Direct trips only" onclick="setTripMode('direct')">Direct</button><button type="button" data-mode="transfers" aria-pressed="false" title="Journeys with transfers and short walks" onclick="setTripMode('transfers')">With transfers</button></div>
+          </div>
+          <div class="nearest-hint" id="tripModeHint">Direct trips only. Stops within the "Include all stops within" distance (Stops tab settings) count as the same stop.</div>
+          <div class="field-block">
+            <label class="input-row-label" for="tripIdInput">Or go to a trip ID</label>
+            <div class="go-form">
+              <input type="text" id="tripIdInput" placeholder="Trip ID, e.g. 40928123" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Trip ID" />
+              <button class="secondary tab-accent-btn go-btn btn-ico" aria-label="Load trip" title="Load trip" onclick="handleLoadTrip('tripIdInput')"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg><span class="ico-uni" aria-hidden="true">&#x2192;&#xFE0E;</span></button>
+            </div>
+          </div>
         </div>
         <div id="betweenLoading" class="departures-grid" style="display:none">
           <div class="skel-dep-card"><div class="skel-row-top"><div class="skel-block skel-route-pill"></div></div><div class="skel-row-time"><div class="skel-block skel-time-big"></div><div class="skel-block skel-eta-pill"></div></div><div class="skel-block skel-headsign-line"></div><div class="skel-row-footer"><div class="skel-block skel-trip-line"></div></div></div>
@@ -3075,10 +3100,11 @@
         </div>
         <div id="betweenSection" style="display:none">
           <div class="departures-section-header">
-            <div class="section-title">Direct trips</div>
-            <div class="dep-header-actions"><div class="seg" id="betweenSeg" data-mode="3h" role="group" aria-label="Time window"><span class="seg-thumb" aria-hidden="true"></span><button type="button" data-mode="3h" aria-pressed="true" title="Next 3 hours" onclick="setBetweenWindow('3h')">3h</button><button type="button" data-mode="n4" aria-pressed="false" title="Next 4 trips" onclick="setBetweenWindow('n4')">Next 4</button><button type="button" data-mode="all" aria-pressed="false" title="All trips that day" onclick="setBetweenWindow('all')">All</button></div></div>
+            <div class="section-title" id="betweenTitle">Direct trips</div>
+            <div class="dep-header-actions"><div class="seg" id="betweenSeg" data-mode="3h" role="group" aria-label="Time window"><span class="seg-thumb" aria-hidden="true"></span><button type="button" data-mode="3h" aria-pressed="true" title="Next 3 hours" onclick="setBetweenWindow('3h')">3h</button><button type="button" data-mode="n4" aria-pressed="false" title="Next 4 trips" onclick="setBetweenWindow('n4')">Next 4</button><button type="button" data-mode="all" aria-pressed="false" title="All trips that day" onclick="setBetweenWindow('all')">All</button></div><button type="button" class="dep-expand-btn" title="Fill sidebar" aria-label="Fill sidebar" aria-pressed="false" onclick="toggleDepExpand('betweenSection')"><svg class="ico-expand" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg><svg class="ico-collapse" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"/></svg></button></div>
           </div>
           <div class="dep-window-label" id="betweenMeta"></div>
+          <div class="nearest-hint" id="betweenWalkNote" hidden></div>
           <div class="departures-grid" id="betweenGrid"></div>
         </div>
       </div>
@@ -3099,14 +3125,6 @@
               <input type="text" id="routeIdInput" placeholder="Route ID, e.g. 512" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Route ID" />
               <button class="secondary tab-accent-btn go-btn btn-ico" aria-label="Search route" title="Search route" onclick="handleLoadRoute('routeIdInput','dateInput')"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg><span class="ico-uni" aria-hidden="true">&#x2192;&#xFE0E;</span></button>
             </div>
-          </div>
-        </div>
-
-        <div class="panel">
-          <div class="panel-heading">Trip lookup</div>
-          <div class="go-form">
-            <input type="text" id="tripIdInput" placeholder="Trip ID, e.g. 40928123" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Trip ID" />
-            <button class="secondary tab-accent-btn go-btn btn-ico" aria-label="Load trip" title="Load trip" onclick="handleLoadTrip('tripIdInput')"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg><span class="ico-uni" aria-hidden="true">&#x2192;&#xFE0E;</span></button>
           </div>
         </div>
 
@@ -3403,7 +3421,18 @@
               <button class="secondary today-btn is-today btn-ico" data-for="m-tripDateInput" title="Jump back to today" onclick="setDateToday('m-tripDateInput')"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg><span class="ico-uni" aria-hidden="true">&#x21BA;&#xFE0E;</span><span class="btn-label">Today</span></button>
             </div>
           </div>
-          <div class="nearest-hint">Direct trips only. Stops within the "Include all stops within" distance (Stops tab settings) count as the same stop.</div>
+          <div class="field-block trip-mode-row">
+            <span class="input-row-label">Show</span>
+            <div class="seg seg-2" id="m-tripModeSeg" data-mode="direct" role="group" aria-label="Trip type"><span class="seg-thumb" aria-hidden="true"></span><button type="button" data-mode="direct" aria-pressed="true" title="Direct trips only" onclick="setTripMode('direct')">Direct</button><button type="button" data-mode="transfers" aria-pressed="false" title="Journeys with transfers and short walks" onclick="setTripMode('transfers')">With transfers</button></div>
+          </div>
+          <div class="nearest-hint" id="m-tripModeHint">Direct trips only. Stops within the "Include all stops within" distance (Stops tab settings) count as the same stop.</div>
+          <div class="field-block">
+            <label class="input-row-label" for="m-tripIdInput">Or go to a trip ID</label>
+            <div class="go-form">
+              <input type="text" id="m-tripIdInput" placeholder="Trip ID" autocapitalize="off" autocorrect="off" spellcheck="false" />
+              <button class="secondary tab-accent-btn go-btn btn-ico" aria-label="Load trip" title="Load trip" onclick="handleLoadTrip('m-tripIdInput')"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg><span class="ico-uni" aria-hidden="true">&#x2192;&#xFE0E;</span></button>
+            </div>
+          </div>
         <div id="m-betweenLoading" class="departures-grid" style="display:none">
           <div class="skel-dep-card"><div class="skel-row-top"><div class="skel-block skel-route-pill"></div></div><div class="skel-row-time"><div class="skel-block skel-time-big"></div><div class="skel-block skel-eta-pill"></div></div><div class="skel-block skel-headsign-line"></div><div class="skel-row-footer"><div class="skel-block skel-trip-line"></div></div></div>
           <div class="skel-dep-card"><div class="skel-row-top"><div class="skel-block skel-route-pill"></div></div><div class="skel-row-time"><div class="skel-block skel-time-big"></div><div class="skel-block skel-eta-pill"></div></div><div class="skel-block skel-headsign-line"></div><div class="skel-row-footer"><div class="skel-block skel-trip-line"></div></div></div>
@@ -3411,15 +3440,16 @@
         </div>
         <div id="m-betweenSection" style="display:none">
           <div class="departures-section-header">
-            <div class="section-title">Direct trips</div>
+            <div class="section-title" id="m-betweenTitle">Direct trips</div>
             <div class="dep-header-actions"><div class="seg" id="m-betweenSeg" data-mode="3h" role="group" aria-label="Time window"><span class="seg-thumb" aria-hidden="true"></span><button type="button" data-mode="3h" aria-pressed="true" title="Next 3 hours" onclick="setBetweenWindow('3h')">3h</button><button type="button" data-mode="n4" aria-pressed="false" title="Next 4 trips" onclick="setBetweenWindow('n4')">Next 4</button><button type="button" data-mode="all" aria-pressed="false" title="All trips that day" onclick="setBetweenWindow('all')">All</button></div></div>
           </div>
           <div class="dep-window-label" id="m-betweenMeta"></div>
+          <div class="nearest-hint" id="m-betweenWalkNote" hidden></div>
           <div class="departures-grid" id="m-betweenGrid"></div>
         </div>
       </div>
 
-      <!-- ROUTE TAB (also holds trip lookup) -->
+      <!-- ROUTE TAB -->
       <div class="tab-panel" id="m-tab-route">
         <div class="field-block stop-search-wrap">
           <label class="input-row-label" for="m-routeSearchInput">Search by number or name</label>
@@ -3432,14 +3462,6 @@
           <div class="go-form">
             <input type="text" id="m-routeIdInput" placeholder="Route ID" autocapitalize="off" autocorrect="off" spellcheck="false" />
             <button class="secondary tab-accent-btn go-btn btn-ico" aria-label="Search route" title="Search route" onclick="handleLoadRoute('m-routeIdInput','m-dateInput')"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg><span class="ico-uni" aria-hidden="true">&#x2192;&#xFE0E;</span></button>
-          </div>
-        </div>
-
-        <div class="field-block">
-          <label class="input-row-label" for="m-tripIdInput">Or go to a trip ID</label>
-          <div class="go-form">
-            <input type="text" id="m-tripIdInput" placeholder="Trip ID" autocapitalize="off" autocorrect="off" spellcheck="false" />
-            <button class="secondary tab-accent-btn go-btn btn-ico" aria-label="Load trip" title="Load trip" onclick="handleLoadTrip('m-tripIdInput')"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg><span class="ico-uni" aria-hidden="true">&#x2192;&#xFE0E;</span></button>
           </div>
         </div>
 
@@ -4389,6 +4411,8 @@
     const ROUTE_CROSS_ANGLE = 30;       // deg: shallower "crossings" are overlaps, not crossings
     const ROUTE_FEATURE_CLEAR = 30;     // px: plain chevrons keep this far from a trace arrow
     let routeCasing = null;
+    let journeyLayer = null;   // a planned journey's legs (displayJourney); cleared with the route line
+    let journeyRequestId = 0;  // bumped by every trip / journey load so a slow journey draw can't land late
     const routeArrows = {
       markers: [], latlngs: [], stops: [], terminals: [], crossings: [],
       color: '#fff', iconCache: new Map(), renderer: null, relayout: 0, baseZoom: null
@@ -4419,6 +4443,7 @@
     }
 
     function clearRouteLine() {
+      if (journeyLayer) { map.removeLayer(journeyLayer); journeyLayer = null; }
       if (polyline) { map.removeLayer(polyline); polyline = null; }
       if (routeCasing) { map.removeLayer(routeCasing); routeCasing = null; }
       routeArrows.markers.forEach(m => map.removeLayer(m));
@@ -4831,6 +4856,7 @@
         if (cardEl.classList.contains('rt-trip-card')) activeRouteTripCard = cardEl;
         else activeDepCard = cardEl;
       }
+      journeyRequestId++;
       apiFetch(`/api/trip/${tripId}`)
         .then(r => r.json())
         .then(displayTrip)
@@ -6982,11 +7008,18 @@
     })();
 
     // ===== TRIP BETWEEN STOPS =====
-    // Direct trips from one stop to another (/api/between). Each end expands to every
-    // stop within the include-nearby radius when that setting is on, so picking either
-    // side of the street still finds the bus going your way.
+    // Direct trips from one stop to another (/api/between), or with the "With transfers"
+    // mode, planned journeys that change routes and walk between nearby stops
+    // (/api/journeys). Each end expands to every stop within the include-nearby radius
+    // when that setting is on, so picking either side of the street still finds the bus
+    // going your way.
     const BETWEEN_MAX_IDS = 20; // per side, same cap as server.py
-    const tripState = { from: null, to: null, trips: [], fromStops: [], toStops: [], window: '3h', requestId: 0 };
+    const TRIP_MODE_KEY = 'gtfs-trip-mode';
+    const JOURNEY_LIMIT = 40;                  // max per /api/journeys call (server.py's cap)
+    const JOURNEY_LOOKBACK_SECS = 15 * 60;     // today: also list journeys that left a little ago (late buses)
+    const JOURNEY_REFETCH_MS = 10 * 60 * 1000; // today's journeys start at "now", so top them up as time passes
+    const tripState = { from: null, to: null, trips: [], fromStops: [], toStops: [], legStops: [], walkOnly: null,
+      window: '3h', requestId: 0, mode: loadTripMode(), shownMode: 'direct', fetchedAt: 0 };
     const nearbyIdsCache = new Map(); // "ids|radiusKM" -> Promise<[stop_id, ...]>
     let betweenMarkers = null;
     let betweenRefreshId = null;
@@ -7045,6 +7078,51 @@
           .map(t => ({ ...t, depart_time: shiftBackOneDay(t.depart_time), arrive_time: shiftBackOneDay(t.arrive_time), prev_day: true }));
         return carried.length ? { ...d, trips: [...carried, ...(d.trips || [])] } : d;
       });
+    }
+
+    // /api/journeys for one service date. The server already carries yesterday's
+    // past-midnight trips onto this date (prev_day on the ride legs).
+    function fetchJourneysDay(fromIds, toIds, date) {
+      const ids = list => list.map(encodeURIComponent).join(',');
+      const after = date === todayStr() ? Math.max(0, nowInSeconds() - JOURNEY_LOOKBACK_SECS) : 0;
+      return apiFetch(`/api/journeys/${ids(fromIds)}/${ids(toIds)}/${date}?after=${after}&limit=${JOURNEY_LIMIT}`).then(r => r.json());
+    }
+
+    // A journey as a grid row: its first ride stands in for trip_id / depart_time /
+    // from_stop_id, so the window filter, ETAs and RT badges treat it like a direct trip.
+    function journeyItems(data) {
+      return (data.journeys || []).map(j => {
+        const first = (j.legs || []).find(l => l.type === 'ride');
+        if (!first) return null;
+        return { ...j, leave_time: j.depart_time, trip_id: first.trip_id, depart_time: first.depart_time,
+          from_stop_id: first.from_stop_id, prev_day: !!first.prev_day, route_id: first.route_id, route_color: first.route_color };
+      }).filter(Boolean);
+    }
+
+    function journeyKey(j) {
+      return j.legs.map(l => l.type === 'ride' ? `${l.trip_id}${l.prev_day ? '|prev' : ''}` : 'w').join('>');
+    }
+
+    function loadTripMode() {
+      try { return localStorage.getItem(TRIP_MODE_KEY) === 'transfers' ? 'transfers' : 'direct'; } catch (e) { return 'direct'; }
+    }
+
+    function applyTripMode() {
+      const transfers = tripState.mode === 'transfers';
+      ['', 'm-'].forEach(p => {
+        setSegMode(document.getElementById(p + 'tripModeSeg'), tripState.mode);
+        setVal(p + 'tripModeHint', transfers
+          ? 'Up to 3 transfers, with straight-line walks of up to 500 m between stops. Stops within the "Include all stops within" distance (Stops tab settings) count as the same stop.'
+          : 'Direct trips only. Stops within the "Include all stops within" distance (Stops tab settings) count as the same stop.');
+      });
+    }
+
+    function setTripMode(mode) {
+      if (mode === tripState.mode) return;
+      tripState.mode = mode;
+      try { localStorage.setItem(TRIP_MODE_KEY, mode); } catch (e) {}
+      applyTripMode();
+      loadBetween();
     }
 
     function tripDateStr() {
@@ -7127,29 +7205,41 @@
       if (!from || !to) {
         ++tripState.requestId;
         tripState.trips = [];
-        hideEls(['betweenSection', 'm-betweenSection']);
+        hideBetweenSection();
         clearBetweenMarkers();
         return Promise.resolve();
       }
       const requestId = ++tripState.requestId;
       const date = tripDateStr();
+      const mode = tripState.mode;
       const run = () => Promise.all([expandNearbyIds(from), expandNearbyIds(to)])
-        .then(([fromIds, toIds]) => fetchBetweenDay(fromIds, toIds, date))
+        .then(([fromIds, toIds]) => (mode === 'transfers' ? fetchJourneysDay : fetchBetweenDay)(fromIds, toIds, date))
         .then(data => {
           if (requestId !== tripState.requestId) return;
           if (data.error) throw new Error(data.error);
-          displayBetween(data, date, isRefresh);
+          displayBetween(data, date, isRefresh, mode);
         })
         .catch(() => { if (requestId === tripState.requestId && !isRefresh) showToast('Error loading trips.'); });
       if (isRefresh) return run();
-      hideEls(['betweenSection', 'm-betweenSection']);
+      hideBetweenSection();
       return withMinSpinner(['betweenLoading', 'm-betweenLoading'], 'flex', run);
     }
 
-    function displayBetween(data, date, isRefresh) {
-      tripState.trips = (data.trips || []).slice().sort((a, b) => parseTime(a.depart_time) - parseTime(b.depart_time));
+    // the "Fill sidebar" view (display: flex !important) would keep stale results on screen
+    function hideBetweenSection() {
+      if (document.getElementById('betweenSection')?.classList.contains('dep-expanded')) toggleDepExpand('betweenSection');
+      hideEls(['betweenSection', 'm-betweenSection']);
+    }
+
+    function displayBetween(data, date, isRefresh, mode) {
+      const items = mode === 'transfers' ? journeyItems(data) : (data.trips || []).slice();
+      tripState.trips = items.sort((a, b) => parseTime(a.depart_time) - parseTime(b.depart_time));
       tripState.fromStops = data.from_stops || [];
       tripState.toStops = data.to_stops || [];
+      tripState.legStops = data.stops || [];
+      tripState.walkOnly = data.walk_only || null;
+      tripState.shownMode = mode;
+      tripState.fetchedAt = Date.now();
       tripState.date = date;
       if (!isRefresh) {
         // "Next 3h" only means something for today; any other date opens on all trips.
@@ -7179,19 +7269,28 @@
     function renderBetween() {
       const all = tripState.trips;
       const shown = betweenShownTrips();
-      const stopsById = new Map([...tripState.fromStops, ...tripState.toStops].map(s => [String(s.stop_id), s]));
+      const journeys = tripState.shownMode === 'transfers';
+      const stopsById = new Map([...tripState.legStops, ...tripState.fromStops, ...tripState.toStops].map(s => [String(s.stop_id), s]));
       const multi = tripState.fromStops.length > 1 || tripState.toStops.length > 1;
       const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
       const meta = all.length
-        ? `${shown.length} of ${plural(all.length, 'direct trip')} · ${plural(tripState.fromStops.length, 'stop')} → ${plural(tripState.toStops.length, 'stop')}`
+        ? `${shown.length} of ${plural(all.length, journeys ? 'journey' : 'direct trip')} · ${plural(tripState.fromStops.length, 'stop')} → ${plural(tripState.toStops.length, 'stop')}`
+        : '';
+      const w = journeys ? tripState.walkOnly : null;
+      const stopName = id => { const s = stopsById.get(String(id)); return s ? s.stop_name || s.stop_code || s.stop_id : id; };
+      const walkNote = w
+        ? `Walkable: ${stopName(w.from_stop_id)} to ${stopName(w.to_stop_id)} is ${w.distance_m} m in a straight line (about ${Math.max(1, Math.round(w.walk_secs / 60))} min).`
         : '';
 
       ['', 'm-'].forEach(p => {
+        setVal(p + 'betweenTitle', journeys ? 'Journeys' : 'Direct trips');
         setVal(p + 'betweenMeta', meta);
+        const note = document.getElementById(p + 'betweenWalkNote');
+        if (note) { note.textContent = walkNote; note.hidden = !walkNote; }
         const grid = document.getElementById(p + 'betweenGrid');
         if (!grid) return;
         grid.dataset.date = tripState.date;
-        const key = shown.length ? shown.map(depKey).join(',') : `empty:${all.length}`;
+        const key = shown.length ? `${tripState.shownMode}:` + shown.map(journeys ? journeyKey : depKey).join(',') : `empty:${tripState.shownMode}:${all.length}`;
         if (grid.dataset.tripKey !== key) {
           grid.dataset.tripKey = key;
           grid.innerHTML = '';
@@ -7199,11 +7298,13 @@
             const msg = document.createElement('div');
             msg.className = 'between-empty';
             msg.textContent = all.length
-              ? 'No trips in this window. Try "All".'
-              : 'No direct trips between these stops on this date.';
+              ? `No ${journeys ? 'journeys' : 'trips'} in this window. Try "All".`
+              : journeys
+                ? (w ? 'Walking there is quicker than any bus.' : 'No journeys found on this date (up to 3 transfers, walks up to 500 m).')
+                : 'No direct trips between these stops on this date.';
             grid.appendChild(msg);
           }
-          shown.forEach(t => grid.appendChild(betweenCard(t, stopsById, multi)));
+          shown.forEach(t => grid.appendChild(journeys ? journeyCard(t, stopsById) : betweenCard(t, stopsById, multi)));
         }
         updateGridETAs(grid);
       });
@@ -7238,14 +7339,171 @@
           <div class="dep-trip">${multi ? `Stop ${stopLabel(t.from_stop_id)} → ${stopLabel(t.to_stop_id)} · ` : ''}Trip ${escapeHtml(t.trip_id)}</div>
         </div>
       `;
-      card.addEventListener('click', () => {
-        loadTrip(t.trip_id, card);
-        // loadTrip jumps to the stop board (where the live-vehicle panel is); stay on the
-        // trip list instead, and on phones lower the sheet so the route shows on the map
-        switchTab('m-tab-trip');
-        if (isMobile()) collapseSheet();
-      });
+      card.addEventListener('click', () => openTripFromTripTab(t.trip_id, card));
       return card;
+    }
+
+    function openTripFromTripTab(tripId, card) {
+      loadTrip(tripId, card);
+      // loadTrip jumps to the stop board (where the live-vehicle panel is); stay on the
+      // trip list instead, and on phones lower the sheet so the route shows on the map
+      switchTab('m-tab-trip');
+      if (isMobile()) collapseSheet();
+    }
+
+    // One planned journey (an item from journeyItems): the route chain, the first bus's
+    // time + ETA, arrival and total time, then each ride / walk leg. Tapping the card opens
+    // the first ride's trip; tapping a ride leg opens that leg's trip.
+    function journeyCard(j, stopsById) {
+      const card = document.createElement('div');
+      card.className = 'dep-card';
+      card.dataset.tripId = j.trip_id;
+      card.dataset.arrival = j.depart_time;
+      card.dataset.stopId = j.from_stop_id;
+      const dot = color => color ? `<span class="dep-dot" style="background:#${escapeHtml(color)}"></span>` : '';
+      const stopName = id => { const s = stopsById.get(String(id)); return escapeHtml(s ? s.stop_name || s.stop_code || s.stop_id : id); };
+      const rides = j.legs.filter(l => l.type === 'ride');
+      const chain = rides.map(l => `<div class="dep-route">${dot(l.route_color)}${escapeHtml(l.route_id)}</div>`).join('<span class="journey-chain-sep">&rsaquo;</span>');
+      const total = Math.max(0, Math.round((parseTime(j.arrive_time) - parseTime(j.leave_time)) / 60));
+      const transfers = j.transfers === 0 ? 'direct' : `${j.transfers} transfer${j.transfers === 1 ? '' : 's'}`;
+      const legs = j.legs.map((l, i) => l.type === 'walk'
+        ? `<li class="journey-leg journey-leg-walk"><span class="journey-leg-time">${fmtTime(l.depart_time)}</span><span>Walk ${l.distance_m} m (${Math.max(1, Math.round((parseTime(l.arrive_time) - parseTime(l.depart_time)) / 60))} min) to ${stopName(l.to_stop_id)}</span></li>`
+        : `<li class="journey-leg journey-leg-ride" data-leg="${i}"><span class="journey-leg-time">${fmtTime(l.depart_time)}</span><span><span class="journey-leg-route">${dot(l.route_color)} ${escapeHtml(l.route_id)}</span> ${stopName(l.from_stop_id)} &rarr; ${stopName(l.to_stop_id)} <span class="journey-leg-time">${fmtTime(l.arrive_time)}</span>${l.trip_headsign ? ` · ${escapeHtml(l.trip_headsign)}` : ''}</span></li>`
+      ).join('');
+      const leaveNote = j.leave_time !== j.depart_time ? `Leave ${fmtTime(j.leave_time)} · ` : '';
+      card.innerHTML = `
+        <div class="dep-card-top">
+          <div class="journey-chain">${chain}</div>
+          <div class="dep-badge-slot"></div>
+        </div>
+        <div class="dep-time-row">
+          <div class="dep-time"><span class="dep-time-sched">${fmtTime(j.depart_time)}</span><span class="dep-time-actual"></span></div>
+          <div class="dep-eta" data-arrival="${escapeHtml(j.depart_time)}" data-trip-id="${escapeHtml(j.trip_id)}"></div>
+        </div>
+        <div class="between-times"><span class="between-arrow">&rarr;</span><span>arrives ${fmtTime(j.arrive_time)}</span><span class="between-ride">${total} min · ${transfers}</span></div>
+        <ol class="journey-legs">${legs}</ol>
+        <div class="dep-card-footer">
+          <div class="dep-trip">${leaveNote}Trip ${escapeHtml(j.trip_id)}</div>
+        </div>
+      `;
+      card.querySelectorAll('.journey-leg-ride').forEach(li => li.addEventListener('click', e => {
+        e.stopPropagation();
+        openTripFromTripTab(j.legs[+li.dataset.leg].trip_id, card);
+      }));
+      card.addEventListener('click', () => loadJourney(j, card, stopsById));
+      return card;
+    }
+
+    // ===== JOURNEY ON THE MAP =====
+    // Clicking a journey card draws every route it rides: each trip's whole shape in grey,
+    // the stretch actually ridden in the route colour over it, walks as dotted lines, and
+    // dots for the stops ridden (bigger where you get on and off).
+    let journeyTrips = []; // /api/trip data per ride leg of the journey on the map
+
+    function loadJourney(j, card, stopsById) {
+      if (activeDepCard) activeDepCard.classList.remove('active');
+      if (activeRouteTripCard) activeRouteTripCard.classList.remove('active');
+      card.classList.add('active');
+      activeDepCard = card;
+      const rides = j.legs.filter(l => l.type === 'ride');
+      const requestId = ++journeyRequestId;
+      Promise.all(rides.map(l => apiFetch(`/api/trip/${encodeURIComponent(l.trip_id)}`).then(r => r.ok ? r.json() : null).catch(() => null)))
+        .then(trips => {
+          if (requestId !== journeyRequestId) return;
+          if (!displayJourney(j, trips, stopsById)) showToast('Error loading journey.');
+        });
+      startRTPolling(j.trip_id); // live position of the first bus, the one to catch
+      // stay on the trip list; on phones lower the sheet so the journey shows on the map
+      switchTab('m-tab-trip');
+      if (isMobile()) collapseSheet();
+    }
+
+    // Index into `shape` for each stop (stops in stop_sequence order), never going backwards,
+    // so on a loop or out-and-back shape each stop matches the pass the bus makes there.
+    function shapeIndicesForStops(shape, stops) {
+      const k = Math.cos((stops[0] ? stops[0].lat : 0) * Math.PI / 180);
+      const d2 = (a, b) => { const dy = a.lat - b.lat, dx = (a.lng - b.lng) * k; return dx * dx + dy * dy; };
+      const NEAR = (40 / 111000) ** 2; // within 40 m: the first close pass is the one
+      let from = 0;
+      return stops.map(s => {
+        let best = from, bestD = Infinity;
+        for (let i = from; i < shape.length; i++) {
+          const d = d2(shape[i], s);
+          if (d < bestD) { bestD = d; best = i; }
+          else if (bestD <= NEAR) break; // past the closest point of the first close pass
+        }
+        from = best;
+        return best;
+      });
+    }
+
+    // false if none of the legs could be drawn
+    function displayJourney(j, trips, stopsById) {
+      stopMarkers.forEach(m => map.removeLayer(m));
+      stopMarkers = [];
+      clearRouteLine();
+      tripPopupData = null;
+      journeyTrips = trips;
+
+      const grey = getComputedStyle(document.documentElement).getPropertyValue('--text-dim').trim() || '#8a8f98';
+      const lineOpts = { lineJoin: 'round', lineCap: 'round', interactive: false };
+      const unridden = [], casings = [], walks = [], ridden = [], dots = [], bounds = [];
+      const rides = j.legs.filter(l => l.type === 'ride');
+
+      j.legs.forEach(l => {
+        if (l.type === 'walk') {
+          const a = stopsById.get(String(l.from_stop_id)), b = stopsById.get(String(l.to_stop_id));
+          if (!a || !b) return;
+          const pts = [[a.lat, a.lon], [b.lat, b.lon]];
+          walks.push(L.polyline(pts, { ...lineOpts, color: grey, weight: 4, opacity: 0.95, dashArray: '1 8' }));
+          bounds.push(...pts);
+          return;
+        }
+        const data = trips[rides.indexOf(l)];
+        if (!data || !Array.isArray(data.stops) || !data.stops.length) return;
+        const color = /^#[0-9a-fA-F]{6}$/.test(data.route_color || '') ? data.route_color : '#2F7B4F';
+        const stops = [...data.stops].sort((a, b) => a.stop_sequence - b.stop_sequence);
+        const bi = stops.findIndex(s => +s.stop_sequence === +l.from_sequence);
+        const ai = stops.findIndex(s => +s.stop_sequence === +l.to_sequence);
+        if (bi < 0 || ai <= bi) return;
+        // no shape in the feed: join the stops instead
+        const shape = data.pos_markers && data.pos_markers.length > 1 ? data.pos_markers : stops;
+        const idx = shape === stops ? stops.map((_, i) => i) : shapeIndicesForStops(shape, stops);
+        unridden.push(L.polyline(shape.map(p => [p.lat, p.lng]), { ...lineOpts, color: grey, weight: ROUTE_LINE_WEIGHT - 2, opacity: 0.5 }));
+        const pts = [[stops[bi].lat, stops[bi].lng], ...shape.slice(idx[bi], idx[ai] + 1).map(p => [p.lat, p.lng]), [stops[ai].lat, stops[ai].lng]];
+        casings.push(L.polyline(pts, { ...lineOpts, color: '#000', weight: ROUTE_LINE_WEIGHT + 3, opacity: 0.25 }));
+        ridden.push(L.polyline(pts, { ...lineOpts, color, weight: ROUTE_LINE_WEIGHT, opacity: 1 }));
+        bounds.push(...pts);
+        const fill = readableTextColor(color);
+        stops.slice(bi, ai + 1).forEach((s, i, arr) => {
+          const end = i === 0 || i === arr.length - 1;
+          dots.push(L.circleMarker([s.lat, s.lng], { pane: 'routeStops', color, fillColor: fill, fillOpacity: 1, radius: end ? 6 : 3, weight: end ? 3 : 2 })
+            .bindPopup(tripStopPopupHtml(s, data, null)));
+        });
+      });
+
+      if (!ridden.length) return false;
+      // drawn in this order so no leg's grey or casing covers another leg's colour
+      journeyLayer = L.featureGroup([...unridden, ...casings, ...walks, ...ridden, ...dots]).addTo(map);
+      if (bounds.length) map.fitBounds(L.latLngBounds(bounds), { padding: [40, 40], maxZoom: 16 });
+
+      const stopName = id => { const s = stopsById.get(String(id)); return escapeHtml(s ? s.stop_name || s.stop_code || s.stop_id : id); };
+      const html = `
+        <div class="section-title">Journey</div>
+        ${rides.map(l => `<div class="rt-row"><span class="rt-label">${escapeHtml(l.route_id)} · ${fmtTime(l.depart_time)}</span><span class="rt-val">${stopName(l.from_stop_id)} &rarr; ${stopName(l.to_stop_id)}</span></div>`).join('')}
+        ${rides.map((l, i) => trips[i] && Array.isArray(trips[i].stops)
+          ? `<button class="secondary" style="width:100%;margin-top:9px" onclick="openJourneyLegStops(${i})">${escapeHtml(l.route_id)} stop list</button>` : '').join('')}
+      `;
+      document.getElementById('tripInfo').innerHTML = html;
+      document.getElementById('m-tripInfo').innerHTML = html;
+      return true;
+    }
+
+    function openJourneyLegStops(i) {
+      const data = journeyTrips[i];
+      if (!data) return;
+      tripStopsData = data.stops || [];
+      openTripStops(data.trip_id);
     }
 
     function betweenVisible() {
@@ -7255,7 +7513,12 @@
 
     // ETAs + RT badges while the results are on screen
     function refreshBetween() {
-      if (tripState.trips.length && betweenVisible()) renderBetween();
+      if (!tripState.trips.length || !betweenVisible()) return;
+      if (tripState.shownMode === 'transfers' && tripState.date === todayStr() && Date.now() - tripState.fetchedAt > JOURNEY_REFETCH_MS) {
+        loadBetween(true);
+        return;
+      }
+      renderBetween();
     }
 
     function startBetweenRefresh() {
@@ -7263,6 +7526,7 @@
       betweenRefreshId = setInterval(refreshBetween, 15000);
     }
 
+    applyTripMode();
     ['tripDateInput', 'm-tripDateInput'].forEach((id, i, ids) => {
       const el = document.getElementById(id);
       if (!el) return;

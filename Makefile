@@ -62,7 +62,7 @@ $(RT_DIR)/%: $(RT_DIR)/%.cpp $(RT_PROTO_SRC)
 # routeVehicles/routeMedianDelay also read the static feed through config.hpp/gtfs.hpp (extra deps only, no recipe).
 $(RT_DIR)/routeVehicles $(RT_DIR)/routeMedianDelay: $(STATIC_GTFS_DIR)/gtfs.hpp $(CONFIG_HPP)
 
-$(FAST_DIR)/webserver: $(FAST_DIR)/webserver.cpp $(FAST_DIR)/fast-gtfs.hpp $(FAST_DIR)/webservermethods.hpp $(FAST_DIR)/httplib.h $(STATIC_GTFS_DIR)/gtfs.hpp $(CONFIG_HPP)
+$(FAST_DIR)/webserver: $(FAST_DIR)/webserver.cpp $(FAST_DIR)/fast-gtfs.hpp $(FAST_DIR)/webservermethods.hpp $(FAST_DIR)/planner.hpp $(FAST_DIR)/httplib.h $(STATIC_GTFS_DIR)/gtfs.hpp $(CONFIG_HPP)
 	$(CXX) $(CXXSTD) $(OPT) -o $@ $<
 
 clean:

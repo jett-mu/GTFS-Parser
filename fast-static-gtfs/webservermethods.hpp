@@ -4,6 +4,7 @@
 #include <sstream>
 #include "../static-gtfs/gtfs.hpp"
 #include "fast-gtfs.hpp"
+#include "planner.hpp"
 
 using std::cout;
 using std::ostringstream;
@@ -252,6 +253,128 @@ inline string getBetweenDayTimes(const vector<string>& fromIds, const vector<str
                 ", \"depart_time\": \"" << r.depart.leadingRoundedTime() <<
                 "\", \"arrive_time\": \"" << r.arrive.leadingRoundedTime() <<
                 (i == (length - 1) ? "\" }\n" : "\" },\n");
+    }
+    out << "\t]\n}\n";
+
+    return out.str();
+}
+
+// HH:MM:SS for seconds after the service day's midnight (past 24:00 stays past 24:00, like stop_times)
+inline string secsToTime(const int secs) {
+    return gtfs::time(secs / 3600, secs / 60 % 60, static_cast<float>(secs % 60)).leadingRoundedTime();
+}
+
+// Journeys (direct or with transfers, walking up to planner::WALK_MAX_M between stops) from any of
+// fromIds to any of toIds, leaving in [after, until] seconds after the date's midnight. Trips of the
+// previous service day are included shifted back a day (prev_day), so early-morning queries see them.
+inline string getJourneyDayTimes(const planner::index& idx, const vector<string>& fromIds, const vector<string>& toIds,
+                     int year, int month, int day, const int after, const int until, const int limit,
+                     const vector<pair<string, vector<string>>>& triplines,
+                     const std::unordered_map<string, int>& triprefs,
+                     const vector<pair<string, vector<string>>>& calendarlines,
+                     const std::unordered_map<string, int>& calendarrefs,
+                     const vector<pair<string, vector<string>>>& calendardatelines,
+                     const std::unordered_map<string, int>& calendardaterefs,
+                     const vector<pair<string, vector<string>>>& stoplines,
+                     const std::unordered_map<string, int>& stoprefs,
+                     const vector<pair<string, vector<string>>>& routelines,
+                     const std::unordered_map<string, int>& routerefs,
+                     const int& precision = 6) {
+
+    ostringstream out;
+    out << std::fixed << std::setprecision(precision);
+
+    auto toIndices = [&](const vector<string>& ids) {
+        vector<int> v;
+        for (const string& id : ids) {
+            auto f = idx.stopIndex.find(id);
+            if (f != idx.stopIndex.end()) v.push_back(f->second);
+        }
+        return v;
+    };
+    const vector<int> from = toIndices(fromIds), to = toIndices(toIds);
+
+    const vector<char> today = planner::activeServices(idx, year, month, day,
+        calendarlines, calendarrefs, calendardatelines, calendardaterefs);
+    planner::previousDay(year, month, day);
+    const vector<char> yesterday = planner::activeServices(idx, year, month, day,
+        calendarlines, calendarrefs, calendardatelines, calendardaterefs);
+
+    const vector<planner::journey> journeys = planner::plan(idx, from, to, today, yesterday, after, until, limit);
+
+    const planner::walk_pair walk = planner::directWalk(idx, from, to);
+
+    auto printStops = [&](const char* key, const vector<string>& ids) {
+        out << "\t\"" << key << "\": [\n";
+        for (size_t i = 0; i < ids.size(); i++) {
+            const gtfs::stop st = fast_gtfs::bin_search::getStopInfo(ids[i], stoplines, stoprefs);
+            out << "\t\t{ \"stop_id\": \"" << gtfs::jsonEscape(ids[i]) <<
+                    "\", \"stop_code\": \"" << gtfs::jsonEscape(st.stop_code) <<
+                    "\", \"stop_name\": \"" << gtfs::jsonEscape(st.stop_name) <<
+                    "\", \"lat\": " << st.stop_lat <<
+                    ", \"lon\": " << st.stop_lon <<
+                    (i == (ids.size() - 1) ? " }\n" : " },\n");
+        }
+        out << "\t],\n";
+    };
+
+    // every stop a leg starts or ends at, for names on transfer points
+    vector<string> legStops;
+    for (const planner::journey& j : journeys) for (const planner::leg& l : j.legs) {
+        for (int s : {l.fromStop, l.toStop}) {
+            const string& id = idx.stops[s].id;
+            if (std::find(legStops.begin(), legStops.end(), id) == legStops.end()) legStops.push_back(id);
+        }
+    }
+
+    out << "{\n";
+    printStops("from_stops", fromIds);
+    printStops("to_stops", toIds);
+    printStops("stops", legStops);
+
+    out << "\t\"walk_only\": ";
+    if (walk.from >= 0) {
+        out << "{ \"from_stop_id\": \"" << gtfs::jsonEscape(idx.stops[walk.from].id) <<
+                "\", \"to_stop_id\": \"" << gtfs::jsonEscape(idx.stops[walk.to].id) <<
+                "\", \"distance_m\": " << std::lround(walk.metres) <<
+                ", \"walk_secs\": " << planner::walkSecs(walk.metres) << " },\n";
+    } else {
+        out << "null,\n";
+    }
+
+    std::unordered_map<string, gtfs::route> routes;
+    out << "\t\"journeys\": [\n";
+    for (size_t i = 0; i < journeys.size(); i++) {
+        const planner::journey& j = journeys[i];
+        out << "\t\t{ \"depart_time\": \"" << secsToTime(j.depart) <<
+                "\", \"arrive_time\": \"" << secsToTime(j.arrive) <<
+                "\", \"transfers\": " << j.transfers << ", \"legs\": [\n";
+        for (size_t k = 0; k < j.legs.size(); k++) {
+            const planner::leg& l = j.legs[k];
+            out << "\t\t\t{ \"type\": \"" << (l.walk ? "walk" : "ride") <<
+                    "\", \"from_stop_id\": \"" << gtfs::jsonEscape(idx.stops[l.fromStop].id) <<
+                    "\", \"to_stop_id\": \"" << gtfs::jsonEscape(idx.stops[l.toStop].id) <<
+                    "\", \"depart_time\": \"" << secsToTime(l.depart) <<
+                    "\", \"arrive_time\": \"" << secsToTime(l.arrive) << "\"";
+            if (l.walk) {
+                out << ", \"distance_m\": " << l.metres;
+            } else {
+                const planner::trip_node& tn = idx.trips[l.trip];
+                auto r = routes.find(tn.route_id);
+                if (r == routes.end()) r = routes.emplace(tn.route_id, fast_gtfs::bin_search::getRouteInfo(tn.route_id, routelines, routerefs)).first;
+                const gtfs::trip tripInfo = fast_gtfs::bin_search::getTripInfo(tn.trip_id, triplines, triprefs);
+                out << ", \"route_id\": \"" << gtfs::jsonEscape(r->second.route_short_name) <<
+                        "\", \"route_color\": \"" << gtfs::jsonEscape(r->second.route_color) <<
+                        "\", \"trip_id\": \"" << gtfs::jsonEscape(tn.trip_id) <<
+                        "\", \"trip_headsign\": \"" << gtfs::jsonEscape(tripInfo.trip_headsign) <<
+                        "\", \"direction_id\": " << tripInfo.direction_id <<
+                        ", \"from_sequence\": " << idx.calls[tn.first + l.boardPos].seq <<
+                        ", \"to_sequence\": " << idx.calls[tn.first + l.alightPos].seq <<
+                        ", \"prev_day\": " << (l.prevDay ? "true" : "false");
+            }
+            out << (k == (j.legs.size() - 1) ? " }\n" : " },\n");
+        }
+        out << (i == (journeys.size() - 1) ? "\t\t] }\n" : "\t\t] },\n");
     }
     out << "\t]\n}\n";
 

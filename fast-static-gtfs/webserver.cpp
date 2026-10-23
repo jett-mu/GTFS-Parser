@@ -41,6 +41,8 @@ std::unordered_map<string, int> calendardaterefs;
 vector<pair<string, vector<string>>> routelines;
 std::unordered_map<string, int> routerefs;
 
+planner::index plannerIndex; // built from the tables above at the end of every load()
+
 struct sorted_table {
     const string& source;      // original GTFS file
     const string& sorted;      // sorted copy that gets loaded
@@ -144,6 +146,11 @@ bool load(const fast_gtfs::fast_data_feed& df) {
             std::cout << GREEN << "done" << RESET << "  " << std::right << std::setw(8)
                       << std::fixed << std::setprecision(1) << ms(clock_type::now() - fileStart) << " ms\n";
         }
+        std::cout << "  " << std::left << std::setw(width) << "journey planner index" << " " << std::flush;
+        auto plannerStart = clock_type::now();
+        plannerIndex = planner::build(stoplines, stoprefs, stoptimesstoplines, stoptimesstoprefs, triplines, triprefs);
+        std::cout << GREEN << "done" << RESET << "  " << std::right << std::setw(8)
+                  << std::fixed << std::setprecision(1) << ms(clock_type::now() - plannerStart) << " ms\n";
         loaded = true;
     }
     std::cout << GREEN << "loaded all in " << std::fixed << std::setprecision(1)
@@ -269,6 +276,35 @@ int main() {
 
         std::cout << "GET /api/between/" << req.path_params.at("from") << "/" << req.path_params.at("to") << "/"
                 << year << "/" << month << "/" << day << " -> "
+                << std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count() << " µs\n";
+
+        res.set_content(json, "application/json");
+    });
+
+    // like /api/between, plus transfers and walks; ?after=&until= are seconds after midnight, ?limit= journeys
+    svr.Get("/api/journeys/:from/:to/:year/:month/:day", [](const Request& req, Response& res) {
+        if (!requireLoaded(res)) return;
+        std::shared_lock lock(dataMutex);
+        const vector<string> from = splitIdList(req.path_params.at("from"));
+        const vector<string> to = splitIdList(req.path_params.at("to"));
+        const int year = std::stoi(req.path_params.at("year"));
+        const int month = std::stoi(req.path_params.at("month"));
+        const int day = std::stoi(req.path_params.at("day"));
+        auto param = [&](const char* key, const int fallback) {
+            return req.has_param(key) ? std::stoi(req.get_param_value(key)) : fallback;
+        };
+        const int after = std::max(0, param("after", 0));
+        const int until = param("until", 30 * 3600);
+        const int limit = std::clamp(param("limit", 20), 1, 40);
+
+        auto start = std::chrono::steady_clock::now();
+        string json = getJourneyDayTimes(plannerIndex, from, to, year, month, day, after, until, limit,
+                               triplines, triprefs, calendarlines, calendarrefs, calendardatelines, calendardaterefs,
+                               stoplines, stoprefs, routelines, routerefs);
+        auto elapsed = std::chrono::steady_clock::now() - start;
+
+        std::cout << "GET /api/journeys/" << req.path_params.at("from") << "/" << req.path_params.at("to") << "/"
+                << year << "/" << month << "/" << day << " after " << after << " -> "
                 << std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count() << " µs\n";
 
         res.set_content(json, "application/json");

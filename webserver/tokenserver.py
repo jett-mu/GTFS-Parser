@@ -96,6 +96,42 @@ def get_between(from_ids, to_ids, date):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+MAX_JOURNEYS = 40  # per /api/journeys call
+
+@app.route('/api/journeys/<from_ids>/<to_ids>/<date>')
+@require_token
+def get_journeys(from_ids, to_ids, date):
+    """Journeys with transfers and short walks between stop_id lists; ?after=&until= are seconds after midnight, ?limit= journeys."""
+    try:
+        try:
+            year, month, day = (int(part) for part in date.split('-'))
+        except ValueError:
+            return jsonify({'error': 'date must be YYYY-MM-DD'}), 400
+        sides = [[s for s in ids.split(',') if s] for ids in (from_ids, to_ids)]
+        if not all(sides):
+            return jsonify({'error': 'need at least one stop on each side'}), 400
+        if any(len(ids) > MAX_BETWEEN_IDS for ids in sides):
+            return jsonify({'error': f'at most {MAX_BETWEEN_IDS} stops per side'}), 400
+        params = {}
+        for key in ('after', 'until', 'limit'):
+            if key in request.args:
+                try:
+                    params[key] = int(request.args[key])
+                except ValueError:
+                    return jsonify({'error': f'{key} must be an integer'}), 400
+        if 'limit' in params and not 1 <= params['limit'] <= MAX_JOURNEYS:
+            return jsonify({'error': f'limit must be 1 to {MAX_JOURNEYS}'}), 400
+        frm, to = (','.join(urllib.parse.quote(s, safe='') for s in ids) for ids in sides)
+        query = f"?{urllib.parse.urlencode(params)}" if params else ''
+        data, status = fast_get(f"/api/journeys/{frm}/{to}/{year}/{month}/{day}/{query}")
+        if status != 200:
+            return jsonify(data), status
+        if not data:
+            return jsonify(data), 422
+        return jsonify(data)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/stopinfo/<stop_id>')
 @require_token
 def get_stop_info(stop_id):
