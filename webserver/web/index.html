@@ -18,18 +18,23 @@
   <link rel="stylesheet" href="/vendor/fonts/fonts.css">
   <style>
     :root {
-      --radius: 4px;
-      --card-radius: 3px;
+      --radius: 6px;
+      --card-radius: 4px;
       --sidebar-w: 380px;
-      --sidebar-transition: 0.32s cubic-bezier(0.16,1,0.3,1);
-      --transition: 0.18s ease;
+      /* one easing family: expo-out for arrivals, a symmetric curve for glides */
+      --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+      --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+      --sidebar-transition: 0.32s var(--ease-out);
+      --transition: 0.16s var(--ease-out);
       --safe-bottom: env(safe-area-inset-bottom, 0px);
       --safe-top: env(safe-area-inset-top, 0px);
 
-      --font-display: 'Oswald', sans-serif;
-      --font-body: 'Inter', sans-serif;
-      --font-mono: 'IBM Plex Mono', monospace;
-      --font-board: 'Saira', sans-serif;
+      /* Saira carries the board (countdowns, route bullets, stop signs),
+         Inter the interface, Plex Mono the data (times, IDs). */
+      --font-display: 'Saira', 'Inter', sans-serif;
+      --font-body: 'Inter', system-ui, sans-serif;
+      --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+      --font-board: 'Saira', 'Inter', sans-serif;
 
       /* 4px spacing scale */
       --space-1: 4px;
@@ -41,80 +46,100 @@
       --space-8: 32px;
     }
 
-    /* ===== DARK THEME (default) — inverted transit-map poster: ink paper, red/blue/green/amber system colors ===== */
+    /* ===== NIGHT (default): a graphite platform display with amber LED countdowns.
+       Colour roles: --accent = interactive, --eta = countdown, positive/negative = early/late. ===== */
     :root, :root[data-theme="dark"] {
-      --bg: #15140f;
-      --surface: #1d1c15;
-      --surface2: #24231a;
-      --surface3: #2d2b1f;
-      --border: rgba(250,250,247,0.14);
-      --border2: rgba(250,250,247,0.28);
+      --bg: #0B0D10;
+      --surface: #121519;
+      --surface2: #181C21;
+      --surface3: #232830;
+      --border: rgba(226,234,243,0.10);
+      --border2: rgba(226,234,243,0.22);
 
-      --text: #FAFAF7;
-      --text-muted: rgba(250,250,247,0.72);
-      --text-dim: rgba(250,250,247,0.50);
+      --text: #EEF2F6;
+      --text-muted: rgba(238,242,246,0.74);
+      --text-dim: rgba(238,242,246,0.56);
 
-      --accent: #6FA0E8;
-      --accent-rgb: 111,160,232;
-      --accent2: #4FA876;
-      --accent2-rgb: 79,168,118;
-      --accent3: #E8A93B;
-      --accent3-rgb: 232,169,59;
-      --positive: #4FA876;
-      --positive-rgb: 79,168,118;
-      --negative: #E8674B;
-      --negative-rgb: 232,103,75;
-      --warn-rgb: 240,165,50;
-      --ontime-rgb: 74,184,170;
-      --neutral: #a9a696;
+      /* the departure board panel, the stop sign band, the countdown LED */
+      --board-bg: #0A0C0F;
+      --board-hover: rgba(226,234,243,0.045);
+      --sign-bg: #050608;
+      --sign-fg: #F5F7FA;
+      --sign-muted: rgba(245,247,250,0.68);
+      --eta: #FFBF3C;
+      --eta-rgb: 255,191,60;
+      --eta-unit: rgba(255,191,60,0.78);
 
-      --sheet-handle-color: rgba(250,250,247,0.28);
+      --accent: #5EA2FF;
+      --accent-rgb: 94,162,255;
+      --accent2: #3DBE7A;
+      --accent2-rgb: 61,190,122;
+      --accent3: #FFB23E;
+      --accent3-rgb: 255,178,62;
+      --positive: #3DBE7A;
+      --positive-rgb: 61,190,122;
+      --negative: #FF6450;
+      --negative-rgb: 255,100,80;
+      --warn-rgb: 255,146,56;
+      --ontime-rgb: 64,200,180;
+      --neutral: #8B939D;
+
+      --sheet-handle-color: rgba(238,242,246,0.28);
       color-scheme: dark;
 
-      --shadow-1: 2px 2px 0 rgba(0,0,0,0.4);
-      --shadow-2: 4px 4px 0 rgba(0,0,0,0.4);
-      --shadow-3: 6px 6px 0 rgba(0,0,0,0.45);
-      --shadow-sidebar: 2px 0 0 rgba(0,0,0,0.35);
-      --shadow-sheet: 0 -3px 0 rgba(0,0,0,0.4);
-      --map-overlay-bg: rgba(21,20,15,0.8);
+      --shadow-1: 0 1px 2px rgba(0,0,0,0.5);
+      --shadow-2: 0 10px 28px -10px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.03);
+      --shadow-3: 0 22px 54px -14px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,255,255,0.04);
+      --shadow-sidebar: 1px 0 0 rgba(0,0,0,0.5);
+      --shadow-sheet: 0 -10px 30px -12px rgba(0,0,0,0.7);
+      --map-overlay-bg: rgba(11,13,16,0.82);
     }
 
-    /* ===== LIGHT THEME — cream paper, ink text, red/blue/green/amber system colors ===== */
+    /* ===== DAY: daylight signage, ink on white so it reads in sun at the stop ===== */
     :root[data-theme="light"] {
-      --bg: #FAFAF7;
-      --surface: #ffffff;
-      --surface2: #f4f1ea;
-      --surface3: #eae5d9;
-      --border: rgba(26,26,26,0.15);
-      --border2: rgba(26,26,26,0.32);
+      --bg: #E7EAEE;
+      --surface: #FFFFFF;
+      --surface2: #F3F5F7;
+      --surface3: #E6E9ED;
+      --border: rgba(12,16,22,0.12);
+      --border2: rgba(12,16,22,0.26);
 
-      --text: #1A1A1A;
-      --text-muted: rgba(26,26,26,0.68);
-      --text-dim: rgba(26,26,26,0.50);
+      --text: #0B0E13;
+      --text-muted: rgba(11,14,19,0.74);
+      --text-dim: rgba(11,14,19,0.60);
 
-      --accent: #2B5FAD;
-      --accent-rgb: 43,95,173;
-      --accent2: #2F7B4F;
-      --accent2-rgb: 47,123,79;
-      --accent3: #A9720F;
-      --accent3-rgb: 169,114,15;
-      --positive: #2F7B4F;
-      --positive-rgb: 47,123,79;
-      --negative: #C23B24;
-      --negative-rgb: 194,59,36;
-      --warn-rgb: 176,108,0;
-      --ontime-rgb: 20,133,120;
-      --neutral: #6b6b63;
+      --board-bg: #FFFFFF;
+      --board-hover: rgba(12,16,22,0.04);
+      --sign-bg: #0B0E13;
+      --sign-fg: #FFFFFF;
+      --sign-muted: rgba(255,255,255,0.72);
+      --eta: #0B0E13;
+      --eta-rgb: 11,14,19;
+      --eta-unit: rgba(11,14,19,0.66);
 
-      --sheet-handle-color: rgba(26,26,26,0.24);
+      --accent: #1257D6;
+      --accent-rgb: 18,87,214;
+      --accent2: #11804A;
+      --accent2-rgb: 17,128,74;
+      --accent3: #A36200;
+      --accent3-rgb: 163,98,0;
+      --positive: #11804A;
+      --positive-rgb: 17,128,74;
+      --negative: #C7321E;
+      --negative-rgb: 199,50,30;
+      --warn-rgb: 178,88,0;
+      --ontime-rgb: 0,118,106;
+      --neutral: #5A636F;
+
+      --sheet-handle-color: rgba(11,14,19,0.24);
       color-scheme: light;
 
-      --shadow-1: 2px 2px 0 rgba(26,26,26,0.10);
-      --shadow-2: 4px 4px 0 rgba(26,26,26,0.10);
-      --shadow-3: 6px 6px 0 rgba(26,26,26,0.12);
-      --shadow-sidebar: 2px 0 0 rgba(26,26,26,0.06);
-      --shadow-sheet: 0 -3px 0 rgba(26,26,26,0.10);
-      --map-overlay-bg: rgba(250,250,247,0.88);
+      --shadow-1: 0 1px 2px rgba(12,16,22,0.10);
+      --shadow-2: 0 10px 26px -12px rgba(12,16,22,0.28), 0 0 0 1px rgba(12,16,22,0.04);
+      --shadow-3: 0 22px 50px -16px rgba(12,16,22,0.32);
+      --shadow-sidebar: 1px 0 0 rgba(12,16,22,0.06);
+      --shadow-sheet: 0 -10px 30px -14px rgba(12,16,22,0.30);
+      --map-overlay-bg: rgba(255,255,255,0.88);
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
@@ -129,6 +154,8 @@
       background: var(--bg);
       color: var(--text);
       overscroll-behavior: none;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
     }
 
     /* ===== APP SHELL (full-height sidebar + map) ===== */
@@ -173,15 +200,6 @@
       height: 100%;
       display: flex;
       flex-direction: column;
-    }
-
-    #sidebar::before {
-      content: '';
-      position: absolute;
-      top: 0; left: 0; right: 0;
-      height: 2px;
-      background: linear-gradient(90deg, transparent, rgba(var(--accent-rgb), 0.55), transparent);
-      pointer-events: none;
     }
 
     /* Collapse / expand tab, pinned to the sidebar's trailing edge */
@@ -232,13 +250,38 @@
 
     #sidebar-header h1 {
       font-family: var(--font-display);
-      font-size: 15.5px;
+      font-size: 15px;
       font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 0.01em;
+      letter-spacing: 0.04em;
       color: var(--text);
       line-height: 1.2;
     }
+    /* Signal lamp beside the wordmark */
+    .brand-led {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--eta);
+      box-shadow: 0 0 0 3px rgba(var(--eta-rgb), 0.16), 0 0 10px rgba(var(--eta-rgb), 0.55);
+      flex-shrink: 0;
+    }
+    :root[data-theme="light"] .brand-led { background: var(--accent3); box-shadow: 0 0 0 3px rgba(var(--accent3-rgb), 0.16); }
+    /* Station clock: riders read every countdown against it */
+    .station-clock {
+      display: inline-flex;
+      align-items: baseline;
+      font-family: var(--font-board);
+      font-size: 17px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0.02em;
+      color: var(--text);
+      line-height: 1;
+      overflow: hidden;
+      padding: 2px 0;
+    }
+    .station-clock > span { display: inline-block; }
 
     #sidebar-header p {
       margin-top: 1px;
@@ -288,10 +331,10 @@
       background: var(--text);
       color: var(--bg);
       transform: translateX(26px);
-      transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1), background 0.3s ease, color 0.3s ease;
+      transition: transform 0.4s var(--ease-out), background 0.3s ease, color 0.3s ease;
     }
     :root[data-theme="light"] .theme-switch-knob { transform: translateX(0); background: var(--accent3); color: #fff; }
-    button.theme-switch .ico-svg { width: 13px; height: 13px; transition: transform 0.45s cubic-bezier(0.34,1.56,0.64,1); }
+    button.theme-switch .ico-svg { width: 13px; height: 13px; transition: transform 0.45s var(--ease-out); }
     button.theme-switch .ico-uni { width: auto; font-size: 12px; }
     button.theme-switch .ico-sun { display: none; }
     :root[data-theme="light"] .theme-switch .ico-sun { display: inline-flex; }
@@ -334,10 +377,10 @@
     .panel-heading {
       font-family: var(--font-display);
       font-size: 13px;
-      font-weight: 700;
+      font-weight: 600;
       text-transform: uppercase;
-      letter-spacing: 0.03em;
-      color: var(--text);
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
     }
 
     .panel-heading-row {
@@ -446,25 +489,19 @@
       position: relative;
     }
     /* Sliding underline under the active tab; positioned by syncSidebarTabIndicator() */
+    /* 1px wide, then translated + scaled to the active tab by syncSidebarTabIndicator() */
     .sb-tab-indicator {
       position: absolute;
       left: 0;
-      bottom: 0;
+      bottom: -1px;
       height: 2px;
-      width: 0;
-      background: var(--accent);
-      border-radius: 2px 2px 0 0;
+      width: 1px;
+      background: var(--text);
+      transform-origin: 0 0;
+      transform: scaleX(0);
       pointer-events: none;
     }
-    .sb-tab-indicator.ready {
-      transition: left 0.28s cubic-bezier(0.4, 0, 0.2, 1), width 0.28s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.28s ease;
-    }
-    #sidebar-tabs[data-active="sb-tab-stop"]      .sb-tab-indicator { background: var(--negative); }
-    #sidebar-tabs[data-active="sb-tab-trip"]      .sb-tab-indicator { background: var(--positive); }
-    #sidebar-tabs[data-active="sb-tab-triproute"] .sb-tab-indicator { background: var(--accent); }
-    #sidebar-tabs[data-active="sb-tab-discover"]  .sb-tab-indicator { background: var(--accent2); }
-    #sidebar-tabs[data-active="sb-tab-alerts"]    .sb-tab-indicator { background: rgb(var(--warn-rgb)); }
-    #sidebar-tabs[data-active="sb-tab-more"]      .sb-tab-indicator { background: var(--accent3); }
+    .sb-tab-indicator.ready { transition: transform 0.36s var(--ease-out); }
     @media (prefers-reduced-motion: reduce) { .sb-tab-indicator.ready { transition: none; } }
     .sb-tab {
       appearance: none;
@@ -511,13 +548,7 @@
     }
     .tab-badge[hidden] { display: none; }
     .sb-tab:hover { background: none; color: var(--text-muted); }
-    .sb-tab.active { color: var(--accent); }
-    .sb-tab.active[data-sb-tab="sb-tab-stop"]      { color: var(--negative); }
-    .sb-tab.active[data-sb-tab="sb-tab-trip"]      { color: var(--positive); }
-    .sb-tab.active[data-sb-tab="sb-tab-triproute"] { color: var(--accent); }
-    .sb-tab.active[data-sb-tab="sb-tab-discover"]  { color: var(--accent2); }
-    .sb-tab.active[data-sb-tab="sb-tab-alerts"]    { color: rgb(var(--warn-rgb)); }
-    .sb-tab.active[data-sb-tab="sb-tab-more"]      { color: var(--accent3); }
+    .sb-tab.active { color: var(--text); }
 
     #sidebar-body::-webkit-scrollbar { width: 3px; }
     #sidebar-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
@@ -530,7 +561,7 @@
       z-index: 1000;
       background: var(--surface);
       border-top: 1px solid var(--border);
-      border-radius: 20px 20px 0 0;
+      border-radius: 16px 16px 0 0;
       box-shadow: var(--shadow-sheet);
       flex-direction: column;
       max-height: 85vh;
@@ -575,8 +606,11 @@
     }
 
     #sheet-peek-title {
-      font-size: 13px;
+      font-family: var(--font-board);
+      font-size: 15px;
       font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
       color: var(--text);
     }
 
@@ -627,40 +661,11 @@
     }
 
     .m-tab:hover { color: var(--text-muted); }
-    .m-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
-    .m-tab.active[data-tab="m-tab-stop"],
-    .m-tab.active[data-tab="m-tab-departures"] { color: var(--negative); border-bottom-color: var(--negative); }
+    .m-tab.active { color: var(--text); border-bottom-color: var(--text); }
     .m-tab[hidden] { display: none; }
-    .m-tab.active[data-tab="m-tab-trip"]   { color: var(--positive); border-bottom-color: var(--positive); }
-    .m-tab.active[data-tab="m-tab-route"]  { color: var(--accent);   border-bottom-color: var(--accent); }
-    .m-tab.active[data-tab="m-tab-nearby"] { color: var(--accent2);  border-bottom-color: var(--accent2); }
-    .m-tab.active[data-tab="m-tab-alerts"] { color: rgb(var(--warn-rgb)); border-bottom-color: rgb(var(--warn-rgb)); }
-    .m-tab.active[data-tab="m-tab-more"]   { color: var(--accent3);  border-bottom-color: var(--accent3); }
 
     .tab-panel { display: none; }
     .tab-panel.active { display: flex; flex-direction: column; gap: 12px; padding-top: 4px; }
-
-    /* ===== TAB-SCOPED ACCENT =====
-       Every element that colors itself via var(--accent)/var(--accent-rgb) —
-       buttons, spinners, checkboxes, focus rings, badges — picks up the
-       showcase color of whichever tab it lives in. Trip/route panels keep
-       the default blue --accent, so no override needed there. */
-    #sb-tab-stop, #m-tab-stop, #m-tab-departures {
-      --accent: var(--negative);
-      --accent-rgb: var(--negative-rgb);
-    }
-    #sb-tab-trip, #m-tab-trip {
-      --accent: var(--positive);
-      --accent-rgb: var(--positive-rgb);
-    }
-    #sb-tab-discover, #m-tab-nearby {
-      --accent: var(--accent2);
-      --accent-rgb: var(--accent2-rgb);
-    }
-    #sb-tab-more, #m-tab-more {
-      --accent: var(--accent3);
-      --accent-rgb: var(--accent3-rgb);
-    }
 
     /* Buttons flagged with .tab-accent-btn pick up their tab's scoped --accent.
        (the extra class beats each button variant's own specificity) */
@@ -754,16 +759,18 @@
       color: var(--text);
       padding: 8px 10px;
       outline: none;
-      transition: border-color var(--transition), background var(--transition);
+      transition: border-color var(--transition), background var(--transition), box-shadow var(--transition);
       font-size: 14px;
+      font-family: var(--font-body);
       -webkit-appearance: none;
       appearance: none;
     }
 
     input[type="text"]::placeholder { color: var(--text-muted); }
     input[type="text"]:focus, input[type="date"]:focus, select:focus {
-      border-color: var(--border2);
-      background: var(--surface3);
+      border-color: rgba(var(--accent-rgb), 0.65);
+      background: var(--surface);
+      box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.18);
     }
 
     :focus-visible {
@@ -781,7 +788,7 @@
       font-size: 14px;
       font-weight: 500;
       font-family: var(--font-body);
-      transition: background var(--transition), border-color var(--transition), transform 0.1s;
+      transition: background var(--transition), border-color var(--transition), color var(--transition), transform 0.12s var(--ease-out);
       white-space: nowrap;
       -webkit-tap-highlight-color: transparent;
       touch-action: manipulation;
@@ -887,7 +894,7 @@
     }
     .stop-search-item:last-child { border-bottom: none; }
     .stop-search-item:hover { background: var(--surface3); }
-    .stop-search-item.active { background: var(--surface3); box-shadow: inset 2px 0 0 var(--accent); }
+    .stop-search-item.active { background: rgba(var(--accent-rgb), 0.12); }
 
     .stop-search-name {
       flex: 1;
@@ -963,10 +970,10 @@
     .global-search .stop-search-results { left: var(--space-5); right: var(--space-5); max-height: min(420px, 60vh); }
     /* --vv-h tracks the visible viewport, so the list stays above the on-screen keyboard */
     #m-globalSearch .stop-search-results { left: 14px; right: 14px; max-height: min(360px, calc(var(--vv-h, 100dvh) - var(--peek-h, 160px) - 24px)); }
-    .global-search input[type="text"] { padding-left: 32px; }
+    .global-search input[type="text"] { padding-left: 34px; min-height: 40px; font-size: 14.5px; border-radius: var(--radius); }
     .global-search-ico {
       position: absolute;
-      left: 10px;
+      left: 11px;
       top: 50%;
       transform: translateY(-50%);
       width: 15px;
@@ -983,13 +990,65 @@
       font-family: var(--font-mono);
       font-size: 11px;
       line-height: 17px;
-      color: var(--text-dim);
+      color: var(--text-muted);
       border: 1px solid var(--border2);
       border-radius: 4px;
       pointer-events: none;
     }
     .global-search input:focus ~ .global-search-kbd,
     .global-search input:not(:placeholder-shown) ~ .global-search-kbd { display: none; }
+
+    /* ===== PROGRESSIVE DISCLOSURE: show controls once they apply ===== */
+    /* Empty tabs point at the next step; hidden once that tab has content. */
+    .empty-hint {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: var(--space-3);
+      padding: var(--space-2) calc(var(--space-4) + 1px);
+      font-size: 13px;
+      line-height: 1.45;
+      color: var(--text-muted);
+    }
+    .empty-hint p { margin: 0; }
+    .tab-panel .empty-hint { padding-inline: 0; }
+    .fav-panel:not([hidden]) ~ .empty-hint,
+    body.has-stop-view #stopEmpty,
+    body.has-route-view #routeEmpty,
+    body.has-route-view #m-routeEmpty { display: none; }
+
+    /* The Stops date row and the mobile peek row (current stop name) only
+       appear once a board has loaded; setStopView() adds the body class. */
+    .stop-date-row { display: none; }
+    body.has-stop-view .stop-date-row { display: flex; }
+    .stop-date-row .date-row { flex: 1; }
+    #sheet-peek { display: none; }
+    body.has-stop-view #sheet-peek { display: flex; }
+
+    details.coords-details > summary,
+    details.rt-more > summary {
+      cursor: pointer;
+      font-size: 12px;
+      color: var(--text-muted);
+      padding: 4px 0;
+      width: fit-content;
+    }
+    details.coords-details > summary:hover,
+    details.rt-more > summary:hover { color: var(--text); }
+    details.coords-details[open] > summary { margin-bottom: var(--space-2); }
+
+    .settings-panel .toggle-row { font-size: 13px; color: var(--text); padding: 6px 0; }
+    .settings-panel .sub-settings { padding-left: var(--space-4); border-left: 1px solid var(--border); }
+    .settings-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-3);
+      font-size: 13px;
+      color: var(--text);
+      padding-top: var(--space-2);
+      border-top: 1px solid var(--border);
+    }
 
     .divider {
       height: 1px;
@@ -1012,42 +1071,68 @@
     .section-title {
       font-family: var(--font-display);
       font-size: 13px;
-      font-weight: 700;
+      font-weight: 600;
       text-transform: uppercase;
-      letter-spacing: 0.03em;
-      color: var(--text);
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
       margin-bottom: 7px;
     }
 
-    .stop-header { display: none; }
+    /* The stop sign: a black band with the stop name set like station signage
+       and a lamp-coloured rule along its foot. Same in both themes. */
+    .stop-header {
+      display: none;
+      position: relative;
+      background: var(--sign-bg);
+      color: var(--sign-fg);
+      border-radius: var(--radius);
+      padding: 13px 14px 14px;
+      overflow: hidden;
+    }
+    .stop-header::after {
+      content: '';
+      position: absolute;
+      left: 0; right: 0; bottom: 0;
+      height: 3px;
+      background: var(--eta);
+    }
+    :root[data-theme="light"] .stop-header::after { background: var(--accent3); }
     .stop-header .stop-name {
-      font-size: 15px;
+      font-family: var(--font-board);
+      font-size: 19px;
       font-weight: 600;
-      color: var(--text);
+      line-height: 1.15;
+      text-transform: uppercase;
+      letter-spacing: 0.015em;
+      color: var(--sign-fg);
+      text-wrap: balance;
+      overflow-wrap: anywhere;
     }
     .stop-header .stop-meta {
-      font-size: 12.5px;
-      color: var(--text-muted);
+      font-size: 12px;
+      color: var(--sign-muted);
       font-family: var(--font-mono);
-      margin-top: 4px;
-      line-height: 1.6;
+      margin-top: 6px;
+      line-height: 1.55;
       white-space: pre-wrap;
       word-break: break-word;
     }
+    .stop-header .fav-btn { color: var(--sign-muted); border-color: rgba(255,255,255,0.24); }
+    .stop-header .fav-btn:hover { background: rgba(255,255,255,0.1); color: var(--sign-fg); }
 
     .departures-grid {
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 0;
       /* extras scroll instead of pushing the rest of the panel down */
       max-height: 560px;
       overflow-y: auto;
       overscroll-behavior: contain;
       scrollbar-width: thin;
       scrollbar-color: var(--border) transparent;
-      /* room for the hover lift + shadow so the top card isn't clipped by overflow */
-      padding: 4px 3px 4px 4px;
-      margin: -4px 0 -4px -4px;
+      background: var(--board-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
       /* fade the top/bottom edge only while there's more to scroll in that direction */
       -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 var(--fade-top), #000 calc(100% - var(--fade-bot)), transparent 100%);
       mask-image: linear-gradient(to bottom, transparent 0, #000 var(--fade-top), #000 calc(100% - var(--fade-bot)), transparent 100%);
@@ -1076,7 +1161,7 @@
     /* Phone: the sheet body is the only scroller — no inner scroll box per board */
     #m-departuresGrid, #m-multiDeparturesGrid {
       max-height: none;
-      overflow: visible;
+      overflow: hidden;
       -webkit-mask-image: none;
       mask-image: none;
       animation: none;
@@ -1084,62 +1169,71 @@
     .departures-grid::-webkit-scrollbar { width: 4px; }
     .departures-grid::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 
+    /* One departure = one board row:
+         [route bullet] destination ............ [countdown]
+                        14:02  live +1    badge
+       The row's wrapper divs are display: contents, so the four render sites
+       (stop, merged stops, trip between, journeys) share this layout unchanged. */
     .dep-card {
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      border-radius: var(--card-radius);
-      padding: 9px 11px 8px;
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto auto;
+      grid-template-areas:
+        "route head  head  eta"
+        "route time  badge eta";
+      column-gap: 12px;
+      row-gap: 3px;
+      align-items: center;
+      padding: 11px 14px;
+      background: transparent;
+      border: 0;
+      border-bottom: 1px solid var(--border);
+      border-radius: 0;
       cursor: pointer;
-      display: flex;
-      flex-direction: column;
-      gap: 5px;
       flex-shrink: 0;
-      transition: border-color var(--transition), background var(--transition), transform 0.15s, box-shadow var(--transition);
       position: relative;
+      transition: background-color var(--transition), box-shadow var(--transition);
       touch-action: manipulation;
     }
-
-    .dep-card:hover {
-      border-color: var(--border2);
-      background: var(--surface3);
-      transform: translateY(-1px);
-      box-shadow: var(--shadow-2);
-    }
-
-    .dep-card:active { transform: scale(0.98); }
-
+    .dep-card:last-child { border-bottom: 0; }
+    .dep-card:hover { background: var(--board-hover); }
+    .dep-card:active { background: var(--surface3); }
     .dep-card.active {
-      border-color: rgba(var(--accent-rgb), 0.45);
-      background: rgba(var(--accent-rgb), 0.07);
-      box-shadow: 0 0 0 1px rgba(var(--accent-rgb), 0.2);
+      background: rgba(var(--accent-rgb), 0.1);
+      box-shadow: inset 0 0 0 1px rgba(var(--accent-rgb), 0.55);
     }
+    .dep-card-top, .dep-time-row { display: contents; }
 
-    .dep-card-top {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-    }
-
+    /* Route bullet: the route's own colour (--rc / --rc-fg from routeStyle()) */
     .dep-route {
-      font-family: var(--font-mono);
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--text);
-      background: var(--surface3);
-      border: 1px solid var(--border);
-      border-radius: 20px;
-      padding: 2px 9px 2px 7px;
+      grid-area: route;
+      align-self: start;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 46px;
+      max-width: 84px;
+      height: 30px;
+      padding: 0 8px;
+      font-family: var(--font-board);
+      font-size: 15px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      line-height: 1;
+      color: var(--rc-fg, var(--text));
+      background: var(--rc, var(--surface3));
+      border-radius: 5px;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      max-width: 60%;
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
     }
+    :root[data-theme="light"] .dep-route { box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08); }
+    .dep-route .dep-dot { display: none; }
+    .dep-route:not([style]) .dep-dot { display: inline-block; margin-right: 5px; }
 
     .dep-badge-slot {
+      grid-area: badge;
+      justify-self: end;
       display: flex;
       align-items: center;
       gap: 4px;
@@ -1147,78 +1241,88 @@
     }
     .dep-badge-slot > .rt-delay-badge { flex-shrink: 0; }
 
-    .dep-time-row {
+    .dep-time {
+      grid-area: time;
       display: flex;
       align-items: baseline;
-      justify-content: space-between;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-
-    .dep-time {
-      font-size: 18px;
-      font-weight: 700;
-      color: var(--text);
-      letter-spacing: -0.02em;
-      line-height: 1;
+      gap: 7px;
+      min-width: 0;
+      font-family: var(--font-mono);
+      font-size: 12.5px;
+      font-weight: 500;
+      color: var(--text-muted);
+      font-variant-numeric: tabular-nums;
+      line-height: 1.3;
       white-space: nowrap;
     }
-
+    /* Live time known: the scheduled time is struck, the live one coloured */
     .dep-time-sched.dep-time-sched-strike {
       color: var(--text-dim);
-      opacity: 0.7;
+      text-decoration: line-through;
+      text-decoration-thickness: 1px;
     }
-
-    .dep-time-actual {
-      font-size: 15px;
-      font-weight: 800;
-      letter-spacing: -0.01em;
-      white-space: nowrap;
-    }
+    .dep-time-actual { font-weight: 600; white-space: nowrap; }
     .dep-time-actual.dep-time-early { color: var(--positive); }
     .dep-time-actual.dep-time-late  { color: var(--negative); }
 
+    /* Countdown: the biggest thing on the board. updateGridETAs() splits it
+       into number / unit spans so the digits can roll when they change. */
     .dep-eta {
-      font-size: 11px;
-      font-weight: 600;
-      color: var(--text-muted);
-      font-family: var(--font-mono);
-      background: var(--surface3);
-      border: 1px solid var(--border);
-      border-radius: 20px;
-      padding: 2px 8px;
-      white-space: nowrap;
+      grid-area: eta;
+      justify-self: end;
+      align-self: center;
+      display: inline-flex;
+      align-items: baseline;
+      justify-content: flex-end;
+      min-width: 3ch;
+      padding: 2px 0;
       overflow: hidden;
-      text-overflow: ellipsis;
-      flex-shrink: 0;
+      font-family: var(--font-board);
+      color: var(--eta);
+      font-variant-numeric: tabular-nums;
+      line-height: 1;
+      white-space: nowrap;
     }
-    .dep-eta.dep-eta-due {
-      color: var(--accent3);
-      background: rgba(var(--accent3-rgb), 0.12);
-      border-color: rgba(var(--accent3-rgb), 0.4);
+    .dep-eta > span { display: inline-block; }
+    .dep-eta .eta-n { font-size: 28px; font-weight: 600; letter-spacing: -0.01em; }
+    .dep-eta .eta-u {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--eta-unit);
+      margin: 0 5px 0 2px;
     }
-    .dep-eta.dep-eta-past { color: var(--text-dim); opacity: 0.6; }
+    .dep-eta .eta-u:last-child { margin-right: 0; }
+    .dep-eta .eta-w { font-size: 17px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
+    .dep-eta.dep-eta-due { color: var(--eta); }
+    :root[data-theme="light"] .dep-eta.dep-eta-due { color: var(--accent3); }
+    .dep-eta.dep-eta-past { color: var(--text-dim); }
+    .dep-eta.dep-eta-past .eta-w { font-size: 12px; font-weight: 600; letter-spacing: 0.04em; }
 
     .dep-headsign-row {
+      grid-area: head;
       display: flex;
-      align-items: center;
-      gap: 8px;
+      align-items: baseline;
+      gap: 6px;
+      min-width: 0;
     }
-
     .dep-dir {
-      font-size: 24px;
+      font-size: 12px;
       line-height: 1;
-      font-weight: 700;
-      color: var(--text);
+      color: var(--text-dim);
       flex-shrink: 0;
     }
-
     .dep-headsign {
-      font-size: 12px;
-      color: var(--text-muted);
+      font-size: 14.5px;
+      font-weight: 600;
+      color: var(--text);
       line-height: 1.3;
-      overflow-wrap: break-word;
-      white-space: normal;
+      overflow-wrap: anywhere;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
     }
 
     .dep-pd-note {
@@ -1227,7 +1331,7 @@
       font-weight: 600;
       line-height: 1.2;
       padding: 2px 7px;
-      border-radius: 999px;
+      border-radius: 4px;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -1235,16 +1339,12 @@
       color: rgb(var(--warn-rgb));
     }
 
-    .dep-card-footer {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-      padding-top: 5px;
-      margin-top: 1px;
-      border-top: 1px solid var(--border);
-    }
-
+    /* Secondary lines run under the destination, never under the bullet */
+    .dep-card-footer,
+    .dep-card > .dep-stop-tag,
+    .dep-card > .between-times,
+    .dep-card > .journey-legs { grid-column: 2 / -1; }
+    .dep-card-footer { display: flex; align-items: center; gap: 8px; min-width: 0; }
     .dep-trip {
       font-size: 11px;
       color: var(--text-dim);
@@ -1253,6 +1353,10 @@
       text-overflow: ellipsis;
       white-space: nowrap;
     }
+    /* Journeys: the chain of route bullets takes the first line */
+    .dep-card > .journey-chain { grid-column: 1 / 4; grid-row: 1; }
+    .journey-chain .dep-route { height: 26px; min-width: 40px; font-size: 14px; }
+    .departures-grid > .between-empty { padding: 12px 14px; }
 
     .dep-dot {
       width: 7px; height: 7px;
@@ -1262,12 +1366,13 @@
     }
 
     .dep-stop-tag {
-      font-size: 10px;
-      font-weight: 600;
-      color: var(--accent2);
-      background: rgba(var(--accent2-rgb), 0.12);
-      border-radius: 10px;
-      padding: 3px 8px;
+      font-size: 10.5px;
+      font-weight: 500;
+      color: var(--text-muted);
+      background: var(--surface3);
+      border-radius: 4px;
+      padding: 2px 7px;
+      justify-self: start;
       display: block;
       font-family: var(--font-mono);
       flex-shrink: 0;
@@ -1281,8 +1386,8 @@
     .rt-delay-badge {
       font-size: 10.5px;
       font-weight: 600;
-      padding: 2px 8px;
-      border-radius: 20px;
+      padding: 2px 7px;
+      border-radius: 4px;
       display: inline-block;
       letter-spacing: 0.03em;
       white-space: nowrap;
@@ -1543,7 +1648,7 @@
       border-color: var(--accent);
       color: var(--bg);
       text-align: left;
-      transition: filter var(--transition), transform 0.18s cubic-bezier(0.34,1.56,0.64,1);
+      transition: filter var(--transition), transform 0.18s var(--ease-out);
     }
     button.locate-hero:hover { background: var(--accent); border-color: var(--accent); filter: brightness(1.07); }
     .locate-hero .radar {
@@ -1574,7 +1679,7 @@
       0%   { transform: scale(1);   opacity: 0.55; }
       100% { transform: scale(2.2); opacity: 0; }
     }
-    .locate-hero .radar .ico-svg { width: 16px; height: 16px; transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1); }
+    .locate-hero .radar .ico-svg { width: 16px; height: 16px; transition: transform 0.25s var(--ease-out); }
     .locate-hero:hover .radar .ico-svg { transform: translate(1px,-1px) rotate(-8deg); }
     .locate-hero .radar .ico-uni { width: auto; font-size: 15px; }
     .locate-hero .hero-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; line-height: 1.2; }
@@ -1599,10 +1704,10 @@
       text-align: center;
       line-height: 1.25;
       transition: background var(--transition), border-color var(--transition), color var(--transition),
-                  transform 0.18s cubic-bezier(0.34,1.56,0.64,1);
+                  transform 0.18s var(--ease-out);
     }
     .btn-tiles > .btn-tile:active { transform: scale(0.97); }
-    .btn-tile .ico-svg { width: 22px; height: 22px; transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1); }
+    .btn-tile .ico-svg { width: 22px; height: 22px; transition: transform 0.35s var(--ease-out); }
     .btn-tile .ico-uni { width: auto; font-size: 20px; }
     /* A lone tile (the mobile panel has no pick button) lays out as a row. */
     .btn-tiles > .btn-tile:only-child { grid-column: 1 / -1; flex-direction: row; min-height: 0; gap: 8px; }
@@ -1677,12 +1782,12 @@
       color: var(--bg);
     }
     button.today-btn:not(.is-today):hover { filter: brightness(1.07); }
-    .today-btn .ico-svg { transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1); }
+    .today-btn .ico-svg { transition: transform 0.35s var(--ease-out); }
     .today-btn:hover .ico-svg { transform: rotate(-50deg); }
 
     /* Hover motion for the board toolbar icons. */
     .dep-filter-btn svg, .dep-filter-clear .ico-svg,
-    .dep-expand-btn svg { transition: transform 0.45s cubic-bezier(0.34,1.56,0.64,1), fill 0.2s ease; }
+    .dep-expand-btn svg { transition: transform 0.45s var(--ease-out), fill 0.2s ease; }
     .dep-filter-btn:hover svg { transform: translateY(2px); }
     .dep-filter-clear:hover .ico-svg { transform: rotate(90deg); }
     .dep-expand-btn:hover .ico-expand { transform: scale(1.18); }
@@ -1696,7 +1801,7 @@
       color: var(--accent);
     }
     .dep-filter-btn:has(.dep-filter-badge:not([hidden])) svg { fill: currentColor; }
-    .dep-filter-badge { animation: badge-pop 0.35s cubic-bezier(0.34,1.56,0.64,1); }
+    .dep-filter-badge { animation: badge-pop 0.35s var(--ease-out); }
     @keyframes badge-pop { from { transform: scale(0.3); } to { transform: scale(1); } }
 
     /* Full-sidebar departures: the expand button is lit while it's on. */
@@ -1707,7 +1812,7 @@
     }
 
     /* Gear turns on hover and stays turned + tinted while its popover is open. */
-    .gear-ico { display: inline-block; transition: transform 0.5s cubic-bezier(0.34,1.56,0.64,1); }
+    .gear-ico { display: inline-block; transition: transform 0.5s var(--ease-out); }
     .gear-btn:hover .gear-ico { transform: rotate(60deg); }
     .gear-btn.active .gear-ico { transform: rotate(120deg); }
     .gear-btn.active {
@@ -1743,16 +1848,12 @@
     }
 
     .rt-pulse {
+      position: relative;
       width: 7px; height: 7px;
       border-radius: 50%;
       background: var(--positive);
-      animation: rt-pulse 2s ease-in-out infinite;
     }
-    @keyframes rt-pulse {
-      0%, 100% { opacity: 1; }
-      50%       { opacity: 0.45; }
-    }
-    .rt-pulse.error { background: var(--negative); animation: none; opacity: 0.7; }
+    .rt-pulse.error { background: var(--negative); opacity: 0.7; }
 
     .rt-body {
       padding: 9px 11px;
@@ -1831,10 +1932,10 @@
 
     .alert-item {
       background: var(--surface2);
-      border: 1px solid var(--border);
-      border-left: 3px solid rgb(var(--warn-rgb));
-      border-radius: var(--card-radius);
-      padding: 9px 10px;
+      border: 1px solid rgba(var(--warn-rgb), 0.3);
+      background: rgba(var(--warn-rgb), 0.05);
+      border-radius: var(--radius);
+      padding: 10px 12px;
       margin-bottom: 8px;
       cursor: pointer;
       touch-action: manipulation;
@@ -1854,10 +1955,9 @@
     }
     .alert-item:last-child { margin-bottom: 0; }
     /* One side bar per route colour (max 3) in place of the single warn bar. */
-    .alert-item.has-bars { position: relative; border-left-width: 0; padding-left: calc(8px + var(--bars) * 4px); }
-    .alert-item-bars { position: absolute; left: 0; top: 0; bottom: 0; display: flex; gap: 1px; }
-    .alert-item-bars span { width: 3px; border-radius: 3px; }
-    .alert-item-bars span:first-child { border-top-left-radius: var(--card-radius); border-bottom-left-radius: var(--card-radius); }
+    /* The affected routes' colours as short line segments above the title */
+    .alert-item-bars { display: flex; gap: 3px; margin-bottom: 8px; }
+    .alert-item-bars span { width: 22px; height: 4px; border-radius: 2px; }
     .alert-item-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
     .alert-item-title { font-size: 13px; font-weight: 600; color: var(--text); line-height: 1.35; }
     .alert-item-meta {
@@ -1904,15 +2004,15 @@
 
     .vehicle-rt-marker div {
       width: 16px; height: 16px;
-      background: var(--accent3);
-      border: 2.5px solid white;
+      background: var(--eta);
+      border: 2.5px solid var(--sign-bg);
       border-radius: 50%;
       animation: veh-pulse 1.8s ease-out infinite;
     }
     @keyframes veh-pulse {
-      0%   { box-shadow: 0 0 0 0 rgba(var(--accent3-rgb), 0.55); }
-      70%  { box-shadow: 0 0 0 12px rgba(var(--accent3-rgb), 0); }
-      100% { box-shadow: 0 0 0 0 rgba(var(--accent3-rgb), 0); }
+      0%   { box-shadow: 0 0 0 0 rgba(var(--eta-rgb), 0.55); }
+      70%  { box-shadow: 0 0 0 12px rgba(var(--eta-rgb), 0); }
+      100% { box-shadow: 0 0 0 0 rgba(var(--eta-rgb), 0); }
     }
 
     .veh-time-tooltip {
@@ -1958,7 +2058,7 @@
       border-radius: 20px;
       background: rgba(var(--accent-rgb), 0.15);
       box-shadow: inset 0 0 0 1px rgba(var(--accent-rgb), 0.45);
-      transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1);
+      transition: transform 0.35s var(--ease-out);
     }
     .seg[data-mode="n4"] .seg-thumb  { transform: translateX(100%); }
     .seg[data-mode="all"] .seg-thumb { transform: translateX(200%); }
@@ -2316,7 +2416,14 @@
     button.dep-filter-done:hover { filter: brightness(1.07); background: var(--accent); }
 
     /* Route trips */
-    .route-header { display: none; }
+    .route-header {
+      display: none;
+      background: var(--sign-bg);
+      color: var(--sign-fg);
+      border-radius: var(--radius);
+      padding: 13px 14px;
+      overflow: hidden;
+    }
     .route-header-top {
       display: flex;
       align-items: center;
@@ -2325,24 +2432,32 @@
     }
     .route-header-badge {
       flex: none;
-      padding: 2px 8px;
-      border-radius: 6px;
-      font-family: var(--font-mono);
-      font-size: 13px;
+      min-width: 46px;
+      padding: 6px 9px;
+      border-radius: 5px;
+      text-align: center;
+      font-family: var(--font-board);
+      font-size: 17px;
       font-weight: 700;
+      line-height: 1;
       background: var(--accent);
       color: #fff;
     }
     .route-header-name {
-      font-size: 15px;
+      font-family: var(--font-board);
+      font-size: 18px;
       font-weight: 600;
-      color: var(--text);
+      line-height: 1.15;
+      text-transform: uppercase;
+      letter-spacing: 0.015em;
+      color: var(--sign-fg);
+      text-wrap: balance;
       min-width: 0;
       overflow-wrap: anywhere;
     }
     .route-header-meta {
-      font-size: 12.5px;
-      color: var(--text-muted);
+      font-size: 12px;
+      color: var(--sign-muted);
       font-family: var(--font-mono);
       margin-top: 4px;
       line-height: 1.6;
@@ -2399,7 +2514,7 @@
       height: 1px;
       background: rgba(0, 0, 0, 0.35);
     }
-    .alerts-flap.flip { animation: alerts-flap-flip 0.55s cubic-bezier(0.3, 1.4, 0.5, 1) both; animation-delay: calc(var(--d, 0) * 70ms); }
+    .alerts-flap.flip { animation: alerts-flap-flip 0.55s var(--ease-out) both; animation-delay: calc(var(--d, 0) * 70ms); }
     @keyframes alerts-flap-flip {
       from { transform: perspective(60px) rotateX(-90deg); opacity: 0.3; }
       to   { transform: none; opacity: 1; }
@@ -2437,11 +2552,9 @@
     .rt-trip-card:hover {
       border-color: var(--border2);
       background: var(--surface3);
-      transform: translateY(-1px);
-      box-shadow: var(--shadow-2);
     }
 
-    .rt-trip-card:active { transform: scale(0.98); }
+    .rt-trip-card:active { background: var(--surface3); }
 
     .rt-trip-card.active {
       border-color: rgba(var(--accent-rgb), 0.45);
@@ -2505,6 +2618,10 @@
       .btn-ico .ico-uni { display: inline-block; }
       input[type="text"], input[type="date"], select { padding: 11px 12px; }
       .stop-search-item { padding: 11px 12px; }
+      .stop-search-section button { padding: 10px 0 10px 16px; margin: -10px 0; }
+      .global-search .stop-search-field input[type="text"] { padding-right: 48px; }
+      details.coords-details > summary, details.rt-more > summary { padding: 10px 0; font-size: 13px; }
+      .settings-row button.theme-switch::after { content: ''; position: absolute; inset: -8px; }
       .pagination-btn { padding: 10px 14px; }
       .seg > button { padding: 7px 11px; }
 
@@ -2542,11 +2659,14 @@
 
     /* No hover on touch screens: stop cards staying "lifted" after a tap */
     @media (hover: none) {
-      .dep-card:hover, .rt-trip-card:hover { transform: none; box-shadow: none; }
+      .dep-card:not(.active):hover { background: transparent; }
+      .rt-trip-card:not(.active):hover { background: var(--surface2); border-color: var(--border); }
     }
 
     @media (max-width: 400px) {
       .m-tab { padding-left: 8px; padding-right: 8px; font-size: 13px; }
+      .dep-card { column-gap: 10px; padding: 10px 12px; }
+      .dep-eta .eta-n { font-size: 24px; }
       .route-trips-grid { grid-template-columns: 1fr; }
     }
 
@@ -2559,6 +2679,7 @@
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after {
         animation-duration: 0.01ms !important;
+        animation-delay: 0s !important;
         animation-iteration-count: 1 !important;
         transition-duration: 0.01ms !important;
         scroll-behavior: auto !important;
@@ -2639,9 +2760,8 @@
     .feed-tl-card {
       background: var(--surface);
       border: 1px solid var(--border);
-      border-left: 3px solid var(--feed-c);
-      border-radius: var(--card-radius);
-      box-shadow: var(--shadow-1);
+      border-radius: var(--radius);
+      box-shadow: inset 0 3px 0 var(--feed-c);
       padding: var(--space-3) var(--space-3) 10px;
     }
     .feed-tl-head { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--space-3); }
@@ -2878,22 +2998,22 @@
        state doesn't jump in size once real departures render — used for the
        stop view's departures list and the nearby departure board. */
     .skel-dep-card {
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      border-radius: var(--card-radius);
-      padding: 9px 11px 8px;
-      display: flex;
-      flex-direction: column;
-      gap: 5px;
+      display: grid;
+      grid-template-columns: 46px minmax(0, 1fr) 56px;
+      grid-template-rows: auto auto;
+      column-gap: 12px;
+      row-gap: 8px;
+      align-items: center;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
     }
-    .skel-dep-card .skel-row-top { display: flex; align-items: center; justify-content: space-between; }
-    .skel-dep-card .skel-route-pill { width: 46px; height: 19px; border-radius: 20px; }
-    .skel-dep-card .skel-row-time { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
-    .skel-dep-card .skel-time-big { width: 76px; height: 19px; }
-    .skel-dep-card .skel-eta-pill { width: 48px; height: 17px; border-radius: 20px; }
-    .skel-dep-card .skel-headsign-line { height: 13px; width: 78%; }
-    .skel-dep-card .skel-row-footer { display: flex; padding-top: 5px; margin-top: 1px; border-top: 1px solid var(--border); }
-    .skel-dep-card .skel-trip-line { height: 11px; width: 38%; }
+    .skel-dep-card:last-child { border-bottom: 0; }
+    .skel-dep-card .skel-row-top, .skel-dep-card .skel-row-time { display: contents; }
+    .skel-dep-card .skel-route-pill { grid-column: 1; grid-row: 1 / 3; align-self: start; width: 46px; height: 30px; border-radius: 5px; }
+    .skel-dep-card .skel-headsign-line { grid-column: 2; grid-row: 1; height: 13px; width: 72%; }
+    .skel-dep-card .skel-time-big { grid-column: 2; grid-row: 2; width: 34%; height: 11px; }
+    .skel-dep-card .skel-eta-pill { grid-column: 3; grid-row: 1 / 3; justify-self: end; width: 52px; height: 26px; border-radius: 4px; }
+    .skel-dep-card .skel-row-footer { display: none; }
 
     /* Mimics an .rt-trip-card — used for the route search trip grid. */
     .skel-trip-card {
@@ -2907,6 +3027,86 @@
     }
     .skel-trip-card .skel-line-a { height: 13px; width: 60%; }
     .skel-trip-card .skel-line-b { height: 10px; width: 85%; }
+
+    /* ===== MOTION: platform-display system =====
+       Motion marks a state change and nothing else: a board arriving, a number
+       changing, a vehicle moving. One easing family (--ease-out / --ease-in-out);
+       the global reduced-motion block above flattens every rule here. */
+
+    /* Switching tabs: the panel settles in */
+    .sidebar-section.active, .tab-panel.active { animation: panel-in 240ms var(--ease-out) both; }
+    @keyframes panel-in { from { opacity: 0; transform: translateY(6px); } }
+
+    /* Search dropdowns unfold from their field */
+    .stop-search-results.visible { animation: drop-in 180ms var(--ease-out) both; transform-origin: 50% 0; }
+    @keyframes drop-in { from { opacity: 0; transform: translateY(-4px) scale(0.985); } }
+
+    /* A stop or route sign wipes in left to right, then its name rises into the band */
+    .stop-header, .route-header { animation: sign-wipe 620ms var(--ease-out) both; }
+    .stop-header .stop-header-row, .route-header .route-header-top { animation: sign-text 560ms var(--ease-out) 160ms both; }
+    .stop-header .stop-meta, .route-header .route-header-meta { animation: sign-text 560ms var(--ease-out) 240ms both; }
+    @keyframes sign-wipe { from { clip-path: inset(0 100% 0 0 round var(--radius)); } to { clip-path: inset(0 0 0 0 round var(--radius)); } }
+    @keyframes sign-text { from { opacity: 0; transform: translateY(8px); } }
+
+    /* A new board flips its rows down from the top, like a departure board refreshing */
+    .departures-grid > .dep-card,
+    .departures-grid > .skel-dep-card {
+      animation: row-flip 480ms var(--ease-out) both;
+      animation-delay: calc(var(--row, 0) * 34ms);
+      transform-origin: 50% 0;
+      backface-visibility: hidden;
+    }
+    .departures-grid > .dep-card:nth-child(2), .departures-grid > .skel-dep-card:nth-child(2) { --row: 1; }
+    .departures-grid > .dep-card:nth-child(3), .departures-grid > .skel-dep-card:nth-child(3) { --row: 2; }
+    .departures-grid > .dep-card:nth-child(4), .departures-grid > .skel-dep-card:nth-child(4) { --row: 3; }
+    .departures-grid > .dep-card:nth-child(5), .departures-grid > .skel-dep-card:nth-child(5) { --row: 4; }
+    .departures-grid > .dep-card:nth-child(6), .departures-grid > .skel-dep-card:nth-child(6) { --row: 5; }
+    .departures-grid > .dep-card:nth-child(7), .departures-grid > .skel-dep-card:nth-child(7) { --row: 6; }
+    .departures-grid > .dep-card:nth-child(8), .departures-grid > .skel-dep-card:nth-child(8) { --row: 7; }
+    .departures-grid > .dep-card:nth-child(9), .departures-grid > .skel-dep-card:nth-child(9) { --row: 8; }
+    .departures-grid > .dep-card:nth-child(10), .departures-grid > .skel-dep-card:nth-child(10) { --row: 9; }
+    .departures-grid > .dep-card:nth-child(11), .departures-grid > .skel-dep-card:nth-child(11) { --row: 10; }
+    .departures-grid > .dep-card:nth-child(12), .departures-grid > .skel-dep-card:nth-child(12) { --row: 11; }
+    .departures-grid > .dep-card:nth-child(13), .departures-grid > .skel-dep-card:nth-child(13) { --row: 12; }
+    .departures-grid > .dep-card:nth-child(14), .departures-grid > .skel-dep-card:nth-child(14) { --row: 13; }
+    .departures-grid > .dep-card:nth-child(n+15) { --row: 14; }
+    @keyframes row-flip { from { opacity: 0; transform: perspective(800px) rotateX(-68deg); } }
+
+    /* Countdown digits roll up into place when the number changes */
+    .dep-eta.eta-roll > span { animation: digit-roll 560ms var(--ease-out) both; }
+    .dep-eta.eta-roll > span:nth-child(2) { animation-delay: 40ms; }
+    .dep-eta.eta-roll > span:nth-child(3) { animation-delay: 80ms; }
+    .dep-eta.eta-roll > span:nth-child(4) { animation-delay: 120ms; }
+    .station-clock .eta-roll-1 { animation: digit-roll 560ms var(--ease-out) both; }
+    @keyframes digit-roll { from { opacity: 0; transform: translateY(70%); filter: blur(2px); } }
+
+    /* Due now: the lamp breathes */
+    .dep-eta.dep-eta-due .eta-w { animation: lamp-breathe 1.4s ease-in-out infinite; }
+    @keyframes lamp-breathe { 50% { opacity: 0.4; } }
+    .clock-colon { animation: colon-blink 2s steps(1, end) infinite; }
+    @keyframes colon-blink { 50% { opacity: 0.25; } }
+
+    /* Live indicators radiate a ring instead of blinking */
+    .rt-pulse::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      animation: live-ring 2s var(--ease-out) infinite;
+    }
+    .rt-pulse.error::after { display: none; }
+    @keyframes live-ring {
+      from { box-shadow: 0 0 0 0 rgba(var(--positive-rgb), 0.6); }
+      to   { box-shadow: 0 0 0 7px rgba(var(--positive-rgb), 0); }
+    }
+
+    /* The live bus: an amber lamp that glides between position updates */
+    :root[data-theme="light"] .vehicle-rt-marker div { background: var(--accent3); border-color: #fff; }
+    .leaflet-marker-icon.vehicle-rt-marker.gliding,
+    .leaflet-tooltip.veh-time-tooltip.gliding { transition: transform 1.2s var(--ease-in-out); }
+
+    /* Buttons press in; nothing bounces */
+    button:active, .dep-card:active, .nearest-stop-item:active { transition-duration: 60ms; }
   </style>
 </head>
 <body>
@@ -2931,11 +3131,12 @@
       <div id="sidebar-inner">
         <div id="sidebar-header">
           <div id="sidebar-header-left">
+            <span class="brand-led" aria-hidden="true"></span>
             <div id="sidebar-header-titles">
               <h1>GTFS Parser</h1>
             </div>
           </div>
-          <button class="theme-switch btn-ico" id="themeToggleBtn" title="Switch theme" onclick="toggleTheme()"><span class="theme-switch-knob" aria-hidden="true"><span class="ico-pair ico-sun"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg><span class="ico-uni" aria-hidden="true">&#x2600;&#xFE0E;</span></span><span class="ico-pair ico-moon"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z"/></svg><span class="ico-uni" aria-hidden="true">&#x263E;&#xFE0E;</span></span></span><span class="btn-label">Light theme</span></button>
+          <div class="station-clock" id="stationClock" role="timer" aria-live="off"><span id="clockH"></span><span class="clock-colon" aria-hidden="true">:</span><span id="clockM"></span></div>
         </div>
         <div class="global-search stop-search-wrap" id="globalSearch">
           <div class="stop-search-field">
@@ -2962,52 +3163,16 @@
           <div class="panel-heading">Favourites</div>
           <div class="fav-list" id="favList"></div>
         </div>
-        <div class="panel">
-          <div class="panel-heading-row settings-popover-wrap">
-            <div class="panel-heading">Find a stop</div>
-            <button type="button" class="gear-btn" id="stopSettingsBtn" aria-label="Stop search settings" aria-haspopup="true" aria-expanded="false" title="Stop search settings"><span class="gear-ico" aria-hidden="true">&#9881;&#xFE0E;</span></button>
-            <div class="settings-popover" id="stopSettingsPopover" hidden>
-              <div class="settings-popover-title">Search settings</div>
-              <label class="toggle-row" for="searchMultipleStopsToggle" title="When on, a name search combines every stop sharing that exact name into one board instead of loading a single stop">
-                <input type="checkbox" id="searchMultipleStopsToggle" />
-                Search stops with same name
-              </label>
-              <div class="sub-settings" id="stopSubSettings">
-                <label class="toggle-row" for="mergeCrossStreetsToggle" title="Treat &quot;A / B&quot; and &quot;B / A&quot; as the same intersection">
-                  <input type="checkbox" id="mergeCrossStreetsToggle" />
-                  Merge reversed cross-streets
-                </label>
-                <label class="toggle-row" for="includeNearbyToggle" title="Merge departures from every stop within this distance — e.g. both sides of the street. Turn off to see one stop at a time.">
-                  <input type="checkbox" id="includeNearbyToggle" checked />
-                  Include all stops within
-                  <input type="number" id="includeNearbyRadius" class="radius-input" min="1" max="5000" step="1" value="75" aria-label="Radius in meters" />
-                  m
-                </label>
-                <label class="toggle-row" for="truncateMultiTripsToggle" title="When the same trip shows up at more than one of these stops, only keep the copy from the stop closest to the group">
-                  <input type="checkbox" id="truncateMultiTripsToggle" checked />
-                  Truncate multiple trips
-                </label>
-              </div>
-            </div>
-          </div>
+        <input type="hidden" id="stopIdInput" />
+        <div class="empty-hint" id="stopEmpty">
+          <p>Search above for a stop, or list the stops around you.</p>
+          <button type="button" class="secondary" onclick="switchTab('m-tab-nearby')">Find nearby stops</button>
+        </div>
 
-          <div class="field-block stop-search-wrap">
-            <label class="input-row-label" for="stopSearchInput">Name or stop number</label>
-            <div class="stop-search-field">
-              <input type="text" id="stopSearchInput" placeholder="e.g. Main St or 1867" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Find a stop by name, ID or code" />
-              <button type="button" class="stop-search-clear" aria-label="Clear search" hidden>&times;</button>
-            </div>
-            <!-- Hidden: holds the currently loaded stop id so date changes / map clicks can reload it -->
-            <input type="hidden" id="stopIdInput" />
-            <div class="stop-search-results" id="stopSearchResults"></div>
-          </div>
-
-          <div class="field-block">
-          <label class="input-row-label" for="dateInput">Date</label>
-            <div class="date-row joined">
-              <input type="date" id="dateInput" />
-              <button class="secondary today-btn is-today btn-ico" data-for="dateInput" title="Jump back to today" onclick="setDateToday('dateInput')"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg><span class="ico-uni" aria-hidden="true">&#x21BA;&#xFE0E;</span><span class="btn-label">Today</span></button>
-            </div>
+        <div class="stop-date-row" id="stopDateRow">
+          <div class="date-row joined">
+            <input type="date" id="dateInput" aria-label="Date" />
+            <button class="secondary today-btn is-today btn-ico" data-for="dateInput" title="Jump back to today" onclick="setDateToday('dateInput')"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg><span class="ico-uni" aria-hidden="true">&#x21BA;&#xFE0E;</span><span class="btn-label">Today</span></button>
           </div>
         </div>
 
@@ -3074,18 +3239,21 @@
             <span class="rt-pulse" id="rtPulse"></span>
           </div>
           <div class="rt-body">
-            <div class="rt-row"><span class="rt-label">Vehicle</span><span class="rt-val" id="rv-id">—</span></div>
-            <div class="rt-row"><span class="rt-label">Route</span><span class="rt-val" id="rv-route">—</span></div>
-            <div class="rt-row"><span class="rt-label">Trip</span><span class="rt-val" id="rv-trip">—</span></div>
-            <div class="rt-row"><span class="rt-label">Direction</span><span class="rt-val" id="rv-dir">—</span></div>
-            <div class="rt-row"><span class="rt-label">Start</span><span class="rt-val" id="rv-start">—</span></div>
             <div class="rt-row"><span class="rt-label">Status</span><span class="rt-val" id="rv-status">—</span></div>
-            <div class="rt-row"><span class="rt-label">Stop seq</span><span class="rt-val" id="rv-seq">—</span></div>
             <div class="rt-row"><span class="rt-label">Next stop</span><span class="rt-val" id="rv-stop">—</span></div>
-            <div class="rt-row"><span class="rt-label">Lat / Lon</span><span class="rt-val" id="rv-pos">—</span></div>
-            <div class="rt-row"><span class="rt-label">Bearing</span><span class="rt-val" id="rv-bearing">—</span></div>
             <div class="rt-row"><span class="rt-label">Speed</span><span class="rt-val" id="rv-speed">—</span></div>
             <div class="rt-row"><span class="rt-label">Occupancy</span><span class="rt-val" id="rv-occ">—</span></div>
+            <details class="rt-more">
+              <summary>Details</summary>
+              <div class="rt-row"><span class="rt-label">Vehicle</span><span class="rt-val" id="rv-id">—</span></div>
+              <div class="rt-row"><span class="rt-label">Route</span><span class="rt-val" id="rv-route">—</span></div>
+              <div class="rt-row"><span class="rt-label">Trip</span><span class="rt-val" id="rv-trip">—</span></div>
+              <div class="rt-row"><span class="rt-label">Direction</span><span class="rt-val" id="rv-dir">—</span></div>
+              <div class="rt-row"><span class="rt-label">Start</span><span class="rt-val" id="rv-start">—</span></div>
+              <div class="rt-row"><span class="rt-label">Stop seq</span><span class="rt-val" id="rv-seq">—</span></div>
+              <div class="rt-row"><span class="rt-label">Lat / Lon</span><span class="rt-val" id="rv-pos">—</span></div>
+              <div class="rt-row"><span class="rt-label">Bearing</span><span class="rt-val" id="rv-bearing">—</span></div>
+            </details>
             <div class="rt-timestamp" id="rtTimestamp"></div>
           </div>
         </div>
@@ -3093,15 +3261,11 @@
 
       <div class="sidebar-section" id="sb-tab-trip">
         <div class="panel">
-          <div class="panel-heading-row">
-            <div class="panel-heading">Trip between stops</div>
-            <button type="button" class="fav-btn" data-fav="trip" aria-pressed="false" title="Save to favourites" hidden>&#x2606;&#xFE0E; Save</button>
-          </div>
           <div class="trip-ends">
           <div class="field-block stop-search-wrap">
             <label class="input-row-label" for="tripFromInput">From</label>
             <div class="stop-search-field">
-              <input type="text" id="tripFromInput" placeholder="e.g. Main St or 1867" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="From stop, by name, ID or code" />
+              <input type="text" id="tripFromInput" placeholder="Stop name or number" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="From stop, by name, ID or code" />
               <button type="button" class="stop-search-clear" aria-label="Clear search" hidden>&times;</button>
             </div>
             <div class="stop-search-results" id="tripFromResults"></div>
@@ -3110,7 +3274,7 @@
           <div class="field-block stop-search-wrap">
             <label class="input-row-label" for="tripToInput">To</label>
             <div class="stop-search-field">
-              <input type="text" id="tripToInput" placeholder="e.g. Main St or 1867" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="To stop, by name, ID or code" />
+              <input type="text" id="tripToInput" placeholder="Stop name or number" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="To stop, by name, ID or code" />
               <button type="button" class="stop-search-clear" aria-label="Clear search" hidden>&times;</button>
             </div>
             <div class="stop-search-results" id="tripToResults"></div>
@@ -3124,17 +3288,9 @@
             </div>
           </div>
           <div class="field-block trip-mode-row">
-            <span class="input-row-label">Show</span>
             <div class="seg seg-2" id="tripModeSeg" data-mode="direct" role="group" aria-label="Trip type"><span class="seg-thumb" aria-hidden="true"></span><button type="button" data-mode="direct" aria-pressed="true" title="Direct trips only" onclick="setTripMode('direct')">Direct</button><button type="button" data-mode="transfers" aria-pressed="false" title="Journeys with transfers and short walks" onclick="setTripMode('transfers')">With transfers</button></div>
           </div>
-          <div class="nearest-hint" id="tripModeHint">Direct trips only. Stops within the "Include all stops within" distance (Stops tab settings) count as the same stop.</div>
-          <div class="field-block">
-            <label class="input-row-label" for="tripIdInput">Or go to a trip ID</label>
-            <div class="go-form">
-              <input type="text" id="tripIdInput" placeholder="Trip ID, e.g. 40928123" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Trip ID" />
-              <button class="secondary tab-accent-btn go-btn btn-ico" aria-label="Load trip" title="Load trip" onclick="handleLoadTrip('tripIdInput')"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg><span class="ico-uni" aria-hidden="true">&#x2192;&#xFE0E;</span></button>
-            </div>
-          </div>
+          <div class="nearest-hint" id="tripModeHint">Direct trips only.</div>
         </div>
         <div id="betweenLoading" class="departures-grid" style="display:none">
           <div class="skel-dep-card"><div class="skel-row-top"><div class="skel-block skel-route-pill"></div></div><div class="skel-row-time"><div class="skel-block skel-time-big"></div><div class="skel-block skel-eta-pill"></div></div><div class="skel-block skel-headsign-line"></div><div class="skel-row-footer"><div class="skel-block skel-trip-line"></div></div></div>
@@ -3144,7 +3300,7 @@
         <div id="betweenSection" style="display:none">
           <div class="departures-section-header">
             <div class="section-title" id="betweenTitle">Direct trips</div>
-            <div class="dep-header-actions"><div class="seg" id="betweenSeg" data-mode="3h" role="group" aria-label="Time window"><span class="seg-thumb" aria-hidden="true"></span><button type="button" data-mode="3h" aria-pressed="true" title="Next 3 hours" onclick="setBetweenWindow('3h')">3h</button><button type="button" data-mode="n4" aria-pressed="false" title="Next 4 trips" onclick="setBetweenWindow('n4')">Next 4</button><button type="button" data-mode="all" aria-pressed="false" title="All trips that day" onclick="setBetweenWindow('all')">All</button></div><button type="button" class="dep-expand-btn" title="Fill sidebar" aria-label="Fill sidebar" aria-pressed="false" onclick="toggleDepExpand('betweenSection')"><svg class="ico-expand" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg><svg class="ico-collapse" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"/></svg></button></div>
+            <div class="dep-header-actions"><button type="button" class="fav-btn" data-fav="trip" aria-pressed="false" title="Save to favourites" hidden>&#x2606;&#xFE0E; Save</button><div class="seg" id="betweenSeg" data-mode="3h" role="group" aria-label="Time window"><span class="seg-thumb" aria-hidden="true"></span><button type="button" data-mode="3h" aria-pressed="true" title="Next 3 hours" onclick="setBetweenWindow('3h')">3h</button><button type="button" data-mode="n4" aria-pressed="false" title="Next 4 trips" onclick="setBetweenWindow('n4')">Next 4</button><button type="button" data-mode="all" aria-pressed="false" title="All trips that day" onclick="setBetweenWindow('all')">All</button></div><button type="button" class="dep-expand-btn" title="Fill sidebar" aria-label="Fill sidebar" aria-pressed="false" onclick="toggleDepExpand('betweenSection')"><svg class="ico-expand" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg><svg class="ico-collapse" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"/></svg></button></div>
           </div>
           <div class="dep-window-label" id="betweenMeta"></div>
           <div class="nearest-hint" id="betweenWalkNote" hidden></div>
@@ -3153,22 +3309,8 @@
       </div>
 
       <div class="sidebar-section" id="sb-tab-triproute">
-        <div class="panel">
-          <div class="panel-heading">Route lookup</div>
-
-          <div class="field-block stop-search-wrap">
-            <label class="input-row-label" for="routeSearchInput">Search by number or name</label>
-            <input type="text" id="routeSearchInput" placeholder="e.g. 512 or Finch" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Search routes by number or name" />
-            <div class="stop-search-results" id="routeSearchResults"></div>
-          </div>
-
-          <div class="field-block">
-            <label class="input-row-label" for="routeIdInput">Or by route ID</label>
-            <div class="go-form">
-              <input type="text" id="routeIdInput" placeholder="Route ID, e.g. 512" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Route ID" />
-              <button class="secondary tab-accent-btn go-btn btn-ico" aria-label="Search route" title="Search route" onclick="handleLoadRoute('routeIdInput','dateInput')"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg><span class="ico-uni" aria-hidden="true">&#x2192;&#xFE0E;</span></button>
-            </div>
-          </div>
+        <div class="empty-hint" id="routeEmpty">
+          <p>Search above for a route number or name.</p>
         </div>
 
         <div id="routeHeader" class="route-header">
@@ -3191,26 +3333,19 @@
 
       <div class="sidebar-section" id="sb-tab-discover">
         <div class="panel">
-          <div class="panel-heading">Nearby stops</div>
-          <div class="field-block stop-search-wrap">
-            <label class="input-row-label" for="nearbyStopSearchInput">Name or stop number</label>
-            <div class="stop-search-field">
-              <input type="text" id="nearbyStopSearchInput" placeholder="e.g. Main St or 1867" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Find stops near a stop, by name, ID or code" />
-              <button type="button" class="stop-search-clear" aria-label="Clear search" hidden>&times;</button>
-            </div>
-            <div class="stop-search-results" id="nearbyStopSearchResults"></div>
-          </div>
           <button class="locate-hero btn-ico" onclick="useMyLocation('latInput','lonInput',true)"><span class="radar" aria-hidden="true"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg><span class="ico-uni">&#x27A4;&#xFE0E;</span></span><span class="hero-text"><span class="btn-label">Find nearest stops</span><span class="hero-sub">Uses your location</span></span><span class="hero-go" aria-hidden="true"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg><span class="ico-uni">&#x2192;&#xFE0E;</span></span></button>
           <div class="btn-tiles">
             <button class="pick-mode-btn tab-accent-btn btn-tile btn-ico" id="pickModeBtn" onclick="setPickMode(!pickModeActive)"><span class="ico-pair ico-a"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M22 12h-4M6 12H2M12 6V2M12 22v-4"/></svg><span class="ico-uni" aria-hidden="true">&#x2295;&#xFE0E;</span></span><span class="ico-pair ico-b"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg><span class="ico-uni" aria-hidden="true">&#x2715;&#xFE0E;</span></span><span class="btn-label">Pick a point on the map</span></button>
             <button class="secondary tab-accent-btn show-loc-btn btn-tile btn-ico" onclick="showUserLocation()"><span class="ico-pair ico-a"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg><span class="ico-uni" aria-hidden="true">&#x25C9;&#xFE0E;</span></span><span class="ico-pair ico-b"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg><span class="ico-uni" aria-hidden="true">&#x2715;&#xFE0E;</span></span><span class="btn-label">Show my location on map</span></button>
           </div>
-          <div class="input-row-label" id="findNearestLabel" style="margin-top:6px">Or enter coordinates</div>
-          <form class="go-form" role="group" aria-labelledby="findNearestLabel" onsubmit="event.preventDefault(); handleFindNearest('latInput','lonInput')">
-            <input type="text" id="latInput" inputmode="decimal" placeholder="Latitude" aria-label="Latitude" />
-            <input type="text" id="lonInput" inputmode="decimal" placeholder="Longitude" aria-label="Longitude" />
-            <button type="submit" class="secondary tab-accent-btn go-btn btn-ico" aria-label="Search nearby" title="Search nearby"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg><span class="ico-uni" aria-hidden="true">&#x2192;&#xFE0E;</span></button>
-          </form>
+          <details class="coords-details">
+            <summary id="findNearestLabel">Enter coordinates</summary>
+            <form class="go-form" role="group" aria-labelledby="findNearestLabel" onsubmit="event.preventDefault(); handleFindNearest('latInput','lonInput')">
+              <input type="text" id="latInput" inputmode="decimal" placeholder="Latitude" aria-label="Latitude" />
+              <input type="text" id="lonInput" inputmode="decimal" placeholder="Longitude" aria-label="Longitude" />
+              <button type="submit" class="secondary tab-accent-btn go-btn btn-ico" aria-label="Search nearby" title="Search nearby"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg><span class="ico-uni" aria-hidden="true">&#x2192;&#xFE0E;</span></button>
+            </form>
+          </details>
         </div>
 
         <div id="nearestStopsInfo"></div>
@@ -3227,6 +3362,30 @@
       </div>
 
       <div class="sidebar-section" id="sb-tab-more">
+        <div class="panel settings-panel">
+          <div class="panel-heading">Settings</div>
+          <label class="toggle-row" for="searchMultipleStopsToggle" title="When on, a name search combines every stop sharing that exact name into one board instead of loading a single stop">
+            <input type="checkbox" id="searchMultipleStopsToggle" />
+            Search stops with same name
+          </label>
+          <div class="sub-settings" id="stopSubSettings">
+            <label class="toggle-row" for="mergeCrossStreetsToggle" title="Treat &quot;A / B&quot; and &quot;B / A&quot; as the same intersection">
+              <input type="checkbox" id="mergeCrossStreetsToggle" />
+              Merge reversed cross-streets
+            </label>
+            <label class="toggle-row" for="includeNearbyToggle" title="Merge departures from every stop within this distance, for example both sides of the street. Turn off to see one stop at a time.">
+              <input type="checkbox" id="includeNearbyToggle" checked />
+              Include all stops within
+              <input type="number" id="includeNearbyRadius" class="radius-input" min="1" max="5000" step="1" value="75" aria-label="Radius in meters" />
+              m
+            </label>
+            <label class="toggle-row" for="truncateMultiTripsToggle" title="When the same trip shows up at more than one of these stops, only keep the copy from the stop closest to the group">
+              <input type="checkbox" id="truncateMultiTripsToggle" checked />
+              Truncate multiple trips
+            </label>
+          </div>
+          <div class="settings-row"><span>Appearance</span><button class="theme-switch btn-ico" id="themeToggleBtn" title="Switch theme" onclick="toggleTheme()"><span class="theme-switch-knob" aria-hidden="true"><span class="ico-pair ico-sun"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg><span class="ico-uni" aria-hidden="true">&#x2600;&#xFE0E;</span></span><span class="ico-pair ico-moon"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z"/></svg><span class="ico-uni" aria-hidden="true">&#x263E;&#xFE0E;</span></span></span><span class="btn-label">Light theme</span></button></div>
+        </div>
         <div class="panel">
           <div class="panel-heading">GTFS feed</div>
           <div class="feed-status-row"><span class="feed-status-dot" data-feed-dot></span><span data-feed-label>Loading…</span></div>
@@ -3275,7 +3434,6 @@
         <div id="sheet-peek-title">GTFS Parser</div>
         <div id="sheet-peek-sub">Tap to search stops &amp; trips</div>
       </div>
-      <button class="theme-switch btn-ico" id="mThemeToggleBtn" title="Switch theme" onclick="event.stopPropagation(); toggleTheme()"><span class="theme-switch-knob" aria-hidden="true"><span class="ico-pair ico-sun"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg><span class="ico-uni" aria-hidden="true">&#x2600;&#xFE0E;</span></span><span class="ico-pair ico-moon"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z"/></svg><span class="ico-uni" aria-hidden="true">&#x263E;&#xFE0E;</span></span></span><span class="btn-label">Light theme</span></button>
     </div>
 
     <div class="global-search stop-search-wrap" id="m-globalSearch">
@@ -3305,54 +3463,22 @@
           <div class="panel-heading">Favourites</div>
           <div class="fav-list" id="m-favList"></div>
         </div>
-        <div class="panel-heading-row settings-popover-wrap">
-          <div class="panel-heading">Find a stop</div>
-          <button type="button" class="gear-btn" id="m-stopSettingsBtn" aria-label="Stop search settings" aria-haspopup="true" aria-expanded="false" title="Stop search settings"><span class="gear-ico" aria-hidden="true">&#9881;&#xFE0E;</span></button>
-          <div class="settings-popover" id="m-stopSettingsPopover" hidden>
-            <div class="settings-popover-title">Search settings</div>
-            <label class="toggle-row" for="m-searchMultipleStopsToggle" title="When on, a name search combines every stop sharing that exact name into one board instead of loading a single stop">
-              <input type="checkbox" id="m-searchMultipleStopsToggle" />
-              Search stops with same name
-            </label>
-            <div class="sub-settings" id="m-stopSubSettings">
-              <label class="toggle-row" for="m-mergeCrossStreetsToggle" title="Treat &quot;A / B&quot; and &quot;B / A&quot; as the same intersection">
-                <input type="checkbox" id="m-mergeCrossStreetsToggle" />
-                Merge reversed cross-streets
-              </label>
-              <label class="toggle-row" for="m-includeNearbyToggle" title="Merge departures from every stop within this distance — e.g. both sides of the street. Turn off to see one stop at a time.">
-                <input type="checkbox" id="m-includeNearbyToggle" checked />
-                Include all stops within
-                <input type="number" id="m-includeNearbyRadius" class="radius-input" min="1" max="5000" step="1" value="75" aria-label="Radius in meters" />
-                m
-              </label>
-              <label class="toggle-row" for="m-truncateMultiTripsToggle" title="When the same trip shows up at more than one of these stops, only keep the copy from the stop closest to the group">
-                <input type="checkbox" id="m-truncateMultiTripsToggle" checked />
-                Truncate multiple trips
-              </label>
-            </div>
-          </div>
-        </div>
-
-        <div class="field-block stop-search-wrap">
-          <label class="input-row-label" for="m-stopSearchInput">Name or stop number</label>
-          <div class="stop-search-field">
-            <input type="text" id="m-stopSearchInput" placeholder="e.g. Main St or 1867" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Find a stop by name, ID or code" />
-            <button type="button" class="stop-search-clear" aria-label="Clear search" hidden>&times;</button>
-          </div>
-          <input type="hidden" id="m-stopIdInput" />
-          <div class="stop-search-results" id="m-stopSearchResults"></div>
-        </div>
-        <div class="field-block">
-          <label class="input-row-label" for="m-dateInput">Date</label>
-          <div class="date-row joined">
-            <input type="date" id="m-dateInput" />
-            <button class="secondary today-btn is-today btn-ico" data-for="m-dateInput" title="Jump back to today" onclick="setDateToday('m-dateInput')"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg><span class="ico-uni" aria-hidden="true">&#x21BA;&#xFE0E;</span><span class="btn-label">Today</span></button>
-          </div>
+        <input type="hidden" id="m-stopIdInput" />
+        <div class="empty-hint" id="m-stopEmpty">
+          <p>Search above for a stop, or list the stops around you.</p>
+          <button type="button" class="secondary" onclick="switchTab('m-tab-nearby')">Find nearby stops</button>
         </div>
       </div>
 
       <!-- DEPARTURES TAB: split from Stops so the board scrolls with the sheet instead of inside it -->
       <div class="tab-panel" id="m-tab-departures">
+        <div class="stop-date-row" id="m-stopDateRow">
+          <div class="date-row joined">
+            <input type="date" id="m-dateInput" aria-label="Date" />
+            <button class="secondary today-btn is-today btn-ico" data-for="m-dateInput" title="Jump back to today" onclick="setDateToday('m-dateInput')"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg><span class="ico-uni" aria-hidden="true">&#x21BA;&#xFE0E;</span><span class="btn-label">Today</span></button>
+          </div>
+        </div>
+
         <div id="m-stopLoading" class="departures-grid" style="display:none">
           <div class="skel-dep-card"><div class="skel-row-top"><div class="skel-block skel-route-pill"></div></div><div class="skel-row-time"><div class="skel-block skel-time-big"></div><div class="skel-block skel-eta-pill"></div></div><div class="skel-block skel-headsign-line"></div><div class="skel-row-footer"><div class="skel-block skel-trip-line"></div></div></div>
           <div class="skel-dep-card"><div class="skel-row-top"><div class="skel-block skel-route-pill"></div></div><div class="skel-row-time"><div class="skel-block skel-time-big"></div><div class="skel-block skel-eta-pill"></div></div><div class="skel-block skel-headsign-line"></div><div class="skel-row-footer"><div class="skel-block skel-trip-line"></div></div></div>
@@ -3424,18 +3550,21 @@
             <span class="rt-pulse" id="m-rtPulse"></span>
           </div>
           <div class="rt-body">
-            <div class="rt-row"><span class="rt-label">Vehicle</span><span class="rt-val" id="m-rv-id">—</span></div>
-            <div class="rt-row"><span class="rt-label">Route</span><span class="rt-val" id="m-rv-route">—</span></div>
-            <div class="rt-row"><span class="rt-label">Trip</span><span class="rt-val" id="m-rv-trip">—</span></div>
-            <div class="rt-row"><span class="rt-label">Direction</span><span class="rt-val" id="m-rv-dir">—</span></div>
-            <div class="rt-row"><span class="rt-label">Start</span><span class="rt-val" id="m-rv-start">—</span></div>
             <div class="rt-row"><span class="rt-label">Status</span><span class="rt-val" id="m-rv-status">—</span></div>
-            <div class="rt-row"><span class="rt-label">Stop seq</span><span class="rt-val" id="m-rv-seq">—</span></div>
             <div class="rt-row"><span class="rt-label">Next stop</span><span class="rt-val" id="m-rv-stop">—</span></div>
-            <div class="rt-row"><span class="rt-label">Lat / Lon</span><span class="rt-val" id="m-rv-pos">—</span></div>
-            <div class="rt-row"><span class="rt-label">Bearing</span><span class="rt-val" id="m-rv-bearing">—</span></div>
             <div class="rt-row"><span class="rt-label">Speed</span><span class="rt-val" id="m-rv-speed">—</span></div>
             <div class="rt-row"><span class="rt-label">Occupancy</span><span class="rt-val" id="m-rv-occ">—</span></div>
+            <details class="rt-more">
+              <summary>Details</summary>
+              <div class="rt-row"><span class="rt-label">Vehicle</span><span class="rt-val" id="m-rv-id">—</span></div>
+              <div class="rt-row"><span class="rt-label">Route</span><span class="rt-val" id="m-rv-route">—</span></div>
+              <div class="rt-row"><span class="rt-label">Trip</span><span class="rt-val" id="m-rv-trip">—</span></div>
+              <div class="rt-row"><span class="rt-label">Direction</span><span class="rt-val" id="m-rv-dir">—</span></div>
+              <div class="rt-row"><span class="rt-label">Start</span><span class="rt-val" id="m-rv-start">—</span></div>
+              <div class="rt-row"><span class="rt-label">Stop seq</span><span class="rt-val" id="m-rv-seq">—</span></div>
+              <div class="rt-row"><span class="rt-label">Lat / Lon</span><span class="rt-val" id="m-rv-pos">—</span></div>
+              <div class="rt-row"><span class="rt-label">Bearing</span><span class="rt-val" id="m-rv-bearing">—</span></div>
+            </details>
             <div class="rt-timestamp" id="m-rtTimestamp"></div>
           </div>
         </div>
@@ -3443,15 +3572,11 @@
 
       <!-- TRIP TAB: direct trips from one stop to another -->
       <div class="tab-panel" id="m-tab-trip">
-        <div class="panel-heading-row">
-            <div class="panel-heading">Trip between stops</div>
-            <button type="button" class="fav-btn" data-fav="trip" aria-pressed="false" title="Save to favourites" hidden>&#x2606;&#xFE0E; Save</button>
-          </div>
           <div class="trip-ends">
           <div class="field-block stop-search-wrap">
             <label class="input-row-label" for="m-tripFromInput">From</label>
             <div class="stop-search-field">
-              <input type="text" id="m-tripFromInput" placeholder="e.g. Main St or 1867" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="From stop, by name, ID or code" />
+              <input type="text" id="m-tripFromInput" placeholder="Stop name or number" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="From stop, by name, ID or code" />
               <button type="button" class="stop-search-clear" aria-label="Clear search" hidden>&times;</button>
             </div>
             <div class="stop-search-results" id="m-tripFromResults"></div>
@@ -3460,7 +3585,7 @@
           <div class="field-block stop-search-wrap">
             <label class="input-row-label" for="m-tripToInput">To</label>
             <div class="stop-search-field">
-              <input type="text" id="m-tripToInput" placeholder="e.g. Main St or 1867" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="To stop, by name, ID or code" />
+              <input type="text" id="m-tripToInput" placeholder="Stop name or number" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="To stop, by name, ID or code" />
               <button type="button" class="stop-search-clear" aria-label="Clear search" hidden>&times;</button>
             </div>
             <div class="stop-search-results" id="m-tripToResults"></div>
@@ -3474,17 +3599,9 @@
             </div>
           </div>
           <div class="field-block trip-mode-row">
-            <span class="input-row-label">Show</span>
             <div class="seg seg-2" id="m-tripModeSeg" data-mode="direct" role="group" aria-label="Trip type"><span class="seg-thumb" aria-hidden="true"></span><button type="button" data-mode="direct" aria-pressed="true" title="Direct trips only" onclick="setTripMode('direct')">Direct</button><button type="button" data-mode="transfers" aria-pressed="false" title="Journeys with transfers and short walks" onclick="setTripMode('transfers')">With transfers</button></div>
           </div>
-          <div class="nearest-hint" id="m-tripModeHint">Direct trips only. Stops within the "Include all stops within" distance (Stops tab settings) count as the same stop.</div>
-          <div class="field-block">
-            <label class="input-row-label" for="m-tripIdInput">Or go to a trip ID</label>
-            <div class="go-form">
-              <input type="text" id="m-tripIdInput" placeholder="Trip ID" autocapitalize="off" autocorrect="off" spellcheck="false" />
-              <button class="secondary tab-accent-btn go-btn btn-ico" aria-label="Load trip" title="Load trip" onclick="handleLoadTrip('m-tripIdInput')"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg><span class="ico-uni" aria-hidden="true">&#x2192;&#xFE0E;</span></button>
-            </div>
-          </div>
+          <div class="nearest-hint" id="m-tripModeHint">Direct trips only.</div>
         <div id="m-betweenLoading" class="departures-grid" style="display:none">
           <div class="skel-dep-card"><div class="skel-row-top"><div class="skel-block skel-route-pill"></div></div><div class="skel-row-time"><div class="skel-block skel-time-big"></div><div class="skel-block skel-eta-pill"></div></div><div class="skel-block skel-headsign-line"></div><div class="skel-row-footer"><div class="skel-block skel-trip-line"></div></div></div>
           <div class="skel-dep-card"><div class="skel-row-top"><div class="skel-block skel-route-pill"></div></div><div class="skel-row-time"><div class="skel-block skel-time-big"></div><div class="skel-block skel-eta-pill"></div></div><div class="skel-block skel-headsign-line"></div><div class="skel-row-footer"><div class="skel-block skel-trip-line"></div></div></div>
@@ -3493,7 +3610,7 @@
         <div id="m-betweenSection" style="display:none">
           <div class="departures-section-header">
             <div class="section-title" id="m-betweenTitle">Direct trips</div>
-            <div class="dep-header-actions"><div class="seg" id="m-betweenSeg" data-mode="3h" role="group" aria-label="Time window"><span class="seg-thumb" aria-hidden="true"></span><button type="button" data-mode="3h" aria-pressed="true" title="Next 3 hours" onclick="setBetweenWindow('3h')">3h</button><button type="button" data-mode="n4" aria-pressed="false" title="Next 4 trips" onclick="setBetweenWindow('n4')">Next 4</button><button type="button" data-mode="all" aria-pressed="false" title="All trips that day" onclick="setBetweenWindow('all')">All</button></div></div>
+            <div class="dep-header-actions"><button type="button" class="fav-btn" data-fav="trip" aria-pressed="false" title="Save to favourites" hidden>&#x2606;&#xFE0E; Save</button><div class="seg" id="m-betweenSeg" data-mode="3h" role="group" aria-label="Time window"><span class="seg-thumb" aria-hidden="true"></span><button type="button" data-mode="3h" aria-pressed="true" title="Next 3 hours" onclick="setBetweenWindow('3h')">3h</button><button type="button" data-mode="n4" aria-pressed="false" title="Next 4 trips" onclick="setBetweenWindow('n4')">Next 4</button><button type="button" data-mode="all" aria-pressed="false" title="All trips that day" onclick="setBetweenWindow('all')">All</button></div></div>
           </div>
           <div class="dep-window-label" id="m-betweenMeta"></div>
           <div class="nearest-hint" id="m-betweenWalkNote" hidden></div>
@@ -3503,18 +3620,8 @@
 
       <!-- ROUTE TAB -->
       <div class="tab-panel" id="m-tab-route">
-        <div class="field-block stop-search-wrap">
-          <label class="input-row-label" for="m-routeSearchInput">Search by number or name</label>
-          <input type="text" id="m-routeSearchInput" placeholder="e.g. 512 or Finch" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
-          <div class="stop-search-results" id="m-routeSearchResults"></div>
-        </div>
-
-        <div class="field-block">
-          <label class="input-row-label" for="m-routeIdInput">Or by route ID</label>
-          <div class="go-form">
-            <input type="text" id="m-routeIdInput" placeholder="Route ID" autocapitalize="off" autocorrect="off" spellcheck="false" />
-            <button class="secondary tab-accent-btn go-btn btn-ico" aria-label="Search route" title="Search route" onclick="handleLoadRoute('m-routeIdInput','m-dateInput')"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg><span class="ico-uni" aria-hidden="true">&#x2192;&#xFE0E;</span></button>
-          </div>
+        <div class="empty-hint" id="m-routeEmpty">
+          <p>Search above for a route number or name.</p>
         </div>
 
         <div id="m-routeHeader" class="route-header">
@@ -3537,14 +3644,6 @@
 
       <!-- NEARBY TAB -->
       <div class="tab-panel" id="m-tab-nearby">
-        <div class="field-block stop-search-wrap">
-          <label class="input-row-label" for="m-nearbyStopSearchInput">Name or stop number</label>
-          <div class="stop-search-field">
-            <input type="text" id="m-nearbyStopSearchInput" placeholder="e.g. Main St or 1867" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Find stops near a stop, by name, ID or code" />
-            <button type="button" class="stop-search-clear" aria-label="Clear search" hidden>&times;</button>
-          </div>
-          <div class="stop-search-results" id="m-nearbyStopSearchResults"></div>
-        </div>
         <div class="field-block">
           <button class="locate-hero btn-ico" onclick="useMyLocation('m-latInput','m-lonInput',true)"><span class="radar" aria-hidden="true"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg><span class="ico-uni">&#x27A4;&#xFE0E;</span></span><span class="hero-text"><span class="btn-label">Find nearest stops</span><span class="hero-sub">Uses your location</span></span><span class="hero-go" aria-hidden="true"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg><span class="ico-uni">&#x2192;&#xFE0E;</span></span></button>
           <div class="btn-tiles">
@@ -3552,14 +3651,14 @@
           </div>
         </div>
         <div id="m-nearestStopsInfo"></div>
-        <div class="field-block">
-          <div class="input-row-label" id="m-findNearestLabel">Or enter coordinates</div>
+        <details class="coords-details">
+          <summary id="m-findNearestLabel">Enter coordinates</summary>
           <form class="go-form stacked" role="group" aria-labelledby="m-findNearestLabel" onsubmit="event.preventDefault(); handleFindNearest('m-latInput','m-lonInput')">
             <input type="text" id="m-latInput" inputmode="decimal" placeholder="Latitude" aria-label="Latitude" />
             <input type="text" id="m-lonInput" inputmode="decimal" placeholder="Longitude" aria-label="Longitude" />
             <button type="submit" class="secondary tab-accent-btn go-btn btn-ico" aria-label="Search nearby" title="Search nearby"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg><span class="ico-uni" aria-hidden="true">&#x2192;&#xFE0E;</span></button>
           </form>
-        </div>
+        </details>
       </div>
 
       <!-- ALERTS TAB -->
@@ -3573,6 +3672,30 @@
 
       <!-- MORE TAB -->
       <div class="tab-panel" id="m-tab-more">
+        <div class="field-block settings-panel">
+          <div class="panel-heading">Settings</div>
+          <label class="toggle-row" for="m-searchMultipleStopsToggle" title="When on, a name search combines every stop sharing that exact name into one board instead of loading a single stop">
+            <input type="checkbox" id="m-searchMultipleStopsToggle" />
+            Search stops with same name
+          </label>
+          <div class="sub-settings" id="m-stopSubSettings">
+            <label class="toggle-row" for="m-mergeCrossStreetsToggle" title="Treat &quot;A / B&quot; and &quot;B / A&quot; as the same intersection">
+              <input type="checkbox" id="m-mergeCrossStreetsToggle" />
+              Merge reversed cross-streets
+            </label>
+            <label class="toggle-row" for="m-includeNearbyToggle" title="Merge departures from every stop within this distance, for example both sides of the street. Turn off to see one stop at a time.">
+              <input type="checkbox" id="m-includeNearbyToggle" checked />
+              Include all stops within
+              <input type="number" id="m-includeNearbyRadius" class="radius-input" min="1" max="5000" step="1" value="75" aria-label="Radius in meters" />
+              m
+            </label>
+            <label class="toggle-row" for="m-truncateMultiTripsToggle" title="When the same trip shows up at more than one of these stops, only keep the copy from the stop closest to the group">
+              <input type="checkbox" id="m-truncateMultiTripsToggle" checked />
+              Truncate multiple trips
+            </label>
+          </div>
+          <div class="settings-row"><span>Appearance</span><button class="theme-switch btn-ico" id="mThemeToggleBtn" title="Switch theme" onclick="toggleTheme()"><span class="theme-switch-knob" aria-hidden="true"><span class="ico-pair ico-sun"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg><span class="ico-uni" aria-hidden="true">&#x2600;&#xFE0E;</span></span><span class="ico-pair ico-moon"><svg class="ico-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z"/></svg><span class="ico-uni" aria-hidden="true">&#x263E;&#xFE0E;</span></span></span><span class="btn-label">Light theme</span></button></div>
+        </div>
         <div class="field-block">
           <div class="panel-heading">GTFS feed</div>
           <div class="feed-status-row"><span class="feed-status-dot" data-feed-dot></span><span data-feed-label>Loading…</span></div>
@@ -3687,6 +3810,14 @@
     //   { kind: 'nearby', stopId }            a stop plus everything within the radius
     //   { kind: 'point',  lat, lon, label }   everything within the radius of a map point
     let currentStopView = null;
+    // Records what the Stops tab shows; the first board also reveals the
+    // date row and the mobile peek row (see body.has-stop-view).
+    function setStopView(view) {
+      currentStopView = view;
+      if (document.body.classList.contains('has-stop-view')) return;
+      document.body.classList.add('has-stop-view');
+      if (typeof updatePeekHeight === 'function') updatePeekHeight();
+    }
 
     // ===== UTILS =====
     function showEls(ids, display) {
@@ -3714,6 +3845,15 @@
     function escapeHtml(s) {
       return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     }
+
+    // style attribute that paints a .dep-route bullet in the route's colour
+    // (with readable text on it); empty when the feed has no colour.
+    function routeStyle(hex) {
+      const h = String(hex ?? '').replace('#', '');
+      return /^[0-9a-fA-F]{6}$/.test(h) ? ` style="--rc:#${h};--rc-fg:${readableTextColor(h)}"` : '';
+    }
+
+    const reduceMotion = () => !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
     function readableTextColor(hex) {
       const h = String(hex ?? '').replace('#', '');
@@ -3882,11 +4022,23 @@
       return [`in ${parts.join(' ')}`, ''];
     }
 
+    // "in 5 min" -> <5><MIN>, "in 1h 20m" -> <1><H><20><M>, "Due" -> <DUE>
+    function etaHTML(text) {
+      const parts = [...text.replace(/^in /, '').matchAll(/(\d+)\s*([a-z]+)/g)];
+      if (!parts.length) return `<span class="eta-w">${escapeHtml(text)}</span>`;
+      return parts.map(([, n, u]) => `<span class="eta-n">${n}</span><span class="eta-u">${u}</span>`).join('');
+    }
+
     function updateGridETAs(grid) {
       grid.querySelectorAll('.dep-eta').forEach(el => {
         const [text, cls] = fmtETA(el.dataset.arrival, el.dataset.tripId, grid.dataset.date);
-        el.textContent = text;
+        const changed = el.dataset.text !== undefined && el.dataset.text !== text;
         el.className = `dep-eta ${cls}`;
+        if (el.dataset.text === text) return;
+        el.dataset.text = text;
+        el.setAttribute('aria-label', text);
+        el.innerHTML = etaHTML(text);
+        if (changed) el.classList.add('eta-roll');
       });
     }
 
@@ -4477,6 +4629,36 @@
       return out;
     }
 
+    // Trace SVG polylines from start to end (stroke-dashoffset), then hand the
+    // stroke back to Leaflet. Skipped under reduced motion.
+    function drawPathsIn(layers, ms = 900) {
+      if (reduceMotion()) return;
+      layers.forEach(layer => {
+        const path = layer && layer._path;
+        if (!path || !path.getTotalLength) return;
+        const len = path.getTotalLength();
+        if (!len) return;
+        path.style.strokeDasharray = `${len} ${len}`;
+        path.style.strokeDashoffset = len;
+        path.getBoundingClientRect();
+        path.style.transition = `stroke-dashoffset ${ms}ms var(--ease-out)`;
+        path.style.strokeDashoffset = 0;
+        setTimeout(() => { path.style.strokeDasharray = path.style.strokeDashoffset = path.style.transition = ''; }, ms + 60);
+      });
+    }
+
+    // Ease a marker (and its permanent tooltip) to its next setLatLng rather
+    // than jumping; dropped again before any zoom so it never lags the map.
+    function glideMarker(marker) {
+      if (reduceMotion()) return;
+      const els = [marker.getElement(), marker.getTooltip() && marker.getTooltip().getElement()].filter(Boolean);
+      const stop = () => { clearTimeout(marker._glideTimer); els.forEach(el => el.classList.remove('gliding')); };
+      els.forEach(el => el.classList.add('gliding'));
+      clearTimeout(marker._glideTimer);
+      marker._glideTimer = setTimeout(stop, 1300);
+      map.once('zoomstart', stop);
+    }
+
     function clearRouteLine() {
       if (journeyLayer) { map.removeLayer(journeyLayer); journeyLayer = null; }
       if (polyline) { map.removeLayer(polyline); polyline = null; }
@@ -4502,6 +4684,7 @@
         color: routeColor, weight: ROUTE_LINE_WEIGHT, opacity: 1,
         lineJoin: 'round', lineCap: 'round', interactive: false
       }).addTo(map);
+      drawPathsIn([routeCasing, polyline]);
       routeArrows.latlngs = latlngs;
       routeArrows.stops = stopLatLngs || [];
       routeArrows.terminals = terminalLatLngs || [];
@@ -4878,11 +5061,6 @@
     }
 
     // ===== TRIP =====
-    function handleLoadTrip(inputId) {
-      const v = document.getElementById(inputId)?.value.trim();
-      if (v) loadTrip(v, null);
-    }
-
     function loadTrip(tripId, cardEl) {
       if (activeDepCard) activeDepCard.classList.remove('active');
       if (activeRouteTripCard) activeRouteTripCard.classList.remove('active');
@@ -4916,7 +5094,7 @@
       const html = `
         <div class="section-title">Trip details</div>
         <div class="rt-row"><span class="rt-label">Trip ID</span><span class="rt-val">${data.trip_id}</span></div>
-        <div class="rt-row"><span class="rt-label">Route</span><span class="rt-val">${data.route_short_name} — ${data.route_long_name}</span></div>
+        <div class="rt-row"><span class="rt-label">Route</span><span class="rt-val">${data.route_short_name} · ${data.route_long_name}</span></div>
         <div class="rt-row"><span class="rt-label">Stops</span><span class="rt-val">${data.total}</span></div>
         <button class="secondary" style="width:100%;margin-top:9px" onclick="openTripStops('${data.trip_id}')">View stop list</button>
       `;
@@ -5124,7 +5302,7 @@
         ['rv-id',      info.id    || entity.id || '—'],
         ['rv-route',   trip.route_id   || '—'],
         ['rv-trip',    trip.trip_id    || '—'],
-        ['rv-dir',     trip.direction_id != null ? (trip.direction_id===0 ? '0 — Outbound' : '1 — Inbound') : '—'],
+        ['rv-dir',     trip.direction_id != null ? (trip.direction_id===0 ? 'Outbound (0)' : 'Inbound (1)') : '—'],
         ['rv-start',   trip.start_time ? `${trip.start_time} – ${trip.start_date||''}` : '—'],
         ['rv-seq',     veh.current_stop_sequence != null ? String(veh.current_stop_sequence) : '—'],
         ['rv-stop',    veh.stop_id  || '—'],
@@ -5162,6 +5340,7 @@
           vehicleRTMarker.bindPopup(popupTxt);
           vehicleRTMarker.bindTooltip(timeAgo(ts||rtLastVehTs), {permanent:true, direction:'top', offset:[0,-10], className:'veh-time-tooltip'});
         } else {
+          glideMarker(vehicleRTMarker);
           vehicleRTMarker.setLatLng(latlng);
           vehicleRTMarker.setPopupContent(popupTxt);
         }
@@ -5263,7 +5442,7 @@
           const dot = dep.route_color ? `<span class="dep-dot" style="background:#${dep.route_color}"></span>` : '';
           card.innerHTML = `
             <div class="dep-card-top">
-              <div class="dep-route">${dot}${dep.route_id}</div>
+              <div class="dep-route"${routeStyle(dep.route_color)}>${dot}${dep.route_id}</div>
               <div class="dep-badge-slot">${pickupDropoffNote(dep)}</div>
             </div>
             <div class="dep-time-row">
@@ -5372,13 +5551,6 @@
     }
 
     // ===== ROUTE =====
-    function handleLoadRoute(routeInputId, dateInputId) {
-      const v = document.getElementById(routeInputId)?.value.trim();
-      if (!v) { showToast('Enter a route ID first.'); return; }
-      const dateVal = document.getElementById(dateInputId)?.value || todayStr();
-      loadRouteTrips(v, dateVal);
-    }
-
     let currentRouteTrips = [];
 
     const ROUTE_TYPE_NAMES = { 0: 'Light rail', 1: 'Subway', 2: 'Rail', 3: 'Bus', 4: 'Ferry', 5: 'Cable tram', 6: 'Aerial lift', 7: 'Funicular', 11: 'Trolleybus', 12: 'Monorail' };
@@ -5418,6 +5590,7 @@
     }
 
     function loadRouteTrips(routeId, dateVal) {
+      document.body.classList.add('has-route-view');
       const [year,month,day] = (dateVal || todayStr()).split('-');
       loadRouteInfo(routeId);
       ['','m-'].forEach(p => {
@@ -5548,7 +5721,7 @@
       date = date || todayStr();
       const requestId = ++multiStopsRequestId;
       const radiusKM = includeNearbyRadiusM() / 1000;
-      currentStopView = { kind: 'nearby', stopId: String(stopId) };
+      setStopView({ kind: 'nearby', stopId: String(stopId) });
 
       const run = () => fetchStopDay(stopId, date)
         .then(origin => {
@@ -5586,7 +5759,7 @@
       date = date || todayStr();
       const requestId = ++multiStopsRequestId;
       const radiusKM = includeNearbyRadiusM() / 1000;
-      currentStopView = { kind: 'point', lat, lon, label };
+      setStopView({ kind: 'point', lat, lon, label });
 
       const getNearest = nearest
         ? Promise.resolve(nearest)
@@ -6014,7 +6187,7 @@
           if (requestId !== stopSearchRequestId) return;
           results.removeAttribute('aria-busy');
           results.dataset.mode = 'error';
-          renderSearchMessage(results, 'stop-search-empty', 'Couldn’t search right now — try again');
+          renderSearchMessage(results, 'stop-search-empty', 'Couldn’t search right now. Try again.');
         });
     }
 
@@ -6076,13 +6249,6 @@
         const el = document.getElementById(id);
         if (el) el.value = match.stop_id;
       });
-      ['stopSearchInput', 'm-stopSearchInput'].forEach(id => {
-        const el = document.getElementById(id);
-        if (!el) return;
-        el.value = match.stop_name;
-        const clearBtn = el.parentElement ? el.parentElement.querySelector('.stop-search-clear') : null;
-        if (clearBtn) clearBtn.hidden = false;
-      });
 
       if (searchMultipleStopsEnabled()) {
         loadMultiStops(match.stop_name, date);
@@ -6093,117 +6259,10 @@
       }
     }
 
-    // Nearby-tab stop search: same fuzzy box, but picking a result only lists
-    // the stops around it (no departures), like the other nearby entry points.
-    function selectNearbyFromStopSearch(match, results) {
+    // ===== ROUTE (picked from global search) =====
+    function selectRouteFromSearch(match, results) {
       hideStopSearchResults(results);
-      if (results._input) results._input.blur();
-      const lat = parseFloat(match.lat), lon = parseFloat(match.lon);
-      if (!Number.isFinite(lat) || !Number.isFinite(lon)) { showToast('That stop has no coordinates.'); return; }
-      ['nearbyStopSearchInput', 'm-nearbyStopSearchInput'].forEach(id => {
-        const el = document.getElementById(id);
-        if (!el) return;
-        el.value = match.stop_name || '';
-        const clearBtn = el.parentElement ? el.parentElement.querySelector('.stop-search-clear') : null;
-        if (clearBtn) clearBtn.hidden = !el.value;
-      });
-      ['latInput', 'm-latInput'].forEach(id => { const el = document.getElementById(id); if (el) el.value = lat; });
-      ['lonInput', 'm-lonInput'].forEach(id => { const el = document.getElementById(id); if (el) el.value = lon; });
-      findNearestStops(lat, lon, 'Near ' + (match.stop_name || 'stop'));
-    }
-
-    // ===== ROUTE NUMBER/NAME SEARCH =====
-    let routeSearchRequestId = 0;
-
-    function initRouteSearch(inputId, resultsId, dateInputId) {
-      const input = document.getElementById(inputId);
-      const results = document.getElementById(resultsId);
-      if (!input || !results) return;
-      bindSearchDropdown(input, results);
-
-      const debouncedRun = debounce(q => runRouteSearch(q, results, dateInputId), SEARCH_DEBOUNCE_MS);
-
-      input.addEventListener('input', () => {
-        const q = input.value.trim();
-        if (!q) {
-          debouncedRun.cancel();
-          ++routeSearchRequestId;
-          results.innerHTML = '';
-          hideStopSearchResults(results);
-          return;
-        }
-        showStopSearchLoading(results);
-        debouncedRun(q);
-      });
-
-      input.addEventListener('focus', () => {
-        if (results.childElementCount) showStopSearchResults(results);
-      });
-
-      input.addEventListener('blur', () => {
-        setTimeout(() => hideStopSearchResults(results), 150);
-      });
-
-      attachDropdownKeyboard(input, results, (active, items) => {
-        const target = active || items[0];
-        if (target && target._pick) target._pick();
-      });
-    }
-
-    function runRouteSearch(query, results, dateInputId) {
-      const requestId = ++routeSearchRequestId;
-      fetch(`/api/searchroute/${encodeURIComponent(query)}`)
-        .then(r => r.json())
-        .then(data => {
-          if (requestId !== routeSearchRequestId) return; // superseded by a later keystroke
-          results.removeAttribute('aria-busy');
-          renderRouteSearchResults(data.matches || [], results, dateInputId, query);
-        })
-        .catch(() => {
-          if (requestId !== routeSearchRequestId) return;
-          results.removeAttribute('aria-busy');
-          results.dataset.mode = 'error';
-          renderSearchMessage(results, 'stop-search-empty', 'Couldn’t search right now — try again');
-        });
-    }
-
-    function renderRouteSearchResults(matches, results, dateInputId, query) {
-      results.innerHTML = '';
-      results.dataset.mode = 'search';
-
-      if (!matches.length) {
-        renderSearchMessage(results, 'stop-search-empty', `No routes match “${query}”`);
-        return;
-      }
-
-      matches.slice(0, SEARCH_MAX_ROWS).forEach((m, i) => {
-        makeSearchRow(results, {
-          id: `${results.id}-opt-${i}`,
-          primary: m.route_short_name ? `${m.route_short_name} — ${m.route_long_name}` : m.route_long_name,
-          query,
-          secondary: `#${m.route_id}`,
-          pick: () => selectRouteFromSearch(m, results, dateInputId)
-        });
-      });
-
-      showStopSearchResults(results);
-    }
-
-    function selectRouteFromSearch(match, results, dateInputId) {
-      hideStopSearchResults(results);
-
-      const date = document.getElementById(dateInputId)?.value || todayStr();
-
-      ['routeIdInput', 'm-routeIdInput'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.value = match.route_id;
-      });
-      ['routeSearchInput', 'm-routeSearchInput'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.value = match.route_short_name ? `${match.route_short_name} — ${match.route_long_name}` : match.route_long_name;
-      });
-
-      loadRouteTrips(match.route_id, date);
+      loadRouteTrips(match.route_id, currentDateStr());
     }
 
     // ===== GLOBAL SEARCH (stops + routes + trip ID) =====
@@ -6290,7 +6349,7 @@
         results.removeAttribute('aria-busy');
         if (!stops && !routes) {
           results.dataset.mode = 'error';
-          renderSearchMessage(results, 'stop-search-empty', 'Couldn’t search right now — try again');
+          renderSearchMessage(results, 'stop-search-empty', 'Couldn’t search right now. Try again.');
           return;
         }
         renderGlobalSearchResults({
@@ -6318,10 +6377,17 @@
       results.appendChild(header);
     }
 
-    function renderGlobalSearchResults({ stops, routes, trip }, results, query) {
+    function renderGlobalSearchResults(data, results, query) {
+      const { stops, routes, trip } = data;
+      const scroll = results.scrollTop;
       results.innerHTML = '';
       results.dataset.mode = 'search';
+      if (results._query !== query) results._expand = null;
       results._query = query;
+      results._data = data;
+      // "See all" re-renders with that section uncapped
+      const expand = kind => () => { results._expand = kind; renderGlobalSearchResults(data, results, query); };
+      const routeRows = results._expand === 'route' ? routes.length : GLOBAL_ROUTE_ROWS;
 
       if (!stops.length && !routes.length && !trip) {
         renderSearchMessage(results, 'stop-search-empty', `Nothing matches “${query}”`);
@@ -6332,10 +6398,10 @@
       const sections = [];
 
       if (routes.length) sections.push({ score: routes[0].score, render: () => {
-        appendGlobalSection(results, 'Routes', routes.length > GLOBAL_ROUTE_ROWS ? () => openTabSearch('route', query, results) : null);
-        routes.slice(0, GLOBAL_ROUTE_ROWS).forEach(m => makeSearchRow(results, {
+        appendGlobalSection(results, 'Routes', routes.length > routeRows ? expand('route') : null);
+        routes.slice(0, routeRows).forEach(m => makeSearchRow(results, {
           id: `${results.id}-opt-${row++}`,
-          primary: m.route_short_name ? `${m.route_short_name} — ${m.route_long_name}` : m.route_long_name,
+          primary: m.route_short_name ? `${m.route_short_name} · ${m.route_long_name}` : m.route_long_name,
           query,
           secondary: `#${m.route_id}`,
           pick: () => pickGlobalRoute(m, results)
@@ -6344,8 +6410,9 @@
 
       if (stops.length) sections.push({ score: stops[0].score, render: () => {
         const groups = groupStopMatches(stops);
-        appendGlobalSection(results, 'Stops', groups.length > GLOBAL_STOP_ROWS ? () => openTabSearch('stop', query, results) : null);
-        groups.slice(0, GLOBAL_STOP_ROWS).forEach(g => {
+        const stopRows = results._expand === 'stop' ? groups.length : GLOBAL_STOP_ROWS;
+        appendGlobalSection(results, 'Stops', groups.length > stopRows ? expand('stop') : null);
+        groups.slice(0, stopRows).forEach(g => {
           const first = g.stops[0];
           const match = g.stops.length > 1 ? { ...first, _group: true, _members: g.stops } : first;
           makeSearchRow(results, {
@@ -6376,6 +6443,7 @@
       // routes → stops → trip order above.
       sections.sort((a, b) => b.score - a.score).forEach(s => s.render());
       showStopSearchResults(results);
+      results.scrollTop = scroll;
     }
 
     // Empties both global boxes once a result has been handed off.
@@ -6391,7 +6459,7 @@
           if (clearBtn) clearBtn.hidden = true;
         }
         const list = document.getElementById(resultsId);
-        if (list) { list.innerHTML = ''; delete list.dataset.mode; }
+        if (list) { list.innerHTML = ''; delete list.dataset.mode; list._query = null; }
       });
     }
 
@@ -6404,27 +6472,12 @@
     function pickGlobalRoute(match, results) {
       finishGlobalSearch(results);
       switchTab('m-tab-route');
-      selectRouteFromSearch(match, results, isMobile() ? 'm-dateInput' : 'dateInput');
+      selectRouteFromSearch(match, results);
     }
 
     function pickGlobalTrip(tripId, results) {
       finishGlobalSearch(results);
-      ['tripIdInput', 'm-tripIdInput'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.value = tripId;
-      });
       loadTrip(tripId, null);
-    }
-
-    // "See all": run the same query in that tab's own search box.
-    function openTabSearch(kind, query, results) {
-      finishGlobalSearch(results);
-      switchTab(kind === 'stop' ? 'm-tab-stop' : 'm-tab-route');
-      const el = document.getElementById((isMobile() ? 'm-' : '') + (kind === 'stop' ? 'stopSearchInput' : 'routeSearchInput'));
-      if (!el) return;
-      el.value = query;
-      el.focus();
-      el.dispatchEvent(new Event('input'));
     }
 
     // "/" or Ctrl/⌘+K focuses the desktop global search from anywhere that isn't a text field.
@@ -6516,7 +6569,7 @@
     function loadMultiStops(stopName, date, isRefresh) {
       date = date || todayStr();
       const requestId = ++multiStopsRequestId;
-      currentStopView = { kind: 'name', name: stopName };
+      setStopView({ kind: 'name', name: stopName });
       const mergeReversed = mergeCrossStreetsEnabled();
       const includeNearby = includeNearbyEnabled();
       const radiusKM = includeNearbyRadiusM() / 1000;
@@ -6724,7 +6777,7 @@
           const dot = dep.route_color ? `<span class="dep-dot" style="background:#${dep.route_color}"></span>` : '';
           card.innerHTML = `
             <div class="dep-card-top">
-              <div class="dep-route">${dot}${dep.route_id}</div>
+              <div class="dep-route"${routeStyle(dep.route_color)}>${dot}${dep.route_id}</div>
               <div class="dep-badge-slot">${pickupDropoffNote(dep)}</div>
             </div>
             <div class="dep-time-row">
@@ -6827,7 +6880,7 @@
       showingAllDeps_d = defaultShowAll || depHasTimeFilter('dep-d'); showingNext4_d = false;
       showingAllDeps_m = defaultShowAll || depHasTimeFilter('dep-m'); showingNext4_m = false;
       currentStopId = data.stop_id;
-      currentStopView = { kind: 'single', stopId: String(data.stop_id) };
+      setStopView({ kind: 'single', stopId: String(data.stop_id) });
       currentStopMeta = { stop_id: String(data.stop_id), stop_name: data.stop_name, stop_code: data.stop_code, lat: data.lat, lon: data.lon };
       syncFavButtons();
 
@@ -6955,8 +7008,6 @@
       document.addEventListener('click', close);
       document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
     }
-    initSettingsPopover('stopSettingsBtn', 'stopSettingsPopover');
-    initSettingsPopover('m-stopSettingsBtn', 'm-stopSettingsPopover');
     initSettingsPopover('depFilterBtn', 'depFilterPopover');
     initSettingsPopover('m-depFilterBtn', 'm-depFilterPopover', { fullscreen: true });
     initSettingsPopover('multiDepFilterBtn', 'multiDepFilterPopover');
@@ -7387,9 +7438,7 @@
       const transfers = tripState.mode === 'transfers';
       ['', 'm-'].forEach(p => {
         setSegMode(document.getElementById(p + 'tripModeSeg'), tripState.mode);
-        setVal(p + 'tripModeHint', transfers
-          ? 'Up to 3 transfers, with straight-line walks of up to 500 m between stops. Stops within the "Include all stops within" distance (Stops tab settings) count as the same stop.'
-          : 'Direct trips only. Stops within the "Include all stops within" distance (Stops tab settings) count as the same stop.');
+        setVal(p + 'tripModeHint', transfers ? 'Up to 3 transfers, walks up to 500 m.' : 'Direct trips only.');
       });
     }
 
@@ -7602,7 +7651,7 @@
       const stopLabel = id => { const s = stopsById.get(String(id)); return escapeHtml(s ? (s.stop_code || s.stop_id) : id); };
       card.innerHTML = `
         <div class="dep-card-top">
-          <div class="dep-route">${dot}${escapeHtml(t.route_id)}</div>
+          <div class="dep-route"${routeStyle(t.route_color)}>${dot}${escapeHtml(t.route_id)}</div>
           <div class="dep-badge-slot"></div>
         </div>
         <div class="dep-time-row">
@@ -7639,7 +7688,7 @@
       const dot = color => color ? `<span class="dep-dot" style="background:#${escapeHtml(color)}"></span>` : '';
       const stopName = id => { const s = stopsById.get(String(id)); return escapeHtml(s ? s.stop_name || s.stop_code || s.stop_id : id); };
       const rides = j.legs.filter(l => l.type === 'ride');
-      const chain = rides.map(l => `<div class="dep-route">${dot(l.route_color)}${escapeHtml(l.route_id)}</div>`).join('<span class="journey-chain-sep">&rsaquo;</span>');
+      const chain = rides.map(l => `<div class="dep-route"${routeStyle(l.route_color)}>${dot(l.route_color)}${escapeHtml(l.route_id)}</div>`).join('<span class="journey-chain-sep">&rsaquo;</span>');
       const total = Math.max(0, Math.round((parseTime(j.arrive_time) - parseTime(j.leave_time)) / 60));
       const transfers = j.transfers === 0 ? 'direct' : `${j.transfers} transfer${j.transfers === 1 ? '' : 's'}`;
       const legs = j.legs.map((l, i) => l.type === 'walk'
@@ -7761,6 +7810,7 @@
       if (!ridden.length) return false;
       // drawn in this order so no leg's grey or casing covers another leg's colour
       journeyLayer = L.featureGroup([...unridden, ...casings, ...walks, ...ridden, ...dots]).addTo(map);
+      drawPathsIn([...casings, ...ridden], 1100);
       if (bounds.length) map.fitBounds(L.latLngBounds(bounds), { padding: [40, 40], maxZoom: 16 });
 
       const stopName = id => { const s = stopsById.get(String(id)); return escapeHtml(s ? s.stop_name || s.stop_code || s.stop_id : id); };
@@ -7913,13 +7963,6 @@
         loadBetween();
         return;
       }
-      ['stopSearchInput', 'm-stopSearchInput'].forEach(id => {
-        const el = document.getElementById(id);
-        if (!el) return;
-        el.value = f.label;
-        const clearBtn = el.parentElement ? el.parentElement.querySelector('.stop-search-clear') : null;
-        if (clearBtn) clearBtn.hidden = false;
-      });
       const date = currentDateStr();
       if (f.view.kind === 'name') loadMultiStops(f.view.name, date);
       else if (f.view.kind === 'nearby') handleStopMarkerClick(f.view.stopId, date);
@@ -8082,8 +8125,7 @@
       const active = bar && bar.querySelector('.sb-tab.active');
       if (!ind || !active || !active.offsetWidth) return;
       bar.dataset.active = active.dataset.sbTab;
-      ind.style.left = active.offsetLeft + 'px';
-      ind.style.width = active.offsetWidth + 'px';
+      ind.style.transform = `translateX(${active.offsetLeft}px) scaleX(${active.offsetWidth})`;
       // enable the slide only after the first placement so it doesn't animate in from 0
       if (!ind.classList.contains('ready')) requestAnimationFrame(() => ind.classList.add('ready'));
     }
@@ -8101,12 +8143,6 @@
       if (saved && document.getElementById(saved)) switchSidebarTab(saved);
       syncSidebarTabIndicator();
     })();
-
-    // ===== KEYBOARD SHORTCUTS (desktop) =====
-    document.getElementById('tripIdInput').addEventListener('keypress', e => { if(e.key==='Enter') handleLoadTrip('tripIdInput'); });
-    document.getElementById('routeIdInput').addEventListener('keypress', e => { if(e.key==='Enter') handleLoadRoute('routeIdInput','dateInput'); });
-    document.getElementById('m-tripIdInput').addEventListener('keypress', e => { if(e.key==='Enter') handleLoadTrip('m-tripIdInput'); });
-    document.getElementById('m-routeIdInput').addEventListener('keypress', e => { if(e.key==='Enter') handleLoadRoute('m-routeIdInput','m-dateInput'); });
 
     // ===== GTFS FEED STATE =====
     function loadFeedStatus() {
@@ -8198,18 +8234,32 @@
         .catch(() => set('', 'Feed state unavailable', ''));
     }
 
+    // ===== STATION CLOCK =====
+    // HH:MM in the sidebar header; the minutes roll over like the countdowns.
+    (function initStationClock() {
+      const h = document.getElementById('clockH'), m = document.getElementById('clockM');
+      if (!h || !m) return;
+      const tick = () => {
+        const d = new Date();
+        const hh = String(d.getHours()).padStart(2, '0'), mm = String(d.getMinutes()).padStart(2, '0');
+        if (h.textContent !== hh) h.textContent = hh;
+        if (m.textContent !== mm) {
+          const first = !m.textContent;
+          m.textContent = mm;
+          if (!first) { m.classList.remove('eta-roll-1'); void m.offsetWidth; m.classList.add('eta-roll-1'); }
+        }
+        document.getElementById('stationClock')?.setAttribute('aria-label', `Time ${hh}:${mm}`);
+      };
+      tick();
+      setInterval(tick, 1000);
+    })();
+
     // ===== INIT =====
     initMap();
     loadFeedStatus();
     syncThemeToggleLabel();
     document.getElementById('dateInput').value = todayStr();
     document.getElementById('m-dateInput').value = todayStr();
-    initStopSearch('stopSearchInput', 'stopSearchResults');
-    initStopSearch('m-stopSearchInput', 'm-stopSearchResults');
-    initStopSearch('nearbyStopSearchInput', 'nearbyStopSearchResults', selectNearbyFromStopSearch);
-    initStopSearch('m-nearbyStopSearchInput', 'm-nearbyStopSearchResults', selectNearbyFromStopSearch);
-    initRouteSearch('routeSearchInput', 'routeSearchResults', 'dateInput');
-    initRouteSearch('m-routeSearchInput', 'm-routeSearchResults', 'm-dateInput');
     initGlobalSearch('globalSearchInput', 'globalSearchResults');
     initGlobalSearch('m-globalSearchInput', 'm-globalSearchResults');
     initStopSearch('tripFromInput', 'tripFromResults', selectTripEndFromSearch('from'));
