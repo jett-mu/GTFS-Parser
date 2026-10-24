@@ -54,6 +54,23 @@ def get_stop(stop_id, date):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/routemap/<route_id>/<date>')
+def get_route_map(route_id, date):
+    """Every distinct shape a route runs on a date (with trip counts) and the stops those trips serve."""
+    try:
+        try:
+            year, month, day = (int(part) for part in date.split('-'))
+        except ValueError:
+            return jsonify({'error': 'date must be YYYY-MM-DD'}), 400
+        data, status = fast_get(f"/api/routemap/{urllib.parse.quote(route_id, safe='')}/{year}/{month}/{day}/")
+        if status != 200:
+            return jsonify(data), status
+        if not data:
+            return jsonify(data), 422
+        return jsonify(data)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 MAX_BETWEEN_IDS = 20  # per side of /api/between
 
 @app.route('/api/between/<from_ids>/<to_ids>/<date>')
