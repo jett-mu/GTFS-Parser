@@ -6,6 +6,7 @@
 #include "../static-gtfs/gtfs.hpp"
 #include "fast-gtfs.hpp"
 #include "planner.hpp"
+#include "fares.hpp"
 
 using std::cout;
 using std::ostringstream;
@@ -88,7 +89,7 @@ inline string getTrip(const string& trip_id,
 // trips serve, each with its trip count, so the route map can weigh variants by how often they run.
 // Trips without a shape_id are grouped by their stop sequence and drawn stop to stop. If nothing
 // runs that day, every trip of the route is counted instead ("all_days": true).
-inline string getRouteMap(const string& route_id, const int& year, const int& month, const int& day,
+inline string getRouteMap(const fares::index& fx, const string& route_id, const int& year, const int& month, const int& day,
                      const vector<pair<string, vector<string>>>& triplines,
                      const std::unordered_map<string, int>& triprefs,
                      const vector<pair<string, vector<string>>>& stoptimesstoplines,
@@ -183,6 +184,7 @@ inline string getRouteMap(const string& route_id, const int& year, const int& mo
     out << "\t\"route_text_color\": \"" << gtfs::jsonEscape(rx.route_text_color) << "\",\n";
     out << "\t\"trips\": " << counted.size() << ",\n";
     out << "\t\"all_days\": " << (allDays ? "true" : "false") << ",\n";
+    out << "\t\"fares_available\": " << (fx.available ? "true" : "false") << ",\n";
 
     out << "\t\"shapes\": [\n";
     for (size_t i = 0; i < ordered.size(); i++) {
@@ -300,13 +302,28 @@ inline vector<string> splitIdList(const string& list) {
     return out;
 }
 
+// every zone a ride on trip_id passes through from stop_sequence fromSeq to toSeq, both ends included
+inline std::set<string> zonesAlong(const fares::index& fx, const string& trip_id, const unsigned fromSeq, const unsigned toSeq,
+                     const vector<pair<string, vector<string>>>& stoptimesstoplines,
+                     const std::unordered_map<string, int>& stoptimesstoprefs) {
+    std::set<string> zones;
+    for (const gtfs::trip_segment& x : fast_gtfs::bin_search::getAllStops(trip_id, stoptimesstoplines, stoptimesstoprefs)) {
+        if (x.stop.stop_sequence < fromSeq || x.stop.stop_sequence > toSeq) continue;
+        const string& zone = fx.zoneOf(x.stop.stop_id);
+        if (!zone.empty()) zones.insert(zone);
+    }
+    return zones;
+}
+
 // Direct trips that call at one of fromIds and later at one of toIds on the given service day.
 // Each trip is listed once, boarding at the From stop closest before the first reachable To stop
 // (the shortest ride), so passing both sides of a street only keeps the direction that gets there.
-inline string getBetweenDayTimes(const vector<string>& fromIds, const vector<string>& toIds,
+inline string getBetweenDayTimes(const fares::index& fx, const vector<string>& fromIds, const vector<string>& toIds,
                      const int& year, const int& month, const int& day,
                      const vector<pair<string, vector<string>>>& stoptimesstopidlines,
                      const std::unordered_map<string, int>& stoptimesstopidrefs,
+                     const vector<pair<string, vector<string>>>& stoptimesstoplines,
+                     const std::unordered_map<string, int>& stoptimesstoprefs,
                      const vector<pair<string, vector<string>>>& triplines,
                      const std::unordered_map<string, int>& triprefs,
                      const vector<pair<string, vector<string>>>& calendarlines,
@@ -383,6 +400,7 @@ inline string getBetweenDayTimes(const vector<string>& fromIds, const vector<str
     out << "{\n";
     printStops("from_stops", fromIds);
     printStops("to_stops", toIds);
+    out << "\t\"fares_available\": " << (fx.available ? "true" : "false") << ",\n";
 
     const size_t length = rides.size();
     out << "\t\"trips\": [\n";
@@ -391,6 +409,14 @@ inline string getBetweenDayTimes(const vector<string>& fromIds, const vector<str
 
         gtfs::route routeInfo = fast_gtfs::bin_search::getRouteInfo(r.from.route_id, routelines, routerefs);
         gtfs::trip tripInfo = fast_gtfs::bin_search::getTripInfo(r.from.stop.trip_id, triplines, triprefs);
+
+        fares::ride fr;
+        fr.route_id = r.from.route_id;
+        fr.fromZone = fx.zoneOf(r.from.stop.stop_id);
+        fr.toZone = fx.zoneOf(r.to.stop.stop_id);
+        fr.depart = planner::toSecs(r.depart);
+        if (fx.usesContains) fr.zones = zonesAlong(fx, r.from.stop.trip_id, r.from.stop.stop_sequence, r.to.stop.stop_sequence,
+                                                  stoptimesstoplines, stoptimesstoprefs);
 
         out << "\t\t{ \"route_id\": \"" << gtfs::jsonEscape(routeInfo.route_short_name) <<
                 "\", \"route_color\": \"" << gtfs::jsonEscape(routeInfo.route_color) <<
@@ -403,7 +429,8 @@ inline string getBetweenDayTimes(const vector<string>& fromIds, const vector<str
                 ", \"to_sequence\": " << r.to.stop.stop_sequence <<
                 ", \"depart_time\": \"" << r.depart.leadingRoundedTime() <<
                 "\", \"arrive_time\": \"" << r.arrive.leadingRoundedTime() <<
-                (i == (length - 1) ? "\" }\n" : "\" },\n");
+                "\", \"fare\": " << fares::toJson(fx, fares::price(fx, {fr}), [](int) { return 0; }) <<
+                (i == (length - 1) ? " }\n" : " },\n");
     }
     out << "\t]\n}\n";
 
@@ -418,7 +445,7 @@ inline string secsToTime(const int secs) {
 // Journeys (direct or with transfers, walking up to planner::WALK_MAX_M between stops) from any of
 // fromIds to any of toIds, leaving in [after, until] seconds after the date's midnight. Trips of the
 // previous service day are included shifted back a day (prev_day), so early-morning queries see them.
-inline string getJourneyDayTimes(const planner::index& idx, const vector<string>& fromIds, const vector<string>& toIds,
+inline string getJourneyDayTimes(const planner::index& idx, const fares::index& fx, const vector<string>& fromIds, const vector<string>& toIds,
                      int year, int month, int day, const int after, const int until, const int limit,
                      const vector<pair<string, vector<string>>>& triplines,
                      const std::unordered_map<string, int>& triprefs,
@@ -482,6 +509,7 @@ inline string getJourneyDayTimes(const planner::index& idx, const vector<string>
     printStops("from_stops", fromIds);
     printStops("to_stops", toIds);
     printStops("stops", legStops);
+    out << "\t\"fares_available\": " << (fx.available ? "true" : "false") << ",\n";
 
     out << "\t\"walk_only\": ";
     if (walk.from >= 0) {
@@ -497,9 +525,32 @@ inline string getJourneyDayTimes(const planner::index& idx, const vector<string>
     out << "\t\"journeys\": [\n";
     for (size_t i = 0; i < journeys.size(); i++) {
         const planner::journey& j = journeys[i];
+
+        // one fare ride per ride leg; rideLegs maps it back to its index in "legs"
+        vector<fares::ride> rides;
+        vector<int> rideLegs;
+        for (size_t k = 0; k < j.legs.size(); k++) {
+            const planner::leg& l = j.legs[k];
+            if (l.walk) continue;
+            const planner::trip_node& tn = idx.trips[l.trip];
+            fares::ride fr;
+            fr.route_id = tn.route_id;
+            fr.fromZone = fx.zoneOf(idx.stops[l.fromStop].id);
+            fr.toZone = fx.zoneOf(idx.stops[l.toStop].id);
+            fr.depart = l.depart;
+            if (fx.usesContains) for (int q = l.boardPos; q <= l.alightPos; q++) {
+                const string& zone = fx.zoneOf(idx.stops[idx.calls[tn.first + q].stop].id);
+                if (!zone.empty()) fr.zones.insert(zone);
+            }
+            rides.push_back(std::move(fr));
+            rideLegs.push_back(static_cast<int>(k));
+        }
+
         out << "\t\t{ \"depart_time\": \"" << secsToTime(j.depart) <<
                 "\", \"arrive_time\": \"" << secsToTime(j.arrive) <<
-                "\", \"transfers\": " << j.transfers << ", \"legs\": [\n";
+                "\", \"transfers\": " << j.transfers <<
+                ", \"fare\": " << fares::toJson(fx, fares::price(fx, rides), [&](int r) { return rideLegs[r]; }) <<
+                ", \"legs\": [\n";
         for (size_t k = 0; k < j.legs.size(); k++) {
             const planner::leg& l = j.legs[k];
             out << "\t\t\t{ \"type\": \"" << (l.walk ? "walk" : "ride") <<
@@ -529,5 +580,78 @@ inline string getJourneyDayTimes(const planner::index& idx, const vector<string>
     }
     out << "\t]\n}\n";
 
+    return out.str();
+}
+
+// The fare from one stop of a trip to every later stop it calls at. fromSeq picks the boarding call
+// when the trip passes the stop twice (-1: the first call there that allows pickup).
+inline string getTripFares(const fares::index& fx, const string& trip_id, const string& from_stop_id, const int fromSeq,
+                     const vector<pair<string, vector<string>>>& triplines,
+                     const std::unordered_map<string, int>& triprefs,
+                     const vector<pair<string, vector<string>>>& stoptimesstoplines,
+                     const std::unordered_map<string, int>& stoptimesstoprefs) {
+
+    ostringstream out;
+
+    vector<gtfs::trip_segment> calls = fast_gtfs::bin_search::getAllStops(trip_id, stoptimesstoplines, stoptimesstoprefs);
+    std::stable_sort(calls.begin(), calls.end(), [](const gtfs::trip_segment& a, const gtfs::trip_segment& b) {
+        return a.stop.stop_sequence < b.stop.stop_sequence;
+    });
+    const gtfs::trip tx = fast_gtfs::bin_search::getTripInfo(trip_id, triplines, triprefs);
+
+    size_t board = calls.size();
+    for (size_t i = 0; i < calls.size() && board == calls.size(); i++) {
+        const gtfs::stop_time& c = calls[i].stop;
+        if (c.stop_id != from_stop_id) continue;
+        if (fromSeq >= 0 ? static_cast<int>(c.stop_sequence) == fromSeq : c.pickup_type != gtfs::stop_time::not_available) board = i;
+    }
+
+    out << "{\n";
+    out << "\t\"trip_id\": \"" << gtfs::jsonEscape(trip_id) << "\",\n";
+    out << "\t\"from_stop_id\": \"" << gtfs::jsonEscape(from_stop_id) << "\",\n";
+    out << "\t\"from_sequence\": " << (board < calls.size() ? static_cast<int>(calls[board].stop.stop_sequence) : -1) << ",\n";
+    out << "\t\"from_zone\": \"" << gtfs::jsonEscape(fx.zoneOf(from_stop_id)) << "\",\n";
+    out << "\t\"fares_available\": " << (fx.available ? "true" : "false") << ",\n";
+    out << "\t\"fares\": [\n";
+    bool first = true;
+    if (fx.available && board < calls.size()) {
+        fares::ride fr;
+        fr.route_id = tx.route_id;
+        fr.fromZone = fx.zoneOf(from_stop_id);
+        if (!fr.fromZone.empty()) fr.zones.insert(fr.fromZone);
+        for (size_t i = board + 1; i < calls.size(); i++) {
+            const gtfs::stop_time& c = calls[i].stop;
+            fr.toZone = fx.zoneOf(c.stop_id);
+            if (!fr.toZone.empty()) fr.zones.insert(fr.toZone);
+            out << (first ? "" : ",\n") << "\t\t{ \"stop_id\": \"" << gtfs::jsonEscape(c.stop_id) <<
+                    "\", \"stop_sequence\": " << c.stop_sequence <<
+                    ", \"zone\": \"" << gtfs::jsonEscape(fr.toZone) <<
+                    "\", \"fare\": " << fares::toJson(fx, fares::price(fx, {fr}), [](int) { return 0; }) << " }";
+            first = false;
+        }
+    }
+    out << (first ? "" : "\n") << "\t]\n}\n";
+
+    return out.str();
+}
+
+// The fare for one ride on route_id from from_stop_id to to_stop_id. Only the two stops' zones are
+// known here, so a feed that prices by contains_id is better asked through getTripFares.
+inline string getRouteFare(const fares::index& fx, const string& route_id, const string& from_stop_id, const string& to_stop_id) {
+    fares::ride fr;
+    fr.route_id = route_id;
+    fr.fromZone = fx.zoneOf(from_stop_id);
+    fr.toZone = fx.zoneOf(to_stop_id);
+    for (const string& zone : {fr.fromZone, fr.toZone}) if (!zone.empty()) fr.zones.insert(zone);
+
+    ostringstream out;
+    out << "{\n";
+    out << "\t\"route_id\": \"" << gtfs::jsonEscape(route_id) << "\",\n";
+    out << "\t\"from_stop_id\": \"" << gtfs::jsonEscape(from_stop_id) << "\",\n";
+    out << "\t\"to_stop_id\": \"" << gtfs::jsonEscape(to_stop_id) << "\",\n";
+    out << "\t\"from_zone\": \"" << gtfs::jsonEscape(fr.fromZone) << "\",\n";
+    out << "\t\"to_zone\": \"" << gtfs::jsonEscape(fr.toZone) << "\",\n";
+    out << "\t\"fares_available\": " << (fx.available ? "true" : "false") << ",\n";
+    out << "\t\"fare\": " << fares::toJson(fx, fares::price(fx, {fr}), [](int) { return 0; }) << "\n}\n";
     return out.str();
 }

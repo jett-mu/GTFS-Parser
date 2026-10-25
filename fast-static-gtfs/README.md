@@ -5,7 +5,9 @@ Experimental indexed query layer for GTFS Schedule data, plus a standalone C++ H
 | File | Purpose |
 |---|---|
 | `fast-gtfs.hpp` | `fast_gtfs` namespace: `fast_data_feed`, file sorting/verification, binary-search line maps. Avoid `using namespace fast_gtfs` together with `using namespace gtfs`, since names can collide |
-| `webservermethods.hpp` | JSON builders for the HTTP handlers (`getTrip`, `getStopDayTimes`) |
+| `webservermethods.hpp` | JSON builders for the HTTP handlers (`getTrip`, `getStopDayTimes`, ...) |
+| `planner.hpp` | Journey planner index and search behind `/api/journeys` |
+| `fares.hpp` | GTFS Fares v1 pricing (`fare_attributes.txt` + `fare_rules.txt`, read at load) behind every `fare` field |
 | `webserver.cpp` | Server using the vendored `httplib.h`, listening on `127.0.0.1:5016` (loopback only: it has no token check, so outside access goes through `webserver/server.py`) |
 | `test-data/` | Small sample feed with its sorted variants, used for ad-hoc testing |
 
@@ -45,5 +47,7 @@ Re-run `sort` whenever the source feed changes. Before starting it, check that n
 |---|---|---|
 | GET | `/api/trip/<trip_id>` | Trip with its stops and shape |
 | GET | `/api/stop/<stop_id>/<year>/<month>/<day>` | Departures at a stop on a date (each entry includes `direction_id`) |
+| GET | `/api/tripfares/<trip_id>/<from_stop_id>?seq=` | Fare from a stop of the trip to each later stop |
+| GET | `/api/fare/<route_id>/<from_stop_id>/<to_stop_id>` | Fare for one ride between two stops, by their zones |
 
 Each request logs its handling time in microseconds to the console.

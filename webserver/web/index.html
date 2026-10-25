@@ -1485,13 +1485,15 @@
     .between-times { display: flex; align-items: baseline; gap: 6px; font-family: var(--font-mono); font-size: 13px; color: var(--text); flex-wrap: wrap; }
     .between-arrow { color: var(--text-dim); }
     .between-ride { font-size: 11px; color: var(--text-muted); }
+    .between-fare { font-size: 11px; font-weight: 600; color: var(--text); }
     .between-empty { font-size: 12.5px; color: var(--text-muted); padding: 8px 2px; }
     .trip-mode-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
     .journey-chain { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; min-width: 0; }
     .journey-chain-sep { color: var(--text-dim); font-size: 12px; }
     .journey-legs { list-style: none; margin: 2px 0 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
     .journey-leg { display: flex; align-items: baseline; gap: 6px; font-size: 12px; line-height: 1.3; color: var(--text-muted); }
-    .journey-leg > span:last-child { min-width: 0; overflow-wrap: anywhere; }
+    .journey-leg-text { min-width: 0; overflow-wrap: anywhere; }
+    .journey-leg-fare { margin-left: auto; padding-left: 6px; font-family: var(--font-mono); color: var(--text-muted); white-space: nowrap; }
     .journey-leg-time { font-family: var(--font-mono); color: var(--text); white-space: nowrap; }
     .journey-leg-route { font-family: var(--font-mono); font-weight: 600; color: var(--text); white-space: nowrap; }
     .journey-leg-ride { cursor: pointer; }
@@ -1589,6 +1591,8 @@
       border: none;
       font-weight: 600;
     }
+    button.stop-popup-btn.stop-popup-fare-btn { margin-top: 6px; border: 1px solid var(--border); font-weight: 500; }
+    .stop-popup-fare-from { font-weight: 500; text-transform: none; letter-spacing: 0; }
 
     .user-location-marker div {
       width: 14px; height: 14px;
@@ -3674,7 +3678,7 @@
     </div>
     <div class="nearby-overlay-body">
       <table class="trip-stops-table">
-        <thead>
+        <thead id="tripStopsTableHead">
           <tr><th>Stop name</th><th>Stop code</th><th>Time</th></tr>
         </thead>
         <tbody id="tripStopsTableBody"></tbody>
@@ -5026,7 +5030,11 @@
     }
 
     // ===== TRIP =====
-    function loadTrip(tripId, cardEl) {
+    // board: { stopId, seq } the rider gets on at, for the trip's fares; defaults to the card's
+    // stop (stop boards, Trip tab), else the trip's first stop
+    function loadTrip(tripId, cardEl, board) {
+      tripFares = null;
+      tripFareBoard = board || (cardEl && cardEl.dataset.stopId ? { stopId: cardEl.dataset.stopId, seq: cardEl.dataset.fromSeq } : null);
       if (activeDepCard) activeDepCard.classList.remove('active');
       if (activeRouteTripCard) activeRouteTripCard.classList.remove('active');
       if (cardEl) {
@@ -5061,6 +5069,7 @@
         <div class="rt-row"><span class="rt-label">Trip ID</span><span class="rt-val">${data.trip_id}</span></div>
         <div class="rt-row"><span class="rt-label">Route</span><span class="rt-val">${data.route_short_name} · ${data.route_long_name}</span></div>
         <div class="rt-row"><span class="rt-label">Stops</span><span class="rt-val">${data.total}</span></div>
+        <div class="trip-fare-slot"></div>
         <button class="secondary" style="width:100%;margin-top:9px" onclick="openTripStops('${data.trip_id}')">View stop list</button>
       `;
       document.getElementById('tripInfo').innerHTML = html;
@@ -5103,9 +5112,11 @@
       layoutRouteStops();
       tripPopupData = data;
       refreshTripStopDelays(true);
+      loadTripFares(data, tripFareBoard);
     }
 
     function tripStopPopupHtml(stop, data, delay) {
+      const fare = tripStopFareHtml(stop, data);
       const pd = pickupDropoffLabels(stop);
       const irregular = pd.short.length > 0;
       const headerTextColor = readableTextColor(data.route_color);
@@ -5133,8 +5144,10 @@
                 <div class="stop-popup-card-label">Boarding</div>
                 <div class="stop-popup-card-val" style="color:rgb(var(--warn-rgb))">${pd.full.join('<br>')}</div>
               </div>` : ''}
+              ${fare.card}
             </div>
             <button class="secondary stop-popup-btn" style="background:${data.route_color}; color:${headerTextColor}" onclick="handleStopMarkerClick('${stop.id}')">Show departures</button>
+            ${fare.btn}
           </div>
 `;
     }
@@ -5150,6 +5163,136 @@
       const note = late ? (delay > 60 ? `${mins}m late` : `${delay}s late`) : `${mins}m early`;
       return `<span class="stop-popup-time-sched struck">${escapeHtml(time)}</span>`
         + `<span class="stop-popup-time-live ${late ? 'late' : 'early'}" title="${note}">${hms}</span>`;
+    }
+
+    // ===== FARES =====
+    // Priced by the fast server from the feed's fare_attributes / fare_rules (fares.hpp):
+    // /api/journeys and /api/between carry a `fare` per result (null when no fare matches),
+    // /api/tripfares has the fare from one stop of a trip to each later stop, /api/fare one
+    // ride between two stops of a route. Feeds without priced fares say fares_available: false
+    // and show nothing.
+    const fareFormats = new Map();
+    function fmtFare(price, currency) {
+      if (!fareFormats.has(currency)) {
+        let f = null;
+        try { f = new Intl.NumberFormat(undefined, { style: 'currency', currency }); } catch {}
+        fareFormats.set(currency, f);
+      }
+      const f = fareFormats.get(currency);
+      return f ? f.format(price) : `${(+price).toFixed(2)} ${currency}`;
+    }
+
+    // "$19.85", or "$9.30 · 2 tickets" when it takes more than one
+    function fareText(fare) {
+      if (!fare) return '';
+      const n = (fare.tickets || []).length;
+      return fmtFare(fare.price, fare.currency) + (n > 1 ? ` · ${n} tickets` : '');
+    }
+
+    function fareSpan(fare) {
+      return fare ? `<span class="between-fare">${escapeHtml(fareText(fare))}</span>` : '';
+    }
+
+    // The trip on the map: fares from its boarding stop to each later stop
+    let tripFares = null;    // { trip_id, from_stop_id, from_sequence, from_name, byStop: Map(tripFareKey -> fare|null) }
+    let tripFareBoard = null; // { stopId, seq } whatever opened the trip boards at
+    const tripFareKey = (stopId, seq) => `${stopId}|${+seq}`;
+
+    function loadTripFares(data, board) {
+      tripFares = null;
+      renderTripInfoFare();
+      const stops = [...(data.stops || [])].sort((a, b) => a.stop_sequence - b.stop_sequence);
+      if (stops.length < 2) return;
+      const from = board && board.stopId != null ? board : { stopId: stops[0].id, seq: stops[0].stop_sequence };
+      const seq = from.seq != null && from.seq !== '' ? `?seq=${encodeURIComponent(from.seq)}` : '';
+      fetch(`/api/tripfares/${encodeURIComponent(data.trip_id)}/${encodeURIComponent(from.stopId)}${seq}`)
+        .then(r => r.ok ? r.json() : null)
+        .then(res => {
+          if (!res || tripPopupData !== data || !res.fares_available) return;
+          // the card's stop isn't on this trip (or not at that sequence): price from the first stop
+          if (res.from_sequence < 0) { if (board) loadTripFares(data, null); return; }
+          const at = stops.find(s => +s.stop_sequence === +res.from_sequence);
+          tripFares = {
+            trip_id: data.trip_id, from_stop_id: String(res.from_stop_id), from_sequence: +res.from_sequence,
+            from_name: at ? at.name : res.from_stop_id,
+            byStop: new Map(res.fares.map(f => [tripFareKey(f.stop_id, f.stop_sequence), f.fare])),
+          };
+          applyTripStopDelays(); // re-renders every stop popup
+          renderTripInfoFare();
+          if (document.getElementById('tripStopsOverlay').style.display !== 'none' && tripStopsData === data.stops) openTripStops(data.trip_id);
+        })
+        .catch(() => {});
+    }
+
+    function setTripFareOrigin(stopId, seq) {
+      if (tripPopupData) loadTripFares(tripPopupData, { stopId, seq });
+    }
+
+    function renderTripInfoFare() {
+      const html = tripFares
+        ? `<div class="rt-row"><span class="rt-label">Fares from</span><span class="rt-val">${escapeHtml(tripFares.from_name)}</span></div>`
+        : '';
+      document.querySelectorAll('.trip-fare-slot').forEach(el => { el.innerHTML = html; });
+    }
+
+    // { card, btn } for a stop popup on the trip line: the fare from the boarding stop, and a
+    // button to price from this stop instead
+    function tripStopFareHtml(stop, data) {
+      const none = { card: '', btn: '' };
+      if (!tripFares || tripPopupData !== data || tripFares.trip_id !== data.trip_id) return none;
+      const seq = +stop.stop_sequence;
+      const isBoard = String(stop.id) === tripFares.from_stop_id && seq === tripFares.from_sequence;
+      const isLast = seq === Math.max(...data.stops.map(s => +s.stop_sequence));
+      const btn = isBoard || isLast ? '' : `<button class="secondary stop-popup-btn stop-popup-fare-btn" data-stop-id="${escapeHtml(stop.id)}" data-seq="${seq}" onclick="setTripFareOrigin(this.dataset.stopId, this.dataset.seq)">Fares from here</button>`;
+      if (isBoard) return { card: `<div class="stop-popup-card wide"><div class="stop-popup-card-label">Fare</div><div class="stop-popup-card-val">Fares shown from here</div></div>`, btn };
+      if (seq < tripFares.from_sequence) return { card: '', btn };
+      const fare = tripFares.byStop.get(tripFareKey(stop.id, seq));
+      return {
+        card: `<div class="stop-popup-card wide">
+                <div class="stop-popup-card-label">Fare <span class="stop-popup-fare-from">from ${escapeHtml(tripFares.from_name)}</span></div>
+                <div class="stop-popup-card-val">${fare ? escapeHtml(fareText(fare)) : 'No fare listed'}</div>
+              </div>`,
+        btn,
+      };
+    }
+
+    // The route map: fares from one stop of the route (the stop board's, else one the rider picks)
+    let routeFareOrigin = null; // { route_id, stop_id, name }
+    const routeFareCache = new Map(); // route|from|to -> Promise<fare|null>
+
+    function routeFare(routeId, from, to) {
+      const key = `${routeId}|${from}|${to}`;
+      if (!routeFareCache.has(key)) {
+        routeFareCache.set(key, fetch(`/api/fare/${encodeURIComponent(routeId)}/${encodeURIComponent(from)}/${encodeURIComponent(to)}`)
+          .then(r => r.ok ? r.json() : null)
+          .then(res => res ? res.fare : null)
+          .catch(() => { routeFareCache.delete(key); return null; }));
+      }
+      return routeFareCache.get(key);
+    }
+
+    // fills a popup's "Fare from …" value once the price is in
+    function fillRouteFare(popupEl) {
+      const el = popupEl && popupEl.querySelector('[data-route-fare]');
+      const origin = routeFareOrigin;
+      if (!el || !origin) return;
+      routeFare(origin.route_id, origin.stop_id, el.dataset.routeFare).then(fare => {
+        if (routeFareOrigin === origin) el.textContent = fare ? fareText(fare) : 'No fare listed';
+      });
+    }
+
+    function setRouteFareOrigin(stopId) {
+      const dot = routeMapDots.find(d => String(d.routeStop.stop_id) === String(stopId));
+      if (!dot) return;
+      routeFareOrigin = { route_id: dot.routeData.route_id, stop_id: String(stopId), name: dot.routeStop.stop_name };
+      refreshRouteMapPopups();
+    }
+
+    function refreshRouteMapPopups() {
+      routeMapDots.forEach(d => {
+        d.setPopupContent(routeMapStopPopupHtml(d.routeStop, d.routeData, d.routeColor, d.routeFg));
+        if (d.isPopupOpen()) fillRouteFare(d.getPopup().getElement());
+      });
     }
 
     // ===== TRIP STOP DELAYS (route polyline popups) =====
@@ -5614,11 +5757,17 @@
       const stops = (data.stops || []).filter(s => Number.isFinite(s.lat) && Number.isFinite(s.lon) && (s.lat || s.lon));
       const stopShade = shadeOf(Math.max(1, ...stops.map(s => s.trips)));
       const [radius, weight] = routeStopDotSize(map.getZoom());
-      const dots = stops.map(s => L.circleMarker([s.lat, s.lon], {
+      // fares start from the stop board's stop when it's on this route
+      const boardStop = currentStopView && currentStopView.stopId != null
+        ? stops.find(s => String(s.stop_id) === String(currentStopView.stopId)) : null;
+      routeFareOrigin = data.fares_available && boardStop ? { route_id: data.route_id, stop_id: String(boardStop.stop_id), name: boardStop.stop_name } : null;
+      const dots = stops.map(s => Object.assign(L.circleMarker([s.lat, s.lon], {
           pane: 'routeStops', radius, weight, color: stopShade(s.trips), fillColor: '#fff', fillOpacity: 1
         })
         .bindTooltip(escapeHtml(s.stop_name), { direction: 'top', offset: [0, -5] })
-        .bindPopup(routeMapStopPopupHtml(s, data, color, fg)));
+        .bindPopup(routeMapStopPopupHtml(s, data, color, fg))
+        .on('popupopen', e => fillRouteFare(e.popup.getElement())),
+        { routeStop: s, routeData: data, routeColor: color, routeFg: fg }));
 
       // casings under every line, the busiest line drawn last so it sits on top
       routeMapDots = dots;
@@ -5630,6 +5779,16 @@
     }
 
     function routeMapStopPopupHtml(s, data, color, fg) {
+      const origin = data.fares_available && routeFareOrigin && routeFareOrigin.route_id === data.route_id ? routeFareOrigin : null;
+      const isOrigin = origin && origin.stop_id === String(s.stop_id);
+      const fareCard = !origin ? '' : isOrigin
+        ? `<div class="stop-popup-card wide"><div class="stop-popup-card-label">Fare</div><div class="stop-popup-card-val">Fares shown from here</div></div>`
+        : `<div class="stop-popup-card wide">
+                <div class="stop-popup-card-label">Fare <span class="stop-popup-fare-from">from ${escapeHtml(origin.name)}</span></div>
+                <div class="stop-popup-card-val" data-route-fare="${escapeHtml(s.stop_id)}">…</div>
+              </div>`;
+      const fareBtn = data.fares_available && !isOrigin
+        ? `<button class="secondary stop-popup-btn stop-popup-fare-btn" data-stop-id="${escapeHtml(s.stop_id)}" onclick="setRouteFareOrigin(this.dataset.stopId)">Fares from here</button>` : '';
       return `
           <div class="stop-popup">
             <div class="stop-popup-header" style="background:${color}; color:${fg}">${escapeHtml(s.stop_name)}</div>
@@ -5642,8 +5801,10 @@
                 <div class="stop-popup-card-label">${data.all_days ? 'Trips (all days)' : 'Trips that day'}</div>
                 <div class="stop-popup-card-val">${s.trips}</div>
               </div>
+              ${fareCard}
             </div>
             <button class="secondary stop-popup-btn" style="background:${color}; color:${fg}" data-stop-id="${escapeHtml(s.stop_id)}" onclick="openRouteMapStop(this.dataset.stopId)">Show departures</button>
+            ${fareBtn}
           </div>`;
     }
 
@@ -7271,11 +7432,23 @@
     function openTripStops(tripId) {
       const overlay = document.getElementById('tripStopsOverlay');
       document.getElementById('tripStopsOverlaySub').textContent = `Trip ${tripId} – ${tripStopsData.length} stops`;
+      // a Fare column while this trip's fares are loaded (from the boarding stop)
+      const fares = tripFares && tripFares.trip_id === tripId && tripPopupData && tripStopsData === tripPopupData.stops ? tripFares : null;
+      const fareCell = stop => {
+        const seq = +stop.stop_sequence;
+        if (String(stop.id) === fares.from_stop_id && seq === fares.from_sequence) return 'Board';
+        if (seq < fares.from_sequence) return '';
+        const fare = fares.byStop.get(tripFareKey(stop.id, seq));
+        return fare ? escapeHtml(fareText(fare)) : '–';
+      };
+      document.getElementById('tripStopsTableHead').innerHTML =
+        `<tr><th>Stop name</th><th>Stop code</th><th>Time</th>${fares ? `<th title="From ${escapeHtml(fares.from_name)}">Fare</th>` : ''}</tr>`;
       document.getElementById('tripStopsTableBody').innerHTML = tripStopsData.map(stop => `
         <tr>
           <td>${escapeHtml(stop.name)}</td>
           <td>${escapeHtml(stop.code)}</td>
           <td>${escapeHtml(stop.time)}</td>
+          ${fares ? `<td>${fareCell(stop)}</td>` : ''}
         </tr>
       `).join('');
       overlay.style.display = 'flex';
@@ -7537,7 +7710,7 @@
         const first = (j.legs || []).find(l => l.type === 'ride');
         if (!first) return null;
         return { ...j, leave_time: j.depart_time, trip_id: first.trip_id, depart_time: first.depart_time,
-          from_stop_id: first.from_stop_id, prev_day: !!first.prev_day, route_id: first.route_id, route_color: first.route_color };
+          from_stop_id: first.from_stop_id, from_sequence: first.from_sequence, prev_day: !!first.prev_day, route_id: first.route_id, route_color: first.route_color };
       }).filter(Boolean);
     }
 
@@ -7761,6 +7934,7 @@
       card.dataset.tripId = t.trip_id;
       card.dataset.arrival = t.depart_time;
       card.dataset.stopId = t.from_stop_id;
+      card.dataset.fromSeq = t.from_sequence;
       const dot = t.route_color ? `<span class="dep-dot" style="background:#${escapeHtml(t.route_color)}"></span>` : '';
       const ride = Math.max(0, Math.round((parseTime(t.arrive_time) - parseTime(t.depart_time)) / 60));
       const stopLabel = id => { const s = stopsById.get(String(id)); return escapeHtml(s ? (s.stop_code || s.stop_id) : id); };
@@ -7773,7 +7947,7 @@
           <div class="dep-time"><span class="dep-time-sched">${fmtTime(t.depart_time)}</span><span class="dep-time-actual"></span></div>
           <div class="dep-eta-col"><div class="dep-eta" data-arrival="${escapeHtml(t.depart_time)}" data-trip-id="${escapeHtml(t.trip_id)}"></div></div>
         </div>
-        <div class="between-times"><span class="between-arrow">&rarr;</span><span>arrives ${fmtTime(t.arrive_time)}</span><span class="between-ride">${ride} min ride</span></div>
+        <div class="between-times"><span class="between-arrow">&rarr;</span><span>arrives ${fmtTime(t.arrive_time)}</span><span class="between-ride">${ride} min ride</span>${fareSpan(t.fare)}</div>
         ${t.trip_headsign ? `<div class="dep-headsign-row"><div class="dep-headsign">${escapeHtml(t.trip_headsign)}</div></div>` : ''}
         <div class="dep-card-footer">
           <div class="dep-trip">${multi ? `Stop ${stopLabel(t.from_stop_id)} → ${stopLabel(t.to_stop_id)} · ` : ''}Trip ${escapeHtml(t.trip_id)}</div>
@@ -7783,8 +7957,8 @@
       return card;
     }
 
-    function openTripFromTripTab(tripId, card) {
-      loadTrip(tripId, card);
+    function openTripFromTripTab(tripId, card, board) {
+      loadTrip(tripId, card, board);
       // loadTrip jumps to the stop board (where the live-vehicle panel is); stay on the
       // trip list instead, and on phones lower the sheet so the route shows on the map
       switchTab('m-tab-trip');
@@ -7800,15 +7974,19 @@
       card.dataset.tripId = j.trip_id;
       card.dataset.arrival = j.depart_time;
       card.dataset.stopId = j.from_stop_id;
+      card.dataset.fromSeq = j.from_sequence;
       const dot = color => color ? `<span class="dep-dot" style="background:#${escapeHtml(color)}"></span>` : '';
       const stopName = id => { const s = stopsById.get(String(id)); return escapeHtml(s ? s.stop_name || s.stop_code || s.stop_id : id); };
       const rides = j.legs.filter(l => l.type === 'ride');
       const chain = rides.map(l => `<div class="dep-route"${routeStyle(l.route_color)}>${dot(l.route_color)}${escapeHtml(l.route_id)}</div>`).join('<span class="journey-chain-sep">&rsaquo;</span>');
       const total = Math.max(0, Math.round((parseTime(j.arrive_time) - parseTime(j.leave_time)) / 60));
       const transfers = j.transfers === 0 ? 'direct' : `${j.transfers} transfer${j.transfers === 1 ? '' : 's'}`;
+      // more than one ticket: each one's price on the leg it's bought for
+      const tickets = j.fare && j.fare.tickets.length > 1 ? new Map(j.fare.tickets.map(t => [t.first_leg, t])) : new Map();
+      const ticketHtml = i => tickets.has(i) ? `<span class="journey-leg-fare">${escapeHtml(fmtFare(tickets.get(i).price, j.fare.currency))}</span>` : '';
       const legs = j.legs.map((l, i) => l.type === 'walk'
-        ? `<li class="journey-leg journey-leg-walk"><span class="journey-leg-time">${fmtTime(l.depart_time)}</span><span>Walk ${l.distance_m} m (${Math.max(1, Math.round((parseTime(l.arrive_time) - parseTime(l.depart_time)) / 60))} min) to ${stopName(l.to_stop_id)}</span></li>`
-        : `<li class="journey-leg journey-leg-ride" data-leg="${i}"><span class="journey-leg-time">${fmtTime(l.depart_time)}</span><span><span class="journey-leg-route">${dot(l.route_color)} ${escapeHtml(l.route_id)}</span> ${stopName(l.from_stop_id)} &rarr; ${stopName(l.to_stop_id)} <span class="journey-leg-time">${fmtTime(l.arrive_time)}</span>${l.trip_headsign ? ` · ${escapeHtml(l.trip_headsign)}` : ''}</span></li>`
+        ? `<li class="journey-leg journey-leg-walk"><span class="journey-leg-time">${fmtTime(l.depart_time)}</span><span class="journey-leg-text">Walk ${l.distance_m} m (${Math.max(1, Math.round((parseTime(l.arrive_time) - parseTime(l.depart_time)) / 60))} min) to ${stopName(l.to_stop_id)}</span></li>`
+        : `<li class="journey-leg journey-leg-ride" data-leg="${i}"><span class="journey-leg-time">${fmtTime(l.depart_time)}</span><span class="journey-leg-text"><span class="journey-leg-route">${dot(l.route_color)} ${escapeHtml(l.route_id)}</span> ${stopName(l.from_stop_id)} &rarr; ${stopName(l.to_stop_id)} <span class="journey-leg-time">${fmtTime(l.arrive_time)}</span>${l.trip_headsign ? ` · ${escapeHtml(l.trip_headsign)}` : ''}</span>${ticketHtml(i)}</li>`
       ).join('');
       const leaveNote = j.leave_time !== j.depart_time ? `Leave ${fmtTime(j.leave_time)} · ` : '';
       card.innerHTML = `
@@ -7820,7 +7998,7 @@
           <div class="dep-time"><span class="dep-time-sched">${fmtTime(j.depart_time)}</span><span class="dep-time-actual"></span></div>
           <div class="dep-eta-col"><div class="dep-eta" data-arrival="${escapeHtml(j.depart_time)}" data-trip-id="${escapeHtml(j.trip_id)}"></div></div>
         </div>
-        <div class="between-times"><span class="between-arrow">&rarr;</span><span>arrives ${fmtTime(j.arrive_time)}</span><span class="between-ride">${total} min · ${transfers}</span></div>
+        <div class="between-times"><span class="between-arrow">&rarr;</span><span>arrives ${fmtTime(j.arrive_time)}</span><span class="between-ride">${total} min · ${transfers}</span>${fareSpan(j.fare)}</div>
         <ol class="journey-legs">${legs}</ol>
         <div class="dep-card-footer">
           <div class="dep-trip">${leaveNote}Trip ${escapeHtml(j.trip_id)}</div>
@@ -7828,7 +8006,8 @@
       `;
       card.querySelectorAll('.journey-leg-ride').forEach(li => li.addEventListener('click', e => {
         e.stopPropagation();
-        openTripFromTripTab(j.legs[+li.dataset.leg].trip_id, card);
+        const leg = j.legs[+li.dataset.leg];
+        openTripFromTripTab(leg.trip_id, card, { stopId: leg.from_stop_id, seq: leg.from_sequence });
       }));
       card.addEventListener('click', () => loadJourney(j, card, stopsById));
       return card;
@@ -7931,6 +8110,7 @@
       const stopName = id => { const s = stopsById.get(String(id)); return escapeHtml(s ? s.stop_name || s.stop_code || s.stop_id : id); };
       const html = `
         <div class="section-title">Journey</div>
+        ${j.fare ? `<div class="rt-row"><span class="rt-label">Fare</span><span class="rt-val">${escapeHtml(fareText(j.fare))}</span></div>` : ''}
         ${rides.map(l => `<div class="rt-row"><span class="rt-label">${escapeHtml(l.route_id)} · ${fmtTime(l.depart_time)}</span><span class="rt-val">${stopName(l.from_stop_id)} &rarr; ${stopName(l.to_stop_id)}</span></div>`).join('')}
         ${rides.map((l, i) => trips[i] && Array.isArray(trips[i].stops)
           ? `<button class="secondary" style="width:100%;margin-top:9px" onclick="openJourneyLegStops(${i})">${escapeHtml(l.route_id)} stop list</button>` : '').join('')}

@@ -45,6 +45,8 @@ public:
     const string fast_calendar_dates_service_id;
     const string fast_route_path;
     const string fast_route_route_id;
+    const string fast_fare_attributes_path;
+    const string fast_fare_rules_path;
 
     explicit fast_data_feed(string root = "")
         : fast_root(normalize(std::move(root))),
@@ -62,7 +64,9 @@ public:
           fast_calendar_dates_path(fast_root + "calendar_dates.txt"),
           fast_calendar_dates_service_id(fast_root + "calendar_dates_service_id.txt"),
           fast_route_path(fast_root + "routes.txt"),
-          fast_route_route_id(fast_root + "routes_route_id.txt")
+          fast_route_route_id(fast_root + "routes_route_id.txt"),
+          fast_fare_attributes_path(fast_root + "fare_attributes.txt"),
+          fast_fare_rules_path(fast_root + "fare_rules.txt")
     {}
 
 private:

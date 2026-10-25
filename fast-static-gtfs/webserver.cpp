@@ -42,6 +42,7 @@ vector<pair<string, vector<string>>> routelines;
 std::unordered_map<string, int> routerefs;
 
 planner::index plannerIndex; // built from the tables above at the end of every load()
+fares::index fareIndex;       // fare_attributes.txt + fare_rules.txt, read straight from the feed by every load()
 
 struct sorted_table {
     const string& source;      // original GTFS file
@@ -151,6 +152,12 @@ bool load(const fast_gtfs::fast_data_feed& df) {
         plannerIndex = planner::build(stoplines, stoprefs, stoptimesstoplines, stoptimesstoprefs, triplines, triprefs);
         std::cout << GREEN << "done" << RESET << "  " << std::right << std::setw(8)
                   << std::fixed << std::setprecision(1) << ms(clock_type::now() - plannerStart) << " ms\n";
+        std::cout << "  " << std::left << std::setw(width) << "fares" << " " << std::flush;
+        auto faresStart = clock_type::now();
+        fareIndex = fares::build(df.fast_fare_attributes_path, df.fast_fare_rules_path, stoplines, stoprefs, routelines, routerefs);
+        std::cout << GREEN << "done" << RESET << "  " << std::right << std::setw(8)
+                  << std::fixed << std::setprecision(1) << ms(clock_type::now() - faresStart) << " ms  "
+                  << fareIndex.fares.size() << " fares" << (fareIndex.available ? "" : " (none priced, fares off)") << "\n";
         loaded = true;
     }
     std::cout << GREEN << "loaded all in " << std::fixed << std::setprecision(1)
@@ -266,7 +273,7 @@ int main() {
         const int day = std::stoi(req.path_params.at("day"));
 
         auto start = std::chrono::steady_clock::now();
-        string json = getRouteMap(route_id, year, month, day,
+        string json = getRouteMap(fareIndex, route_id, year, month, day,
                                triplines, triprefs, stoptimesstoplines, stoptimesstoprefs, shapelines, shaperefs,
                                calendarlines, calendarrefs, calendardatelines, calendardaterefs,
                                stoplines, stoprefs, routelines, routerefs);
@@ -289,8 +296,8 @@ int main() {
         const int day = std::stoi(req.path_params.at("day"));
 
         auto start = std::chrono::steady_clock::now();
-        string json = getBetweenDayTimes(from, to, year, month, day,
-                               stoptimesstopidlines, stoptimesstopidrefs, triplines, triprefs,
+        string json = getBetweenDayTimes(fareIndex, from, to, year, month, day,
+                               stoptimesstopidlines, stoptimesstopidrefs, stoptimesstoplines, stoptimesstoprefs, triplines, triprefs,
                                calendarlines, calendarrefs, calendardatelines, calendardaterefs,
                                stoplines, stoprefs, routelines, routerefs);
         auto elapsed = std::chrono::steady_clock::now() - start;
@@ -319,13 +326,49 @@ int main() {
         const int limit = std::clamp(param("limit", 20), 1, 40);
 
         auto start = std::chrono::steady_clock::now();
-        string json = getJourneyDayTimes(plannerIndex, from, to, year, month, day, after, until, limit,
+        string json = getJourneyDayTimes(plannerIndex, fareIndex, from, to, year, month, day, after, until, limit,
                                triplines, triprefs, calendarlines, calendarrefs, calendardatelines, calendardaterefs,
                                stoplines, stoprefs, routelines, routerefs);
         auto elapsed = std::chrono::steady_clock::now() - start;
 
         std::cout << "GET /api/journeys/" << req.path_params.at("from") << "/" << req.path_params.at("to") << "/"
                 << year << "/" << month << "/" << day << " after " << after << " -> "
+                << std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count() << " µs\n";
+
+        res.set_content(json, "application/json");
+    });
+
+    // fares from one stop of a trip to each later stop; ?seq= picks the boarding call on a trip that passes it twice
+    svr.Get("/api/tripfares/:trip_id/:from_stop_id", [](const Request& req, Response& res) {
+        if (!requireLoaded(res)) return;
+        std::shared_lock lock(dataMutex);
+        const string trip_id = req.path_params.at("trip_id");
+        const string from_stop_id = req.path_params.at("from_stop_id");
+        const int seq = req.has_param("seq") ? std::stoi(req.get_param_value("seq")) : -1;
+
+        auto start = std::chrono::steady_clock::now();
+        string json = getTripFares(fareIndex, trip_id, from_stop_id, seq, triplines, triprefs, stoptimesstoplines, stoptimesstoprefs);
+        auto elapsed = std::chrono::steady_clock::now() - start;
+
+        std::cout << "GET /api/tripfares/" << trip_id << "/" << from_stop_id << " -> "
+                << std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count() << " µs\n";
+
+        res.set_content(json, "application/json");
+    });
+
+    // the fare for one ride on a route between two stops (by their zones)
+    svr.Get("/api/fare/:route_id/:from_stop_id/:to_stop_id", [](const Request& req, Response& res) {
+        if (!requireLoaded(res)) return;
+        std::shared_lock lock(dataMutex);
+        const string route_id = req.path_params.at("route_id");
+        const string from_stop_id = req.path_params.at("from_stop_id");
+        const string to_stop_id = req.path_params.at("to_stop_id");
+
+        auto start = std::chrono::steady_clock::now();
+        string json = getRouteFare(fareIndex, route_id, from_stop_id, to_stop_id);
+        auto elapsed = std::chrono::steady_clock::now() - start;
+
+        std::cout << "GET /api/fare/" << route_id << "/" << from_stop_id << "/" << to_stop_id << " -> "
                 << std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count() << " µs\n";
 
         res.set_content(json, "application/json");

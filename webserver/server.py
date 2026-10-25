@@ -131,6 +131,32 @@ def get_journeys(from_ids, to_ids, date):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/tripfares/<trip_id>/<from_stop_id>')
+def get_trip_fares(trip_id, from_stop_id):
+    """Fare from from_stop_id to every later stop of the trip; ?seq= picks the boarding call on a trip that passes it twice."""
+    try:
+        query = ''
+        if 'seq' in request.args:
+            try:
+                query = f"?seq={int(request.args['seq'])}"
+            except ValueError:
+                return jsonify({'error': 'seq must be an integer'}), 400
+        quote = lambda s: urllib.parse.quote(s, safe='')
+        data, status = fast_get(f"/api/tripfares/{quote(trip_id)}/{quote(from_stop_id)}{query}")
+        return jsonify(data), status
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/fare/<route_id>/<from_stop_id>/<to_stop_id>')
+def get_route_fare(route_id, from_stop_id, to_stop_id):
+    """Fare for one ride on route_id between two stops, by their fare zones."""
+    try:
+        quote = lambda s: urllib.parse.quote(s, safe='')
+        data, status = fast_get(f"/api/fare/{quote(route_id)}/{quote(from_stop_id)}/{quote(to_stop_id)}")
+        return jsonify(data), status
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/stopinfo/<stop_id>')
 def get_stop_info(stop_id):
     try:
