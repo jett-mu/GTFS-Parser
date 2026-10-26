@@ -1626,6 +1626,15 @@
       border: 2px solid white;
       border-radius: 50%;
     }
+    /* the stop the rider picked "Fares from here" on: a $ tag sitting just above it */
+    .fare-origin-marker div {
+      width: 20px; height: 20px;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--accent); color: #fff;
+      border: 2px solid #fff; border-radius: 50%;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.35);
+      font: 700 12px/1 var(--font-board);
+    }
 
     /* ===== ACTION BUTTONS =====
        .locate-hero: the solid "find nearest" button with a radar ping (Nearby).
@@ -4645,6 +4654,7 @@
     }
 
     function clearRouteLine() {
+      clearFareOriginMarker();
       if (journeyLayer) { map.removeLayer(journeyLayer); journeyLayer = null; }
       if (routeMapLayer) { map.removeLayer(routeMapLayer); routeMapLayer = null; routeMapLines = []; routeMapDots = []; }
       if (polyline) { map.removeLayer(polyline); polyline = null; }
@@ -5215,8 +5225,23 @@
     let tripFareBoard = null; // { stopId, seq } whatever opened the trip boards at
     const tripFareKey = (stopId, seq) => `${stopId}|${+seq}`;
 
+    // a $ on the map at the stop fares are priced from, only once the rider has picked it
+    // with "Fares from here" (not for the default boarding stop)
+    let fareOriginMarker = null;
+    function showFareOriginMarker(lat, lon) {
+      clearFareOriginMarker();
+      fareOriginMarker = L.marker([lat, lon], {
+        icon: L.divIcon({ className: 'fare-origin-marker', html: '<div>$</div>', iconSize: [20, 20], iconAnchor: [10, 24] }),
+        interactive: false, keyboard: false,
+      }).addTo(map);
+    }
+    function clearFareOriginMarker() {
+      if (fareOriginMarker) { map.removeLayer(fareOriginMarker); fareOriginMarker = null; }
+    }
+
     function loadTripFares(data, board) {
       tripFares = null;
+      clearFareOriginMarker();
       renderTripInfoFare();
       const stops = [...(data.stops || [])].sort((a, b) => a.stop_sequence - b.stop_sequence);
       if (stops.length < 2) return;
@@ -5234,6 +5259,7 @@
             from_name: at ? at.name : res.from_stop_id,
             byStop: new Map(res.fares.map(f => [tripFareKey(f.stop_id, f.stop_sequence), f.fare])),
           };
+          if (board && board.picked && at) showFareOriginMarker(at.lat, at.lng);
           applyTripStopDelays(); // re-renders every stop popup
           renderTripInfoFare();
           if (document.getElementById('tripStopsOverlay').style.display !== 'none' && tripStopsData === data.stops) openTripStops(data.trip_id);
@@ -5242,7 +5268,7 @@
     }
 
     function setTripFareOrigin(stopId, seq) {
-      if (tripPopupData) loadTripFares(tripPopupData, { stopId, seq });
+      if (tripPopupData) loadTripFares(tripPopupData, { stopId, seq, picked: true });
     }
 
     function renderTripInfoFare() {
@@ -5302,6 +5328,7 @@
       const dot = routeMapDots.find(d => String(d.routeStop.stop_id) === String(stopId));
       if (!dot) return;
       routeFareOrigin = { route_id: dot.routeData.route_id, stop_id: String(stopId), name: dot.routeStop.stop_name };
+      showFareOriginMarker(dot.routeStop.lat, dot.routeStop.lon);
       refreshRouteMapPopups();
     }
 
