@@ -82,6 +82,11 @@ server {
     ssl_certificate     /Users/jettmu/letsencrypt/live/gtfs.jettm.dev/fullchain.pem;
     ssl_certificate_key /Users/jettmu/letsencrypt/live/gtfs.jettm.dev/privkey.pem;
 
+    # The Cloudflare tunnel forwards everything to :443, including cert validation
+    location /.well-known/acme-challenge/ {
+        root /opt/homebrew/var/www/gtfs-jettm-dev;
+    }
+
     location / {
         proxy_pass         http://127.0.0.1:5015;
         proxy_set_header   Host              $host;
@@ -118,14 +123,34 @@ nginx -s stop      # stop
 nginx -t            # validate config
 ```
 
-Neither process is registered with `launchd`/`brew services` here — both need
-restarting manually after reboot/logout. To have nginx persist across
-reboots/logins instead, use `brew services start nginx` in place of the bare
-`nginx` command (mutually exclusive with the manual approach above — pick one).
+### Startup at login
+
+`webserver/startup.sh` starts fast-static-gtfs, gunicorn, nginx and the
+Cloudflare tunnel, then reissues the cert if it expires within 2 weeks. A
+LaunchAgent runs it once at each login, and this Mac logs in automatically after
+a reboot. It doesn't keep anything running: a process that crashes later stays
+down until the next run.
+
+```zsh
+# first time: copy the template, then replace the placeholder paths in the copy
+cp webserver/com.jettmu.gtfs-startup.plist.example webserver/com.jettmu.gtfs-startup.plist
+
+# install (re-run after editing the plist; also runs startup.sh immediately)
+cp webserver/com.jettmu.gtfs-startup.plist ~/Library/LaunchAgents/
+launchctl bootout gui/$(id -u)/com.jettmu.gtfs-startup 2>/dev/null
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.jettmu.gtfs-startup.plist
+
+# run it again now
+launchctl kickstart gui/$(id -u)/com.jettmu.gtfs-startup
+
+# logs and last exit code
+tail ~/Library/Logs/gtfs-startup.log
+launchctl print gui/$(id -u)/com.jettmu.gtfs-startup | grep 'last exit'
+```
 
 ### Cert renewal (Let's Encrypt via manual certbot)
 
-Cert expires 2026-11-13.
+`startup.sh` handles this at login. To renew by hand:
 
 ```zsh
 certbot renew --config-dir ~/letsencrypt --work-dir ~/letsencrypt/work --logs-dir ~/letsencrypt/logs

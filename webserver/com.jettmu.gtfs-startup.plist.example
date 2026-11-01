@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.jettmu.gtfs-startup</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/path/to/gtfs-parser/webserver/startup.sh</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <!-- startup.sh exits once everything is up; without this launchd kills the servers it started -->
+    <key>AbandonProcessGroup</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/Users/YOUR_USER/Library/Logs/gtfs-startup.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/YOUR_USER/Library/Logs/gtfs-startup.log</string>
+</dict>
+</plist>

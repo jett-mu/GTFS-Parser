@@ -92,3 +92,6 @@ AGENTS.md
 # Impeccable design context (local-only)
 PRODUCT.md
 /fast-static-gtfs/ttc-data
+
+# Local LaunchAgent with machine-specific paths (template: webserver/com.jettmu.gtfs-startup.plist.example)
+webserver/com.jettmu.gtfs-startup.plist
