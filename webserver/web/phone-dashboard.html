@@ -1,0 +1,3510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Departures</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Departures" />
+  <meta name="theme-color" content="#0B0D10" id="themeColorMeta" />
+  <script>
+    (function () {
+      try {
+        var saved = localStorage.getItem('gtfs-theme');
+        var theme = saved || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) {}
+    })();
+  </script>
+  <link rel="stylesheet" href="/vendor/fonts/fonts.css">
+  <link rel="stylesheet" href="/vendor/leaflet/leaflet.css">
+  <script src="/vendor/leaflet/leaflet.js"></script>
+  <style>
+    /* ===== PHONE DASHBOARD =====
+       Phone-first version of depboard.html: same data path (nearest stops -> fetchStopDay
+       per stop -> merged, RT-adjusted, re-sorted every 15 s). A full-screen map of the
+       board's stops sits behind a draggable departures sheet holding the route board;
+       tapping a departure, a route number or a stop opens that trip / route / stop inside
+       the same sheet (Back returns to the board); the settings sheet (Location / Display)
+       opens over both.
+       On wide screens the departures sheet becomes a left panel. Tokens follow
+       index.html's "platform display" system. */
+    :root {
+      --radius: 12px;
+      --row-radius: 10px;
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --safe-left: env(safe-area-inset-left, 0px);
+      --safe-right: env(safe-area-inset-right, 0px);
+      --gutter: 16px;
+      --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+      --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+      --transition: 0.16s var(--ease-out);
+
+      /* Raleway (self-hosted, /vendor/fonts) for the whole board */
+      --font-body: 'Raleway', system-ui, sans-serif;
+      --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+      --font-board: 'Raleway', system-ui, sans-serif;
+    }
+
+    /* NIGHT (default): graphite with amber LED countdowns */
+    :root, :root[data-theme="dark"] {
+      --bg: #0B0D10;
+      --surface: #121519;
+      --surface2: #181C21;
+      --surface3: #232830;
+      --border: rgba(226,234,243,0.10);
+      --border2: rgba(226,234,243,0.22);
+      --text: #EEF2F6;
+      --text-muted: rgba(238,242,246,0.74);
+      --text-dim: rgba(238,242,246,0.56);
+      --board-bg: #0A0C0F;
+      --eta: #FFBF3C;
+      --eta-rgb: 255,191,60;
+      --eta-unit: rgba(255,191,60,0.78);
+      --accent: #5EA2FF;
+      --accent-rgb: 94,162,255;
+      --accent2: #3DBE7A;
+      --positive: #3DBE7A;
+      --positive-rgb: 61,190,122;
+      --negative: #FF6450;
+      --negative-rgb: 255,100,80;
+      --warn-rgb: 255,146,56;
+      --ontime-rgb: 64,200,180;
+      --on-accent: #06121F;
+      --backdrop: rgba(0,0,0,0.55);
+      --shadow-sheet: 0 -10px 30px -12px rgba(0,0,0,0.7);
+      --header-bg: rgba(11,13,16,0.86);
+      color-scheme: dark;
+    }
+
+    /* DAY: ink on white so it reads in sun at the stop */
+    :root[data-theme="light"] {
+      --bg: #E7EAEE;
+      --surface: #FFFFFF;
+      --surface2: #F3F5F7;
+      --surface3: #E6E9ED;
+      --border: rgba(12,16,22,0.12);
+      --border2: rgba(12,16,22,0.26);
+      --text: #0B0E13;
+      --text-muted: rgba(11,14,19,0.74);
+      --text-dim: rgba(11,14,19,0.60);
+      --board-bg: #FFFFFF;
+      --eta: #0B0E13;
+      --eta-rgb: 11,14,19;
+      --eta-unit: rgba(11,14,19,0.66);
+      --accent: #1257D6;
+      --accent-rgb: 18,87,214;
+      --accent2: #11804A;
+      --positive: #11804A;
+      --positive-rgb: 17,128,74;
+      --negative: #C7321E;
+      --negative-rgb: 199,50,30;
+      --warn-rgb: 178,88,0;
+      --ontime-rgb: 0,118,106;
+      --on-accent: #FFFFFF;
+      --backdrop: rgba(12,16,22,0.38);
+      --shadow-sheet: 0 -10px 30px -14px rgba(12,16,22,0.30);
+      --header-bg: rgba(231,234,238,0.88);
+      color-scheme: light;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; font-variant-emoji: text; }
+    a, button, input, select, label, summary { touch-action: manipulation; }
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-body);
+      overscroll-behavior: none;
+      /* Raleway defaults to old-style (descending) numerals; countdowns need lining ones.
+         font-feature-settings inherits and combines with the tabular-nums declarations. */
+      font-feature-settings: "lnum" 1;
+    }
+    body { overflow: hidden; }
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+    [hidden] { display: none !important; }
+    /* No rounded corners anywhere (incl. Leaflet popups/controls); only the GPS dot stays round. */
+    *, *::before, *::after { border-radius: 0 !important; }
+    .here-dot { border-radius: 50% !important; }
+
+    /* ===== MAP ===== */
+    #map { position: fixed; inset: 0; z-index: 0; background: var(--surface2); }
+    :root:not([data-theme="light"]) #map .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9); }
+    .leaflet-container { font-family: var(--font-body); }
+    .leaflet-control-attribution { background: var(--header-bg) !important; color: var(--text-dim) !important; font-size: 9px !important; }
+    .leaflet-control-attribution a { color: var(--text-muted) !important; }
+    .leaflet-top.leaflet-left { top: var(--safe-top); left: var(--safe-left); }
+    .leaflet-control-zoom a { background: var(--surface) !important; color: var(--text) !important; border-color: var(--border) !important; }
+    .leaflet-popup-content-wrapper, .leaflet-popup-tip { background: var(--surface) !important; color: var(--text) !important; }
+    .leaflet-popup-content-wrapper { border-radius: 12px; box-shadow: 0 6px 20px rgba(0,0,0,0.35); }
+    .leaflet-popup-content { margin: 10px 14px; font-size: 14px; }
+    .leaflet-container a.leaflet-popup-close-button { color: var(--text-muted); }
+    .stop-pop-name { font-weight: 700; }
+    .stop-pop-code { font-size: 12px; color: var(--text-dim); margin-top: 1px; }
+    .stop-pop-routes { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+    .stop-pop-routes .flt-bullet { min-width: 34px; height: 22px; font-size: 13px; }
+
+    path.stop-dot { fill: var(--surface); stroke: var(--text); stroke-width: 2.5; transition: stroke-width 0.2s var(--ease-out); }
+    path.stop-dot.is-focus { fill: var(--eta); stroke: var(--bg); stroke-width: 3; }
+    .here-dot {
+      width: 18px; height: 18px; border-radius: 50%;
+      background: #2F7BFF; border: 3px solid #fff;
+      box-shadow: 0 0 0 6px rgba(47,123,255,0.22), 0 1px 4px rgba(0,0,0,0.4);
+    }
+    .here-pin { width: 26px; height: 34px; color: var(--accent); filter: drop-shadow(0 2px 3px rgba(0,0,0,0.4)); }
+    .here-pin svg { width: 100%; height: 100%; display: block; }
+
+    .map-recenter {
+      position: fixed; z-index: 15;
+      right: calc(12px + var(--safe-right));
+      bottom: calc(var(--sheet-visible, 50dvh) + 12px);
+      display: none; align-items: center; gap: 7px;
+      min-height: 44px; padding: 0 14px;
+      background: var(--surface); color: var(--text);
+      border: 1px solid var(--border2);
+      box-shadow: 0 2px 10px rgba(0,0,0,0.35);
+      font-size: 13.5px; font-weight: 700;
+    }
+    .map-recenter svg { width: 14px; height: 14px; }
+    body.map-off-center .map-recenter { display: inline-flex; }
+    body.sheet-full .map-recenter { display: none; }
+    .pop-btn {
+      display: block; width: 100%; min-height: 40px; margin-top: 10px; padding: 0 12px;
+      background: var(--accent); color: var(--on-accent);
+      font-size: 13.5px; font-weight: 700;
+    }
+
+    path.trip-stop { fill: #fff; stroke: #222; stroke-width: 2; }
+    path.trip-stop.passed { fill-opacity: 0.55; stroke-opacity: 0.45; }
+    path.route-stop { fill: #fff; stroke: #222; stroke-width: 1.5; }
+    .trip-pop-time { font-size: 12px; color: var(--text-dim); margin-top: 2px; font-variant-numeric: tabular-nums; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 6px; }
+    .trip-pop-time s { opacity: 0.7; }
+    .trip-pop-time .tp-new { font-weight: 800; }
+    .trip-pop-time .tp-late { color: var(--negative); }
+    .trip-pop-time .tp-early { color: var(--positive); }
+    .trip-pop-time .tp-ontime { color: rgb(var(--ontime-rgb)); }
+    .trip-pop-time .tp-badge { font-size: 10.5px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; }
+
+    /* Live vehicles: route-coloured bus with a heading arrow; "12s ago" floats above it. */
+    .bus-marker { background: none; border: 0; }
+    .bus {
+      position: relative;
+      min-width: 30px; height: 20px; padding: 0 4px;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--rc, #2F7BFF); color: var(--rc-fg, #fff);
+      border: 2px solid #fff;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.45);
+      font-family: var(--font-board); font-size: 10.5px; font-weight: 800; line-height: 1;
+      white-space: nowrap;
+    }
+    .bus.stale { opacity: 0.55; }
+    .bus-dir { position: absolute; left: 50%; top: 50%; width: 0; height: 0; }
+    .bus-dir::before {
+      content: ''; position: absolute; left: -5px; top: -20px;
+      border-left: 5px solid transparent; border-right: 5px solid transparent;
+      border-bottom: 7px solid var(--rc, #2F7BFF);
+    }
+    .leaflet-marker-icon.bus-marker.gliding { transition: transform 1.2s var(--ease-in-out); }
+    .leaflet-tooltip.veh-time-tooltip.gliding { transition: transform 1.2s var(--ease-in-out); }
+    .leaflet-tooltip.veh-time-tooltip {
+      padding: 1px 5px;
+      background: var(--surface); color: var(--text);
+      border: 1px solid var(--border); box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+      font-family: var(--font-body); font-size: 10px; font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+    .leaflet-tooltip-top.veh-time-tooltip::before { border-top-color: var(--surface); }
+    .veh-pop-id { font-size: 16px; font-weight: 800; }
+    .veh-pop-line { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+    /* ===== DEPARTURES SHEET: drag between peek / half / full ===== */
+    .bsheet {
+      position: fixed;
+      left: 0; right: 0; bottom: 0;
+      z-index: 20;
+      height: calc(100dvh - var(--safe-top) - 8px);
+      max-width: 720px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg);
+      border-radius: 18px 18px 0 0;
+      box-shadow: var(--shadow-sheet), 0 -1px 0 var(--border);
+      transform: translateY(var(--sheet-y, 50dvh));
+      will-change: transform;
+      touch-action: none; /* all vertical movement is JS: one position for sheet + list */
+    }
+    .bsheet-head {
+      flex-shrink: 0;
+      padding: 0 calc(var(--gutter) + var(--safe-right)) 0 calc(var(--gutter) + var(--safe-left));
+      border-bottom: 1px solid var(--border);
+      touch-action: none;
+    }
+    .bsheet-handle-hit { display: flex; justify-content: center; padding: 6px 0; cursor: grab; }
+    .bsheet-handle-hit .sheet-handle { margin: 0; }
+    .pd-head-row { display: flex; align-items: center; gap: 6px; padding-bottom: 8px; }
+    .pd-loc { min-width: 0; flex: 1; text-align: left; padding: 2px 0; }
+    .pd-loc-name {
+      display: flex; align-items: center; gap: 6px;
+      font-family: var(--font-board); font-size: 17px; font-weight: 700; line-height: 1.15; letter-spacing: 0.01em;
+      white-space: nowrap; overflow: hidden;
+    }
+    .pd-loc-name span { overflow: hidden; text-overflow: ellipsis; }
+    .pd-loc-name svg { width: 16px; height: 16px; flex-shrink: 0; color: var(--text-dim); }
+    .pd-loc-sub { margin-top: 1px; font-size: 12px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pd-loc-sub .stale { color: var(--negative); font-weight: 600; }
+    .icon-btn {
+      position: relative;
+      width: 44px; height: 44px; flex-shrink: 0;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+    }
+    .icon-btn:active { background: var(--surface3); }
+    .icon-btn svg { width: 19px; height: 19px; }
+    .icon-btn[aria-pressed="true"] { color: var(--eta); border-color: var(--border2); }
+    .icon-btn[aria-pressed="true"] svg { fill: currentColor; }
+    /* Detail views (trip / route / stop) swap the location button for Back + a title */
+    .dh { min-width: 0; flex: 1; display: flex; align-items: center; gap: 10px; }
+    .dh .row-route { align-self: center; flex-shrink: 0; cursor: default; }
+    .dh-text { min-width: 0; }
+    .dh-title { font-family: var(--font-board); font-size: 16px; font-weight: 800; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .dh-sub { margin-top: 1px; font-size: 12.5px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .dh-sub:empty { display: none; }
+    .icon-btn.refreshing svg { animation: spin 0.8s linear infinite; } /* loading only, stops when done */
+    .icon-btn:disabled { opacity: 1; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .icon-btn .tb-badge { position: absolute; top: -3px; right: -3px; }
+    /* Scrolled from JS (scrollTop) as part of the sheet's continuous position. */
+    .pd-scroll { flex: 1; min-height: 0; overflow-y: hidden; overscroll-behavior: contain; }
+
+    .pd-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 8px calc(var(--gutter) + var(--safe-right)) calc(var(--safe-bottom) + 24px) calc(var(--gutter) + var(--safe-left));
+      max-width: 720px;
+      margin: 0 auto;
+    }
+
+    .row.dep-card {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      grid-template-areas:
+        "route dest leave"
+        "route meta leave"
+        "route status leave";
+      column-gap: 12px;
+      row-gap: 2px;
+      align-items: center;
+      padding: 9px 11px;
+      min-height: 60px;
+      background: var(--board-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--row-radius);
+      font-family: var(--font-board);
+      transition: opacity var(--transition);
+    }
+    .row-route {
+      grid-area: route;
+      align-self: start;
+      min-width: 42px;
+      max-width: 72px;
+      height: 28px;
+      padding: 0 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 8px;
+      background: var(--rc, var(--accent2));
+      color: var(--rc-fg, #fff);
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: 0.01em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .row-dest {
+      grid-area: dest;
+      min-width: 0;
+      font-size: 15px;
+      font-weight: 700;
+      line-height: 1.2;
+      text-transform: uppercase;
+      letter-spacing: 0.01em;
+      overflow-wrap: break-word;
+    }
+    .row-meta {
+      grid-area: meta;
+      min-width: 0;
+      font-family: var(--font-body);
+      font-size: 12.5px;
+      color: var(--text-muted);
+      overflow-wrap: break-word;
+    }
+    .row-meta { display: flex; flex-wrap: wrap; align-items: center; row-gap: 3px; }
+    .row-meta { column-gap: 6px; }
+    .row-meta .dep-pd-note { margin-left: 0; }
+    .row-stop { min-width: 0; font-weight: 600; }
+    .row-miss { flex-shrink: 0; white-space: nowrap; }
+    .row-walk { color: var(--text-dim); }
+    .row-miss { display: none; color: var(--negative); font-weight: 600; }
+    .row-missed { opacity: 0.45; }
+    .row-missed .row-miss { display: inline; }
+    .row-status {
+      grid-area: status;
+      min-width: 0;
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      font-family: var(--font-body);
+      font-size: 12px;
+      color: var(--text-muted);
+      font-variant-numeric: tabular-nums;
+      flex-wrap: wrap;
+      row-gap: 3px;
+    }
+    .row-status > * { white-space: nowrap; }
+    .row-status:empty { display: none; }
+
+    .dep-time-sched { font-weight: 600; }
+    .dep-time-sched-strike { text-decoration: line-through; opacity: 0.75; }
+    .dep-time-actual { font-weight: 700; }
+    .dep-time-actual:empty { display: none; }
+    .dep-time-actual.dep-time-early { color: var(--positive); }
+    .dep-time-actual.dep-time-late { color: var(--negative); }
+    .dep-badge-slot:empty { display: none; }
+    .dep-rt { display: inline-flex; align-items: baseline; gap: 6px; white-space: nowrap; }
+    .dep-rt:not(:has(.dep-time-actual:not(:empty), .rt-delay-badge:not(.rt-live-only))) { display: none; }
+    .rt-delay-badge { font-weight: 800; font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase; }
+    .dep-day { font-weight: 800; font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text); }
+    .rt-ontime  { color: rgb(var(--ontime-rgb)); }
+    .rt-early   { color: var(--positive); }
+    .rt-delayed { color: var(--negative); }
+    .rt-slight  { color: rgb(var(--warn-rgb)); }
+    .rt-live-only { display: none; }
+
+    .row-leave {
+      grid-area: leave;
+      min-width: 58px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      justify-content: center;
+      text-align: right;
+      color: var(--eta);
+      font-variant-numeric: tabular-nums;
+      line-height: 1;
+    }
+    .row-leave-num { font-size: 26px; font-weight: 800; }
+    .row-leave-unit { margin-top: 1px; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--eta-unit); }
+    .row-leave.due .row-leave-num { font-size: 18px; text-transform: uppercase; letter-spacing: 0.04em; }
+    .row-leave.later { color: var(--text); }
+    .row-leave.later .row-leave-num { font-size: 16px; font-weight: 700; }
+    .row-leave.later .row-leave-unit { color: var(--text-muted); }
+    .row-leave.eta-roll .row-leave-num { animation: eta-roll 0.32s var(--ease-out); }
+    @keyframes eta-roll { from { transform: translateY(-35%); opacity: 0; } to { transform: none; opacity: 1; } }
+
+    /* The very next departure gets a bigger row */
+    .row.dep-card.row-next { padding: 11px 12px; min-height: 74px; border-color: var(--border2); }
+    .row-next .row-route { height: 32px; min-width: 48px; font-size: 16px; }
+    .row-next .row-dest { font-size: 17px; }
+    .row-next .row-leave-num { font-size: 34px; }
+    .row-next .row-leave.due .row-leave-num { font-size: 22px; }
+    .row-next .row-leave.later .row-leave-num { font-size: 18px; }
+
+    .dep-pd-note {
+      margin-left: 6px;
+      flex-shrink: 0; /* never squeezed to "PI": the stop name shortens instead */
+      white-space: nowrap;
+      font-weight: 800;
+      font-size: 10.5px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: rgb(var(--warn-rgb));
+    }
+    .dep-pd-note.dep-pd-dropoff-only { color: var(--negative); }
+    .dep-pd-note.dep-pd-pickup-only { color: var(--positive); }
+
+    /* Display toggles */
+    body:not(.show-walk) .row-walk, body:not(.show-walk) .row-miss { display: none; }
+    body:not(.show-walk) .row-missed { opacity: 1; }
+    body.hide-clock .dep-card:not(.is-later) .dep-time-sched,
+    body.hide-clock .dep-card:not(.is-later) .dep-time-actual,
+    body.hide-clock .dep-badge-slot { display: none; }
+    .dep-card.is-later .dep-time-sched:not(.dep-time-sched-strike) { display: none; }
+
+    /* ===== ROUTE CARDS: one per route, swipe sideways between headsigns ===== */
+    .rcard {
+      background: var(--board-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      font-family: var(--font-board);
+    }
+    /* Card filled with the route colour: re-point the text/border/countdown tokens at the
+       route's readable text colour so everything inside follows. */
+    .rcard.has-rc {
+      background: var(--rc);
+      border-color: transparent;
+      --text: var(--rc-fg);
+      --text-muted: rgba(var(--rc-fg-rgb), 0.80);
+      --text-dim: rgba(var(--rc-fg-rgb), 0.64);
+      --border: rgba(var(--rc-fg-rgb), 0.22);
+      --border2: rgba(var(--rc-fg-rgb), 0.42);
+      --eta: var(--rc-fg);
+      --eta-unit: rgba(var(--rc-fg-rgb), 0.75);
+      color: var(--text);
+    }
+    .rcard.has-rc .rcard-head .row-route { background: var(--rc-fg); color: var(--rc); }
+    /* Status colours (late/early/on time, pickup notes) sit on a board-coloured chip so they stay legible on any route colour. */
+    /* Labels on coloured cards: a chip tinted from the card's own text colour (like its
+       divider lines), text in that colour, and a small square status marker carrying late/early/on time. */
+    .rcard.has-rc .dep-rt,
+    .rcard.has-rc .dep-pd-note {
+      background: rgba(var(--rc-fg-rgb), 0.16);
+      padding: 2px 7px;
+      line-height: 1.35;
+    }
+    .rcard.has-rc .dep-rt > *, .rcard.has-rc .dep-rt .rt-delay-badge,
+    .rcard.has-rc .dep-pd-note { color: var(--rc-fg); }
+    .rcard.has-rc .dep-rt { align-items: center; }
+    .rcard.has-rc .dep-rt::before {
+      content: ''; flex: none; width: 7px; height: 7px;
+      margin-right: -1px; background: var(--rc-fg);
+      box-shadow: 0 0 0 1.5px var(--board-bg);
+    }
+    .rcard.has-rc .dep-rt:has(.rt-delayed)::before { background: var(--negative); }
+    .rcard.has-rc .dep-rt:has(.rt-slight)::before { background: rgb(var(--warn-rgb)); }
+    .rcard.has-rc .dep-rt:has(.rt-early)::before { background: var(--positive); }
+    .rcard.has-rc .dep-rt:has(.rt-ontime)::before { background: rgb(var(--ontime-rgb)); }
+    .rcard.has-rc .rt-ontime { color: rgb(var(--ontime-rgb)); }
+    .rcard-head { display: flex; align-items: center; gap: 8px; padding: 6px 10px 0; min-height: 40px; }
+    .rcard-head .row-route { align-self: center; }
+    .row-route { cursor: pointer; }
+    .dep-card { cursor: pointer; }
+    /* What's drawn on the map: the tapped departure, or the tapped route number */
+    .dep-card.is-selected { outline: 2px solid var(--text); outline-offset: 3px; }
+    .row.dep-card.is-selected { outline-offset: -2px; }
+    .route-selected > .row-route, .rcard.route-selected .rcard-head .row-route { outline: 2px solid var(--text); outline-offset: 2px; }
+    .rcard-hint { flex: 1; min-width: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 3px 8px; font-family: var(--font-body); font-size: 12px; color: var(--text-muted); }
+    .rcard-pin { display: inline-flex; align-items: center; gap: 4px; font-weight: 700; color: var(--text); }
+    .rcard-pin svg { width: 12px; height: 12px; fill: currentColor; }
+    /* Route has a service alert: tap it (or the route number) for the details */
+    .rcard-flag {
+      display: inline-flex; align-items: center; gap: 4px; cursor: pointer;
+      font-size: 11px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase;
+      color: rgb(var(--warn-rgb));
+    }
+    .rcard-flag svg { width: 13px; height: 13px; }
+    .rcard.has-rc .rcard-flag { color: var(--rc-fg); background: rgba(var(--rc-fg-rgb), 0.16); padding: 2px 7px; }
+    .rcard-nav { display: flex; align-items: center; margin-right: -8px; }
+    .rcard-dots { display: flex; }
+    .rcard-dot { width: 22px; height: 36px; display: flex; align-items: center; justify-content: center; }
+    .rcard-dot::before {
+      content: ''; width: 7px; height: 7px; border-radius: 4px; background: var(--border2);
+      transition: width 0.25s var(--ease-out), background 0.25s var(--ease-out);
+    }
+    .rcard-dot[aria-current="true"]::before { width: 16px; background: var(--text); }
+    .rcard-arrow { width: 26px; height: 28px; font-size: 20px; line-height: 1; color: var(--text-muted); }
+    .rcard-arrow:disabled { opacity: 0.25; cursor: default; }
+    @media (hover: none) { .rcard-arrow { display: none; } }
+    /* Headsign carousel: a transform track driven by JS (follows the finger 1:1, then a
+       short, firm snap) instead of native scroll-snap, whose iOS glide feels floaty. */
+    .rcard-swiper { overflow: hidden; touch-action: pan-y; }
+    .rcard-swiper:focus-visible { outline-offset: -2px; }
+    .rcard-track {
+      display: flex;
+      align-items: stretch;
+      transform: translate3d(calc(var(--idx, 0) * -100% + var(--dx, 0px)), 0, 0);
+      will-change: transform;
+    }
+    .rcard-track.snapping { transition: transform var(--snap-ms, 130ms) cubic-bezier(0.3, 0.7, 0.2, 1); }
+    .rpane { flex: 0 0 100%; min-width: 0; padding: 5px 10px 10px; }
+    .rpane-hs { font-size: 16px; font-weight: 800; margin-bottom: 3px; }
+    .rpane-main {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-areas: "meta leave" "status leave" "bus bus";
+      column-gap: 12px;
+      row-gap: 4px;
+      align-items: center;
+    }
+    /* Where this departure's bus is (or its block's earlier trip) */
+    .row-bus {
+      grid-area: bus;
+      margin-top: 2px;
+      padding-top: 5px;
+      border-top: 1px dashed var(--border);
+      font-family: var(--font-body);
+      font-size: 12.5px;
+      font-weight: 700;
+      line-height: 1.35;
+      color: var(--text);
+    }
+    .row-bus .mcb-dim { color: var(--text-muted); font-weight: 600; }
+    .row-bus .mcb-late { color: var(--negative); }
+    .rcard.has-rc .row-bus .mcb-late { background: var(--board-bg); padding: 0 3px; }
+    .rpane-main .row-leave-num { font-size: 48px; }
+    .rpane-main .row-leave-unit { font-size: 12px; margin-top: 2px; }
+    .rpane-main .row-leave.due .row-leave-num { font-size: 32px; }
+    .rpane-main .row-leave.later .row-leave-num { font-size: 40px; }
+    .rpane-next {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 7px;
+      padding-top: 6px;
+      border-top: 1px solid var(--border);
+    }
+    .rpane-sub { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+    .rpane-sub + .rpane-sub { border-left: 1px solid var(--border); padding-left: 10px; }
+    .rpane-sub .row-leave { flex-direction: row; align-items: baseline; justify-content: flex-start; gap: 4px; min-width: 0; }
+    .rpane-sub .row-leave-num { font-size: 17px; }
+    .rpane-sub .row-leave-unit { margin: 0; font-size: 10.5px; }
+    .rpane-sub .row-leave.due .row-leave-num { font-size: 15px; }
+    .rpane-sub .row-leave.later .row-leave-num { font-size: 17px; }
+    .rpane-sub .row-status, .rpane-sub .row-meta { font-size: 11.5px; }
+
+    .pd-empty {
+      padding: 64px 24px;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 16px;
+      line-height: 1.5;
+    }
+    .pd-empty button {
+      margin-top: 16px;
+      min-height: 44px;
+      padding: 0 18px;
+      border-radius: 999px;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 600;
+    }
+    .pd-footnote {
+      margin-top: 16px;
+      font-size: 11px;
+      line-height: 1.45;
+      text-align: center;
+      color: var(--text-dim);
+    }
+
+    /* ===== ABOVE THE BOARD: first-run tip + service alerts ===== */
+    .pd-top {
+      display: flex; flex-direction: column; gap: 6px;
+      max-width: 720px; margin: 0 auto;
+      padding: 8px calc(var(--gutter) + var(--safe-right)) 0 calc(var(--gutter) + var(--safe-left));
+    }
+    .pd-top:not(:has(> :not([hidden]))) { display: none; }
+    body.in-detail .pd-top, body.in-detail #board { display: none; }
+    .pd-tip {
+      display: flex; align-items: center; gap: 8px;
+      padding: 4px 2px 4px 12px;
+      background: var(--surface2); border: 1px solid var(--border);
+      font-size: 13px; line-height: 1.4; color: var(--text-muted);
+    }
+    .pd-tip span { flex: 1; min-width: 0; padding: 6px 0; }
+    .pd-tip button { width: 44px; height: 44px; flex-shrink: 0; font-size: 15px; color: var(--text-muted); }
+    summary { list-style: none; cursor: pointer; }
+    summary::-webkit-details-marker { display: none; }
+    .alerts { background: rgba(var(--warn-rgb), 0.12); border: 1px solid rgba(var(--warn-rgb), 0.5); }
+    .alerts > summary {
+      display: flex; align-items: center; gap: 8px;
+      min-height: 44px; padding: 6px 12px;
+      font-size: 14px; font-weight: 700;
+    }
+    .alerts-ico { width: 18px; height: 18px; flex-shrink: 0; color: rgb(var(--warn-rgb)); }
+    .alerts-count { flex: 1; min-width: 0; }
+    .alerts-chev { width: 16px; height: 16px; flex-shrink: 0; color: var(--text-muted); transition: transform var(--transition); }
+    details[open] > summary .alerts-chev { transform: rotate(180deg); }
+    .alert-item { border-top: 1px solid rgba(var(--warn-rgb), 0.32); }
+    .alert-item > summary {
+      display: flex; align-items: center; gap: 8px;
+      min-height: 44px; padding: 8px 12px;
+      font-size: 13.5px; font-weight: 600; line-height: 1.3;
+    }
+    .alert-item > summary > span:not(.alert-routes) { flex: 1; min-width: 0; }
+    .alert-item p {
+      padding: 0 12px 12px;
+      font-size: 13px; line-height: 1.5; color: var(--text-muted);
+      white-space: pre-line; overflow-wrap: anywhere;
+    }
+    .alert-routes { display: inline-flex; flex-wrap: wrap; gap: 4px; flex-shrink: 0; max-width: 45%; }
+    .alert-routes .flt-bullet { min-width: 30px; height: 20px; padding: 0 5px; font-size: 12px; }
+    .dv-alerts:empty { display: none; }
+    .dv-alerts .alert-item:first-child { border-top: 0; }
+
+    /* ===== DETAIL VIEWS: a trip, a route or a stop, inside the departures sheet ===== */
+    .tv-hero .rpane { padding: 10px 12px 12px; }
+    .tv-hero .dep-card { cursor: default; }
+    .dv-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+    .dv-actions:empty { display: none; }
+    .dv-btn {
+      flex: 1 1 0; min-width: 0; min-height: 44px; padding: 8px 12px;
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      background: var(--surface2); border: 1px solid var(--border);
+      color: var(--text); text-decoration: none; white-space: nowrap;
+      font-size: 13.5px; font-weight: 700;
+    }
+    .dv-btn:active { background: var(--surface3); }
+    .dv-btn svg { width: 16px; height: 16px; flex-shrink: 0; }
+    .dv-section { margin-top: 10px; font-family: var(--font-board); font-size: 16px; font-weight: 800; line-height: 1.2; text-transform: uppercase; letter-spacing: 0.01em; text-wrap: balance; }
+    .dv-section:first-child, .dv-alerts:empty + .dv-section { margin-top: 2px; }
+    .dv-more { min-height: 44px; padding: 0 12px; border: 1px solid var(--border); font-size: 13.5px; font-weight: 700; color: var(--text); }
+    .dv-more:active { background: var(--surface3); }
+    .dv-note { padding: 28px 12px; text-align: center; font-size: 14.5px; line-height: 1.5; color: var(--text-muted); }
+    /* Rows inside a route view: the heading already names the route and direction */
+    .row.dep-card.row-slim {
+      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-areas: "dest leave" "meta leave" "status leave";
+    }
+    .row-slim .row-dest { font-size: 14px; }
+    /* Rows inside a stop view: the header already names the stop */
+    .dv-stop .row-stop { display: none; }
+
+    /* Trip timeline: time | line | stop. Your stop and the stop you get off at stand out;
+       everything behind the bus is dimmed. */
+    .tl { display: flex; flex-direction: column; background: var(--board-bg); border: 1px solid var(--border); font-family: var(--font-board); }
+    .tl-row {
+      display: grid; grid-template-columns: 70px 22px minmax(0, 1fr); column-gap: 8px;
+      width: 100%; min-height: 44px; padding: 0 12px 0 6px;
+      text-align: left; color: var(--text);
+    }
+    .tl-row:active { background: var(--surface2); }
+    .tl-time { align-self: center; text-align: right; font-size: 13px; font-weight: 700; line-height: 1.25; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .tl-time s { display: block; font-size: 11.5px; font-weight: 600; color: var(--text-dim); }
+    .tl-time .late { color: var(--negative); }
+    .tl-time .early { color: var(--positive); }
+    .tl-rail { position: relative; }
+    .tl-rail::before { content: ''; position: absolute; left: 50%; top: 0; bottom: 0; width: 4px; margin-left: -2px; background: var(--rc, var(--accent)); }
+    .tl-row.is-first .tl-rail::before { top: 50%; }
+    .tl-row.is-last .tl-rail::before { bottom: 50%; }
+    .tl-rail::after { content: ''; position: absolute; left: 50%; top: 50%; width: 10px; height: 10px; margin: -5px 0 0 -5px; background: var(--board-bg); border: 2px solid var(--text); }
+    .tl-name { align-self: center; min-width: 0; padding: 8px 0; font-size: 14px; font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
+    .tl-tag { display: block; margin-top: 2px; font-family: var(--font-body); font-size: 12px; font-weight: 700; color: var(--text-muted); }
+    .tl-tag .dep-pd-note { margin-left: 0; }
+    .tl-row.passed { color: var(--text-dim); }
+    .tl-row.passed .tl-rail::before { opacity: 0.35; }
+    .tl-row.passed .tl-rail::after { border-color: var(--text-dim); }
+    .tl-row.is-board .tl-name, .tl-row.is-dest .tl-name { font-size: 15px; font-weight: 800; color: var(--text); }
+    .tl-row.is-board .tl-tag, .tl-row.is-dest .tl-tag { color: var(--text); }
+    .tl-row.is-board .tl-rail::after { width: 16px; height: 16px; margin: -8px 0 0 -8px; background: var(--eta); border-color: var(--board-bg); }
+    .tl-row.is-dest .tl-rail::after { width: 16px; height: 16px; margin: -8px 0 0 -8px; background: var(--board-bg); border: 4px solid var(--text); }
+    .tl-row.is-dest { background: var(--surface2); }
+    .tl-expand .tl-rail::before { top: 50%; background: repeating-linear-gradient(to bottom, var(--rc, var(--accent)) 0 4px, transparent 4px 8px); opacity: 0.6; }
+    .tl-expand .tl-rail::after { display: none; }
+    .tl-expand .tl-name { font-family: var(--font-body); font-size: 13px; font-weight: 700; color: var(--text-muted); }
+    .tl-busrow { min-height: 34px; }
+    .tl-busrow .tl-rail::after { width: 20px; height: 14px; margin: -7px 0 0 -10px; background: var(--rc, var(--accent)); border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,0.35); }
+    .tl-busrow .tl-name { padding: 4px 0; font-family: var(--font-body); font-size: 12.5px; font-weight: 800; color: var(--text); }
+    .tl-skel { height: 44px; margin: 6px 10px; background: var(--surface2); }
+
+    /* Skeleton rows match the real row height */
+    .skel {
+      height: 76px;
+      border-radius: var(--row-radius);
+      background: linear-gradient(90deg, var(--surface2) 25%, var(--surface3) 50%, var(--surface2) 75%);
+      background-size: 250% 100%;
+      animation: shimmer 1.3s ease-in-out infinite;
+    }
+    .skel:first-child { height: 96px; }
+    body:not(.list-view) .skel { height: 168px; border-radius: var(--radius); }
+    @keyframes shimmer { 0% { background-position: -120% 0; } 100% { background-position: 220% 0; } }
+
+    .tb-badge {
+      min-width: 18px; height: 18px; padding: 0 5px;
+      border-radius: 9px; background: var(--accent); color: #fff;
+      font-size: 11px; font-weight: 700; line-height: 18px; text-align: center;
+    }
+
+    /* ===== BOTTOM SHEET ===== */
+    .sheet-backdrop {
+      position: fixed; inset: 0; z-index: 40;
+      background: var(--backdrop);
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.25s var(--ease-out);
+    }
+    .sheet-backdrop.open { opacity: 1; pointer-events: auto; }
+    .sheet {
+      position: fixed;
+      left: 0; right: 0;
+      bottom: var(--kb-h, 0px);
+      z-index: 50;
+      max-width: 720px;
+      margin: 0 auto;
+      max-height: calc(88dvh - var(--kb-h, 0px));
+      display: flex;
+      flex-direction: column;
+      background: var(--surface);
+      border-radius: 18px 18px 0 0;
+      box-shadow: var(--shadow-sheet);
+      transform: translateY(105%);
+      visibility: hidden;
+      transition: transform 0.34s var(--ease-out), visibility 0s linear 0.34s;
+    }
+    .sheet.open { transform: translateY(var(--drag, 0px)); visibility: visible; transition: transform 0.34s var(--ease-out), visibility 0s; }
+    .sheet.dragging { transition: none; }
+    .sheet-grab { flex-shrink: 0; padding: 8px 16px 0; touch-action: none; }
+    .sheet-handle { width: 40px; height: 5px; border-radius: 3px; background: var(--border2); margin: 0 auto 10px; }
+    .seg {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 4px;
+      padding: 4px;
+      border-radius: 10px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+    }
+    .seg button {
+      height: 36px;
+      border-radius: 7px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-muted);
+      transition: background var(--transition), color var(--transition);
+    }
+    .seg button[aria-selected="true"] { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,0.2); }
+    .sheet-body {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
+      padding: 16px 16px calc(20px + var(--safe-bottom));
+    }
+    .sheet-pane { display: flex; flex-direction: column; gap: 10px; }
+    .sh-label { margin-top: 8px; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-dim); }
+    .sh-current { font-size: 14px; color: var(--text-muted); }
+    .sh-label-row { display: flex; align-items: baseline; justify-content: space-between; }
+    .sh-clear { font-size: 12px; font-weight: 700; color: var(--accent); text-transform: none; letter-spacing: 0; padding: 4px 0 4px 12px; }
+    .sh-btn {
+      width: 100%;
+      min-height: 48px;
+      padding: 10px 14px;
+      border-radius: 10px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      text-align: left;
+      font-size: 15px;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .sh-btn:active { background: var(--surface3); }
+    .sh-btn small { display: block; font-size: 12px; color: var(--text-muted); margin-top: 1px; }
+    .sh-btn .grow { flex: 1; min-width: 0; }
+    .sh-btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; justify-content: center; }
+    .sh-btn.primary.is-current { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent); }
+    .sh-btn.active { border-color: var(--accent); }
+    .sh-item { display: flex; gap: 8px; }
+    .sh-item .sh-btn:first-child { flex: 1; min-width: 0; }
+    .sh-item .sh-del { width: 48px; flex-shrink: 0; justify-content: center; color: var(--text-muted); }
+    .sh-row { display: flex; gap: 8px; }
+    .sh-row .sh-btn { width: auto; flex-shrink: 0; }
+    .sheet input[type="search"], .sheet input[type="text"] {
+      flex: 1;
+      min-width: 0;
+      width: 100%;
+      min-height: 48px;
+      padding: 0 14px;
+      border-radius: 10px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font: inherit;
+      font-size: 16px; /* no iOS focus zoom */
+    }
+    .sh-list { display: flex; flex-direction: column; gap: 8px; }
+    .sh-empty { font-size: 14px; color: var(--text-muted); padding: 4px 0; }
+    .sh-toggle {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-height: 52px;
+      padding: 10px 14px;
+      border-radius: 10px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      font-size: 15px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    .sh-toggle .grow { flex: 1; min-width: 0; }
+    .sh-toggle small { display: block; font-size: 12px; color: var(--text-muted); margin-top: 1px; }
+    .sh-toggle input { width: 22px; height: 22px; accent-color: var(--accent); flex-shrink: 0; }
+    a.sh-link { text-decoration: none; color: var(--text); }
+
+    .flt-bullet {
+      min-width: 40px; height: 26px; padding: 0 7px; border-radius: 6px;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: var(--rc, var(--accent2)); color: var(--rc-fg, #fff);
+      font-family: var(--font-board); font-size: 15px; font-weight: 700;
+    }
+
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        animation-delay: 0s !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+
+    /* Tablet / desktop: the sheet becomes a fixed left panel over the map */
+    @media (min-width: 900px) {
+      .bsheet {
+        left: 16px; right: auto; top: 16px; bottom: 16px;
+        width: 420px; height: auto; margin: 0;
+        border-radius: 16px;
+        transform: none !important;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        border: 1px solid var(--border);
+      }
+      .bsheet-handle-hit { display: none; }
+      .bsheet-head { padding-top: 14px; touch-action: auto; }
+      .bsheet { touch-action: auto; }
+      .bsheet .pd-scroll { overflow-y: auto; -webkit-overflow-scrolling: touch; }
+      .map-recenter { bottom: 24px !important; right: 24px; }
+      .leaflet-top.leaflet-left { left: 452px; }
+    }
+    /* Very narrow phones (SE 1st gen, 320px) */
+    @media (max-width: 359px) {
+      :root { --gutter: 12px; }
+      .row.dep-card { column-gap: 8px; padding: 8px 10px; }
+      .row-route { min-width: 38px; font-size: 13px; }
+      .row-dest { font-size: 14px; }
+      .row-leave-num { font-size: 23px; }
+      .row-next .row-leave-num { font-size: 28px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="map" role="region" aria-label="Map of nearby stops"></div>
+  <button type="button" class="map-recenter" id="recenterBtn" aria-label="Recenter map on your location">
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21 3 3 10.5l7.2 2.3L12.5 20z"/></svg>
+    <span>Recenter</span>
+  </button>
+
+  <section class="bsheet" id="bsheet" aria-label="Departures">
+    <div class="bsheet-head" id="bsheetHead">
+      <div class="bsheet-handle-hit" id="bsheetHandle" role="button" tabindex="0" aria-label="Expand or collapse departures"><div class="sheet-handle"></div></div>
+      <div class="pd-head-row">
+        <button type="button" class="icon-btn" id="backBtn" aria-label="Back to departures" hidden>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+        </button>
+        <button type="button" class="pd-loc" id="locHeaderBtn" aria-label="Change location">
+          <div class="pd-loc-name"><span id="locName">Near you</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></div>
+          <div class="pd-loc-sub" id="locSub">Finding you…</div>
+        </button>
+        <div class="dh" id="dh" hidden>
+          <span class="row-route" id="dhRoute"></span>
+          <div class="dh-text"><div class="dh-title" id="dhTitle"></div><div class="dh-sub" id="dhSub"></div></div>
+        </div>
+        <button type="button" class="icon-btn" id="pinBtn" aria-pressed="false" aria-label="Pin route" hidden>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.8z"/></svg>
+        </button>
+        <button type="button" class="icon-btn" id="refreshBtn" aria-label="Refresh departures">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>
+        </button>
+        <button type="button" class="icon-btn" id="displayBtn" data-open="display" aria-label="Display settings">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h9M19 6h1M4 12h3M13 12h7M4 18h11"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="pd-scroll" id="scroller">
+      <div class="pd-top" id="boardTop">
+        <div class="pd-tip" id="tip" hidden>
+          <span>Tap a departure to follow its bus and see every stop. Tap a route number for the whole route.</span>
+          <button type="button" id="tipClose" aria-label="Dismiss tip">&#x2715;&#xFE0E;</button>
+        </div>
+        <details class="alerts" id="alertBox" data-alert="board" hidden></details>
+      </div>
+      <main class="pd-list" id="board" aria-live="polite" aria-label="Departures"></main>
+      <div class="pd-list dv" id="detail" hidden></div>
+    </div>
+  </section>
+
+  <div class="sheet-backdrop" id="sheetBackdrop"></div>
+  <section class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="Board settings">
+    <div class="sheet-grab" id="sheetGrab">
+      <div class="sheet-handle"></div>
+      <div class="seg" role="tablist">
+        <button type="button" role="tab" data-pane="location" aria-selected="true">Location</button>
+        <button type="button" role="tab" data-pane="display" aria-selected="false">Display</button>
+      </div>
+    </div>
+    <div class="sheet-body">
+      <div class="sheet-pane" data-pane="location">
+        <div class="sh-current" id="locCurrent"></div>
+        <button type="button" class="sh-btn primary" id="locGps">Use my current location</button>
+        <div class="sh-label">Search for a stop</div>
+        <input id="locSearch" type="search" placeholder="Stop name, ID or code" aria-label="Search for a stop" autocomplete="off" enterkeyhint="search">
+        <div class="sh-list" id="locResults"></div>
+        <div class="sh-label sh-label-row" id="locRecentHead"><span>Recent stops</span><button type="button" class="sh-clear" id="locRecentClear">Clear</button></div>
+        <div class="sh-list" id="locRecent"></div>
+        <div class="sh-label">Saved</div>
+        <div class="sh-list" id="locSaved"></div>
+        <div id="locSaveWrap">
+          <div class="sh-row">
+            <input id="locNick" type="text" maxlength="40" placeholder="Save this spot as… (e.g. Home)" aria-label="Nickname" autocomplete="off" enterkeyhint="done">
+            <button type="button" class="sh-btn" id="locSave">Save</button>
+          </div>
+        </div>
+        <div class="sh-label">Coordinates</div>
+        <div class="sh-row">
+          <input id="locCoords" type="text" inputmode="decimal" placeholder="Latitude, longitude" aria-label="Latitude, longitude" autocomplete="off" enterkeyhint="go">
+          <button type="button" class="sh-btn" id="locCoordsGo">Go</button>
+        </div>
+        <div class="sh-empty" id="locCoordsErr" hidden>Enter a valid latitude (-90 to 90) and longitude (-180 to 180).</div>
+      </div>
+
+      <div class="sheet-pane" data-pane="display" hidden>
+        <label class="sh-toggle" for="listToggle">
+          <span class="grow">Time-ordered list<small>Every departure in one list instead of a card per route</small></span>
+          <input type="checkbox" id="listToggle">
+        </label>
+        <label class="sh-toggle" for="showWalkToggle">
+          <span class="grow">Show walk times<small>Dims buses you can't walk to in time</small></span>
+          <input type="checkbox" id="showWalkToggle">
+        </label>
+        <label class="sh-toggle" for="hideClockToggle">
+          <span class="grow">Countdown only<small>Hide scheduled time and delay under an hour</small></span>
+          <input type="checkbox" id="hideClockToggle">
+        </label>
+        <label class="sh-toggle" for="wakeToggle" id="wakeRow">
+          <span class="grow">Keep screen on<small>While this page is open</small></span>
+          <input type="checkbox" id="wakeToggle">
+        </label>
+        <label class="sh-toggle" for="lightThemeToggle">
+          <span class="grow">Light theme</span>
+          <input type="checkbox" id="lightThemeToggle">
+        </label>
+        <a class="sh-btn sh-link" href="/">&#x2190;&#xFE0E;&nbsp; Back to main page</a>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    // ===== Shared helpers (copied from depboard.html / index.html) =====
+    let rtStopCache = new Map(); // stopId -> {data, receivedAt}
+    const RT_STALE_MS = 2 * 60 * 1000;
+
+    function escapeHtml(s) {
+      return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    // pickup_type / drop_off_type: 0 regular, 1 none, 2 phone agency, 3 coordinate with driver.
+    function pickupDropoffNote(dep) {
+      const pu = dep.pickup_type | 0, dof = dep.drop_off_type | 0;
+      if (!pu && !dof) return '';
+      const short = [], full = [];
+      const add = (s, f) => { short.push(s); full.push(f); };
+      if (pu === 1 && dof === 1) add('No pick-up/drop-off', 'No pickup or dropoff');
+      else if (pu === 1 && !dof) add('Drop-off only', 'Dropoff only');
+      else if (dof === 1 && !pu) add('Pick-up only', 'Pickup only');
+      else {
+        if (pu === 1) add('No pick-up', 'No pickup');
+        if (dof === 1) add('No drop-off', 'No dropoff');
+      }
+      if (pu === 2) add('Pick-up: call', 'Phone agency for pickup');
+      if (pu === 3) add('Pick-up: driver', 'Coordinate with driver for pickup');
+      if (dof === 2) add('Drop-off: call', 'Phone agency for dropoff');
+      if (dof === 3) add('Drop-off: driver', 'Coordinate with driver for dropoff');
+      const cls = (pu === 1 && !dof) ? ' dep-pd-dropoff-only' : (dof === 1 && !pu) ? ' dep-pd-pickup-only' : '';
+      return `<span class="dep-pd-note${cls}" title="${escapeHtml(full.join('; '))}">${escapeHtml(short.join(' · '))}</span>`;
+    }
+
+    function readableTextColor(hex) {
+      const h = String(hex ?? '').replace('#', '');
+      if (!/^[0-9a-fA-F]{6}$/.test(h)) return '#fff';
+      const r = parseInt(h.slice(0,2),16), g = parseInt(h.slice(2,4),16), b = parseInt(h.slice(4,6),16);
+      return (0.299*r + 0.587*g + 0.114*b) / 255 > 0.6 ? '#000' : '#fff';
+    }
+    // --rc / --rc-fg custom properties for a route colour (same idea as index.html's routeStyle)
+    function routeStyle(color) {
+      if (!/^[0-9a-fA-F]{6}$/.test(String(color || ''))) return '';
+      const fg = readableTextColor(color);
+      return `--rc:#${color};--rc-fg:${fg};--rc-fg-rgb:${fg === '#000' ? '0,0,0' : '255,255,255'}`;
+    }
+
+    function todayStr() { return dateStr(new Date()); }
+    function dateStr(d) {
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    }
+    function parseTime(t) {
+      const p = t.split(':').map(Number);
+      return p[0]*3600 + p[1]*60 + (p[2]||0);
+    }
+    function nowInSeconds() {
+      const n = new Date();
+      return n.getHours()*3600 + n.getMinutes()*60 + n.getSeconds();
+    }
+    function fmtClockShort(totalSeconds) {
+      let h = Math.floor(totalSeconds / 3600) % 24;
+      if (h < 0) h += 24;
+      const m = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2,'0');
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      h = h % 12 || 12;
+      return `${h}:${m} ${ampm}`;
+    }
+
+    // Yesterday's service keeps running past midnight ("25:10:00"), so until this time
+    // of day today's board also pulls in yesterday's departures.
+    const PREV_DAY_WINDOW_SECS = 8 * 3600;
+
+    // /api/stop for one service date; for today before 08:00 also merges yesterday's
+    // ≥24:00 departures re-timed onto today's clock with prev_day: true (see depKey).
+    function fetchStopDay(stopId, date) {
+      const day = fetch(`/api/stop/${stopId}/${date}`).then(r => r.json());
+      if (date !== todayStr() || nowInSeconds() >= PREV_DAY_WINDOW_SECS) return day;
+      const y = new Date();
+      y.setDate(y.getDate() - 1);
+      const prev = fetch(`/api/stop/${stopId}/${dateStr(y)}`).then(r => r.ok ? r.json() : null).catch(() => null);
+      return Promise.all([day, prev]).then(([d, p]) => {
+        if (d.error || !p || !Array.isArray(p.departures)) return d;
+        const carried = p.departures
+          .filter(dep => parseTime(dep.arrival_time) >= 86400)
+          .map(dep => ({ ...dep, arrival_time: shiftBackOneDay(dep.arrival_time), prev_day: true }));
+        return carried.length ? { ...d, departures: [...carried, ...(d.departures || [])] } : d;
+      });
+    }
+    function shiftBackOneDay(t) {
+      const [h, ...rest] = t.split(':');
+      return [String(Number(h) - 24).padStart(2, '0'), ...rest].join(':');
+    }
+    function depKey(dep) {
+      return dep.prev_day ? `${dep.trip_id}|prev` : dep.next_day ? `${dep.trip_id}|next` : dep.trip_id;
+    }
+
+    // Seconds late (+) / early (-) for one trip_update at stopId vs schedTime; null if absent.
+    function rtStopDelay(tu, stopId, schedTime) {
+      const stu = (tu.stop_time_update || []).find(s => s.stop_id === String(stopId));
+      if (!stu) return null;
+      const explicit = stu.departure?.delay ?? stu.arrival?.delay;
+      if (explicit != null) return explicit;
+      const t = Number(stu.arrival?.time ?? stu.departure?.time);
+      if (!t || !schedTime) return null;
+      const d = new Date(t * 1000);
+      const diff = d.getHours()*3600 + d.getMinutes()*60 + d.getSeconds() - parseTime(schedTime);
+      return ((diff + 43200) % 86400 + 86400) % 86400 - 43200;
+    }
+
+    // A trip can be cached under several stops; the right stop's delay is the smallest.
+    function getRTDelaySeconds(tripId, schedTime, stopId) {
+      let best = null;
+      for (const [cachedStopId, { data }] of rtStopCache) {
+        if (stopId && String(cachedStopId) !== String(stopId)) continue;
+        const e = (data.entity || []).find(e => e.trip_update?.trip?.trip_id === tripId);
+        if (!e) continue;
+        const d = rtStopDelay(e.trip_update, cachedStopId, schedTime);
+        if (d !== null && (best === null || Math.abs(d) < Math.abs(best))) best = d;
+      }
+      return best ?? 0;
+    }
+
+    function loadRTStopUpdates(stopId) {
+      return fetch(`/api/rt/stop/${stopId}`)
+        .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+        .then(data => { rtStopCache.set(stopId, {data, receivedAt: Date.now()}); lastRTAt = Date.now(); applyRTtoDepartures(data, stopId); updateETAs(); })
+        .catch(() => reapplyCachedRT(stopId));
+    }
+    function reapplyCachedRT(stopId) {
+      const cached = rtStopCache.get(stopId);
+      if (cached && (Date.now() - cached.receivedAt) < RT_STALE_MS) applyRTtoDepartures(cached.data, stopId);
+    }
+
+    function applyRTtoDepartures(data, stopId) {
+      (data.entity||[]).forEach(e => {
+        const tu = e.trip_update;
+        if (!tu) return;
+        const tripId = tu.trip?.trip_id;
+        if (!tripId) return;
+        document.querySelectorAll(`.dep-card[data-trip-id="${CSS.escape(tripId)}"]`).forEach(card => {
+          if (card.dataset.stopId && card.dataset.stopId !== String(stopId)) return;
+          const delay = rtStopDelay(tu, stopId, card.dataset.arrival);
+          card.classList.add('rt-live');
+          let badge = card.querySelector('.rt-delay-badge');
+          if (!badge) {
+            badge = document.createElement('span');
+            badge.className = 'rt-delay-badge';
+            (card.querySelector('.dep-badge-slot') || card).appendChild(badge);
+          }
+          let isEarly = false, isLate = false;
+          if (delay === null) { badge.textContent='Live'; badge.className='rt-delay-badge rt-live-only'; }
+          else if (delay <= 0) {
+            const mins = Math.abs(Math.round(delay/60));
+            if (mins > 0) { badge.textContent=`▲︎ ${mins}m early`; badge.className='rt-delay-badge rt-early'; isEarly = true; }
+            else { badge.textContent='On time'; badge.className='rt-delay-badge rt-ontime'; }
+          } else {
+            const dCls = delay <= 90 ? 'rt-slight' : 'rt-delayed';
+            badge.textContent = delay > 60 ? `▼︎ ${Math.round(delay/60)}m late` : `▼︎ ${delay}s late`;
+            badge.className = 'rt-delay-badge ' + dCls;
+            isLate = true;
+          }
+          const schedEl = card.querySelector('.dep-time-sched');
+          const actualEl = card.querySelector('.dep-time-actual');
+          if (schedEl && actualEl) {
+            if ((isEarly || isLate) && card.dataset.arrival) {
+              schedEl.classList.add('dep-time-sched-strike');
+              actualEl.textContent = fmtClockShort(parseTime(card.dataset.arrival) + delay);
+              actualEl.className = `dep-time-actual ${isEarly ? 'dep-time-early' : 'dep-time-late'}`;
+            } else {
+              schedEl.classList.remove('dep-time-sched-strike');
+              actualEl.textContent = '';
+              actualEl.className = 'dep-time-actual';
+            }
+          }
+        });
+      });
+    }
+
+    function debounce(fn, ms) {
+      let timer = null;
+      const wrapped = function (...args) {
+        clearTimeout(timer);
+        timer = setTimeout(() => { timer = null; fn.apply(this, args); }, ms);
+      };
+      wrapped.cancel = () => { clearTimeout(timer); timer = null; };
+      return wrapped;
+    }
+
+    // Headsigns are rendered in full and wrap onto more lines when needed.
+    function fitDestTexts() {
+      document.querySelectorAll('#scroller .row-dest[data-full-dest]').forEach(el => {
+        el.textContent = el.dataset.fullDest;
+      });
+    }
+
+    function lsGet(key, fallback) {
+      try { const v = JSON.parse(localStorage.getItem(key)); return v ?? fallback; } catch (e) { return fallback; }
+    }
+    function lsSet(key, val) {
+      try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) {}
+    }
+
+    // ===== Board state =====
+    const BOARD_WALK_RADIUS_KM = 1;
+    const BOARD_MAX_STOPS = 15;
+    const BOARD_FALLBACK_STOPS = 3;
+    const BOARD_NEAREST_LIMIT = 30;
+    const BOARD_WALK_M_PER_MIN = 80;
+    const BOARD_MAX_WALK_MIN = 90;
+    const BOARD_REFRESH_MS = 60000;
+    const BOARD_RT_MS = 15000;
+    const STALE_AFTER_MS = 3 * 60 * 1000;
+    const LOC_SAVED_KEY = 'gtfs-board-saved-locations';   // shared with depboard / flipboard
+
+    let boardLat = null, boardLon = null;
+    let boardCustom = null; // {lat, lon, name} when a chosen/saved location replaces GPS
+    let allDeps = [];
+    let lastStopDatas = [];
+    let routeColors = new Map(); // route_id -> route_color
+    let lastLoadedAt = 0;
+    let lastRTAt = 0; // last successful realtime fetch, for "Updated … ago"
+    let loading = false;
+    let timers = [];
+
+    // What the sheet is showing: the board, or a trip / route / stop opened from it
+    // (see DETAIL VIEWS). Declared here because the board's own render reads it.
+    let view = { type: 'board' };
+    const viewStack = [];
+    let boardReturn = null; // where the board was (sheet position / scroll) before a detail view opened
+    function inDetail() { return view.type !== 'board'; }
+    function byId(id) { return document.getElementById(id); }
+
+    // Routes the rider pinned: their cards lead the route board.
+    const PIN_KEY = 'gtfs-phone-pinned-routes';
+    const pinned = new Set((v => Array.isArray(v) ? v.map(String) : [])(lsGet(PIN_KEY, [])));
+
+    // Late in the evening the board also carries tomorrow morning's departures (flagged
+    // next_day, clock shifted +24 h so they sort after tonight's), so the last bus of the
+    // night is followed by the first one tomorrow instead of an empty board.
+    const NEXT_DAY_FROM_SECS = 20 * 3600;  // from 8 pm
+    const NEXT_DAY_UNTIL_SECS = 10 * 3600; // up to 10 am tomorrow
+    const NEXT_DAY_LIST_MAX = 2;           // per route + direction in the time-ordered list
+    const nextDayCache = new Map(); // `${date}|${stop_id}` -> Promise<departures[]>
+    function nextDayDepartures(stopId) {
+      if (nowInSeconds() < NEXT_DAY_FROM_SECS) return Promise.resolve([]);
+      const t = new Date();
+      t.setDate(t.getDate() + 1);
+      const key = `${dateStr(t)}|${stopId}`;
+      if (!nextDayCache.has(key)) {
+        nextDayCache.set(key, fetch(`/api/stop/${stopId}/${dateStr(t)}`)
+          .then(r => r.ok ? r.json() : null)
+          .then(d => (d && Array.isArray(d.departures) ? d.departures : [])
+            .filter(dep => parseTime(dep.arrival_time) < NEXT_DAY_UNTIL_SECS)
+            .map(dep => ({ ...dep, arrival_time: shiftDay(dep.arrival_time, 24), next_day: true })))
+          .catch(() => { nextDayCache.delete(key); return []; }));
+      }
+      return nextDayCache.get(key);
+    }
+    function shiftDay(t, hours) {
+      const [h, ...rest] = t.split(':');
+      return [String(Number(h) + hours).padStart(2, '0'), ...rest].join(':');
+    }
+
+    function walkMinutes(km) { return Math.max(1, Math.ceil((km * 1000) / BOARD_WALK_M_PER_MIN)); }
+    function fmtDistKm(km) { return km < 10 ? `${km.toFixed(1)} km` : `${Math.round(km).toLocaleString()} km`; }
+    function fmtWalk(km) {
+      if (km * 1000 < 60) return 'right here';
+      return walkMinutes(km) > BOARD_MAX_WALK_MIN ? `${fmtDistKm(km)} away` : `${walkMinutes(km)} min walk`;
+    }
+    const realTime = dep => parseTime(dep.arrival_time) + getRTDelaySeconds(dep.trip_id, dep.arrival_time, dep._stopId);
+
+    // -> {num, unit, cls}
+    // Departures whose time has passed but whose bus is still at / near your stop
+    // (set by the card bus check). They stay on the board, shown as "Now", for up to
+    // HOLD_NEAR_SECS past their time.
+    const nearBus = new Set(); // depKey
+    const HOLD_NEAR_SECS = 5 * 60;
+    function stillHere(dep, now) {
+      const late = now - realTime(dep);
+      return late < 0 || (nearBus.has(depKey(dep)) && late <= HOLD_NEAR_SECS);
+    }
+
+    function fmtLeave(dep) {
+      const at = realTime(dep);
+      const secs = at - nowInSeconds();
+      if (secs < 0)    return nearBus.has(depKey(dep)) ? { num: 'Now', unit: '', cls: 'due' } : { num: 'Gone', unit: '', cls: 'past' };
+      if (secs <= 30)  return { num: 'Due', unit: '', cls: 'due' };
+      if (secs < 3600) return { num: String(Math.round(secs / 60)), unit: 'min', cls: '' };
+      const [t, ampm] = fmtClockShort(at).split(' ');
+      return { num: t, unit: ampm, cls: 'later' };
+    }
+
+    function fetchNearbyStopDepartures(lat, lon) {
+      return fetch(`/api/nearest/${lat}/${lon}?limit=${BOARD_NEAREST_LIMIT}`)
+        .then(r => r.json())
+        .then(data => {
+          const all = data.nearest_stops || [];
+          let stops = all.filter(s => s.distanceKM <= BOARD_WALK_RADIUS_KM).slice(0, BOARD_MAX_STOPS);
+          if (!stops.length) stops = all.slice(0, BOARD_FALLBACK_STOPS);
+          if (!stops.length) return Promise.reject('no-stops');
+          const date = todayStr();
+          return Promise.all(stops.map(s =>
+            Promise.all([fetchStopDay(s.stop_id, date), nextDayDepartures(s.stop_id)])
+              .then(([sd, tomorrow]) => ({ ...sd, departures: [...(sd.departures || []), ...tomorrow], _distanceKM: s.distanceKM, _stopName: s.stop_name || sd.stop_name || '', _stopCode: s.stop_code || '', _lat: +s.stop_lat, _lon: +s.stop_lon }))
+              .catch(() => ({ error: true }))
+          )).then(stopDatas => {
+            const ok = stopDatas.filter(s => !s.error);
+            return ok.length ? ok : Promise.reject('load-failed');
+          });
+        });
+    }
+
+    // Flatten, keep each trip only at its closest stop, drop the past.
+    function mergeNearbyDepartures(stopDatas) {
+      const byTrip = new Map();
+      stopDatas.forEach(s => (s.departures || []).forEach(d => {
+        const dep = { ...d, _stopId: s.stop_id, _stopName: s._stopName, _distanceKM: s._distanceKM };
+        const existing = byTrip.get(depKey(dep));
+        if (!existing || dep._distanceKM < existing._distanceKM) byTrip.set(depKey(dep), dep);
+      }));
+      const now = nowInSeconds();
+      return [...byTrip.values()].filter(dep => stillHere(dep, now));
+    }
+
+    function boardLabel() { return boardCustom ? boardCustom.name : 'Near you'; }
+
+    function setBoardMessage(text, action) {
+      const board = document.getElementById('board');
+      board.innerHTML = `<div class="pd-empty">${escapeHtml(text)}${action ? `<br><button type="button" id="emptyAction">${escapeHtml(action.label)}</button>` : ''}</div>`;
+      board.dataset.key = '';
+      if (action) document.getElementById('emptyAction').addEventListener('click', action.run);
+    }
+    function showSkeleton() {
+      const board = document.getElementById('board');
+      board.innerHTML = '<div class="skel"></div>'.repeat(7);
+      board.dataset.key = '';
+    }
+
+    function setSub(text) { document.getElementById('locSub').textContent = text; }
+
+    function renderHeaderSub() {
+      if (!lastLoadedAt) return;
+      const n = lastStopDatas.length;
+      const far = Math.max(0, ...lastStopDatas.map(s => s._distanceKM || 0));
+      const parts = [`${n} stop${n !== 1 ? 's' : ''}`];
+      if (document.body.classList.contains('show-walk') && walkMinutes(far) <= BOARD_MAX_WALK_MIN) parts.push(`≤ ${walkMinutes(far)} min walk`);
+      // Newest of the schedule reload (60 s) and any realtime fetch (15 s).
+      const age = Date.now() - Math.max(lastLoadedAt, lastRTAt);
+      const offline = navigator.onLine === false;
+      const text = offline ? `Offline · updated ${fmtAgo(age)}` : `Updated ${fmtAgo(age)}`;
+      const sub = document.getElementById('locSub');
+      sub.innerHTML = escapeHtml(parts.join(' · ')) + ' · ' + (offline || age > STALE_AFTER_MS ? `<span class="stale">${text}</span>` : text);
+    }
+    function fmtAgo(ms) {
+      const sec = Math.max(0, Math.floor(ms / 1000));
+      if (sec < 5) return 'just now';
+      if (sec < 60) return `${sec}s ago`;
+      const min = Math.floor(sec / 60);
+      return min < 60 ? `${min} min ago` : `${Math.floor(min / 60)} h ago`;
+    }
+
+    function loadLocation() {
+      if (boardCustom) {
+        boardLat = boardCustom.lat;
+        boardLon = boardCustom.lon;
+        return fetchBoard();
+      }
+      if (!navigator.geolocation) {
+        setSub('Location not available');
+        setBoardMessage('This browser can’t share your location.', { label: 'Pick a stop instead', run: () => openSheet('location') });
+        return Promise.resolve();
+      }
+      if (boardLat == null) { showSkeleton(); setSub('Finding you…'); }
+      return new Promise(resolve => {
+        navigator.geolocation.getCurrentPosition(pos => {
+          boardLat = pos.coords.latitude;
+          boardLon = pos.coords.longitude;
+          fetchBoard().then(resolve);
+        }, () => {
+          if (boardLat == null) {
+            setSub('Location unavailable');
+            setBoardMessage('Turn on location to see departures near you.', { label: 'Pick a stop instead', run: () => openSheet('location') });
+            resolve();
+          } else fetchBoard().then(resolve);
+        }, { maximumAge: 30000, timeout: 10000 });
+      });
+    }
+
+    // Live GPS: a position watch moves the blue dot as you walk, and the board reloads
+    // once you are REFETCH_MOVE_M from where it was last loaded (the 60 s reload still
+    // runs). Only while the page is visible and the board is on live location.
+    const REFETCH_MOVE_M = 120;
+    let geoWatch = null, boardFetchedAt = null;
+    function startGeoWatch() {
+      if (boardCustom || geoWatch != null || !navigator.geolocation || document.hidden) return;
+      geoWatch = navigator.geolocation.watchPosition(p => {
+        if (boardCustom) return;
+        boardLat = p.coords.latitude;
+        boardLon = p.coords.longitude;
+        if (hereMarker) hereMarker.setLatLng([boardLat, boardLon]);
+        followMap();
+        if (!boardFetchedAt || distM(boardFetchedAt.lat, boardFetchedAt.lon, boardLat, boardLon) > REFETCH_MOVE_M) fetchBoard();
+      }, () => {}, { enableHighAccuracy: true, maximumAge: 10000, timeout: 30000 });
+    }
+    function stopGeoWatch() {
+      if (geoWatch == null) return;
+      navigator.geolocation.clearWatch(geoWatch);
+      geoWatch = null;
+    }
+
+    function fetchBoard() {
+      if (boardLat == null || boardLon == null || loading) return Promise.resolve();
+      loading = true;
+      boardFetchedAt = { lat: boardLat, lon: boardLon };
+      if (!allDeps.length && !lastLoadedAt) setSub(boardCustom ? 'Finding stops…' : 'Finding stops near you…');
+      return fetchNearbyStopDepartures(boardLat, boardLon)
+        .then(renderBoardData)
+        .catch(err => {
+          if (!allDeps.length) {
+            setSub(boardLabel());
+            setBoardMessage(err === 'no-stops' ? 'No stops within walking distance.' : 'Couldn’t load departures. Trying again shortly.',
+              err === 'no-stops' ? { label: 'Pick another location', run: () => openSheet('location') } : null);
+          } else renderHeaderSub();
+        })
+        .finally(() => { loading = false; });
+    }
+
+    function renderBoardData(stopDatas) {
+      allDeps = mergeNearbyDepartures(stopDatas);
+      lastStopDatas = stopDatas;
+      lastLoadedAt = Date.now();
+      routeColors = new Map();
+      allDeps.forEach(d => { if (d.route_id && !routeColors.has(d.route_id)) routeColors.set(d.route_id, d.route_color || ''); });
+      renderHeaderSub();
+      syncTip();
+      ensureRouteIds();
+      renderBoard();
+      refreshLocPanel();
+      renderMap();
+      restoreSelection();
+    }
+
+    // ===== Views: route board (default) or time-ordered list =====
+    function listView() { return document.body.classList.contains('list-view'); }
+    const HS_KEY = 'gtfs-phone-route-headsign'; // route_id -> headsign last swiped to
+    let paneChoice = lsGet(HS_KEY, {});
+    if (!paneChoice || typeof paneChoice !== 'object') paneChoice = {};
+
+    function upcoming() {
+      const now = nowInSeconds();
+      return allDeps.filter(d => stillHere(d, now)).sort((a, b) => realTime(a) - realTime(b));
+    }
+
+    // Hooks applyRTtoDepartures / updateETAs read off any departure element.
+    function setDepAttrs(el, dep) {
+      el.dataset.tripId = dep.trip_id;
+      el.dataset.arrival = dep.arrival_time;
+      if (dep._stopId) el.dataset.stopId = dep._stopId;
+      el.dataset.walkSec = Math.round((dep._distanceKM * 1000 / BOARD_WALK_M_PER_MIN) * 60);
+      el._dep = dep;
+    }
+    function metaHTML(dep) {
+      const stop = dep._stopName
+        ? `${escapeHtml(dep._stopName)}<span class="row-walk"> · ${fmtWalk(dep._distanceKM)}</span>`
+        : `<span class="row-walk">${fmtWalk(dep._distanceKM)}</span>`;
+      return `<div class="row-meta"><span class="row-stop">${stop}</span>${pickupDropoffNote(dep)}<span class="row-miss"> · can’t make it</span></div>`;
+    }
+    function statusHTML(dep) {
+      return `<div class="row-status">${dep.next_day ? '<span class="dep-day">Tomorrow</span>' : ''}<span class="dep-time-sched">${fmtClockShort(parseTime(dep.arrival_time))}</span><span class="dep-rt"><span class="dep-time-actual"></span><span class="dep-badge-slot"></span></span></div>`;
+    }
+    const LEAVE_HTML = '<div class="row-leave"><span class="row-leave-num"></span><span class="row-leave-unit"></span></div>';
+    function footnote() {
+      const note = document.createElement('div');
+      note.className = 'pd-footnote';
+      note.textContent = 'Unofficial — not affiliated with or endorsed by York Region Transit. Departure and delay estimates may differ from official sources. Contains public transit Information made available under YRT’s Open Data Licence.';
+      return note;
+    }
+
+    function renderBoard() {
+      const board = document.getElementById('board');
+      const deps = upcoming();
+      if (!deps.length) {
+        if (!lastLoadedAt) return;
+        setBoardMessage('No more departures from these stops today.', { label: 'Pick another location', run: () => openSheet('location') });
+      } else {
+        if (listView()) renderList(board, deps); else renderRoutes(board, deps);
+        updateETAs();
+      }
+      renderAlerts();
+      if (inDetail()) renderDetail();
+      lastStopDatas.forEach(s => reapplyCachedRT(s.stop_id));
+      markSelection();
+      if (typeof applyCardBuses === 'function') applyCardBuses();
+      clampPos();
+    }
+
+    // --- List view: one row per departure, soonest first ---
+    function buildRow(dep, isNext) {
+      const row = document.createElement('article');
+      row.className = 'dep-card row' + (isNext ? ' row-next' : '');
+      setDepAttrs(row, dep);
+      row.innerHTML = `
+        <div class="row-route" style="${routeStyle(dep.route_color)}">${escapeHtml(dep.route_id)}</div>
+        <div class="row-dest" data-full-dest="${escapeHtml(dep.trip_headsign || dep.route_id)}"></div>
+        ${metaHTML(dep)}${statusHTML(dep)}${LEAVE_HTML}`;
+      return row;
+    }
+    function renderList(board, deps) {
+      // Tomorrow morning only needs its first couple of buses per route + direction here
+      // (the route and stop views list the rest).
+      const perDir = new Map();
+      deps = deps.filter(d => {
+        if (!d.next_day) return true;
+        const k = d.route_id + '|' + (d.trip_headsign || '');
+        perDir.set(k, (perDir.get(k) || 0) + 1);
+        return perDir.get(k) <= NEXT_DAY_LIST_MAX;
+      });
+      // Rebuild only when the trips on screen (or their order) change; otherwise just relabel.
+      const key = 't:' + deps.map(depKey).join(',');
+      if (board.dataset.key === key) return;
+      board.dataset.key = key;
+      const frag = document.createDocumentFragment();
+      deps.forEach((d, i) => frag.appendChild(buildRow(d, i === 0)));
+      frag.appendChild(footnote());
+      board.replaceChildren(frag);
+      fitDestTexts();
+    }
+
+    // --- Route board: one card per route, swipe between its headsigns ---
+    const PANE_DEPS = 3;
+    const routeCmp = (a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+    function routeGroups(deps) {
+      const m = new Map();
+      deps.forEach(d => {
+        if (!m.has(d.route_id)) m.set(d.route_id, new Map());
+        const hs = m.get(d.route_id), k = d.trip_headsign || '';
+        if (!hs.has(k)) hs.set(k, []);
+        if (hs.get(k).length < PANE_DEPS) hs.get(k).push(d);
+      });
+      // Pinned routes first, then by route number.
+      return [...m.entries()].sort((a, b) => (pinned.has(b[0]) - pinned.has(a[0])) || routeCmp(a[0], b[0])).map(([r, hs]) => ({
+        r,
+        color: routeColors.get(r) || '',
+        panes: [...hs.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([h, list]) => ({ hs: h, deps: list })),
+      }));
+    }
+
+    function renderRoutes(board, deps) {
+      const groups = routeGroups(deps);
+      // Cards are rebuilt only when the set of routes/headsigns changes, so a swipe
+      // position survives the 15 s refresh; departures inside a pane update in place.
+      const key = 'r:' + groups.map(g => g.r + ':' + g.panes.map(p => p.hs).join('|')).join(',');
+      if (board.dataset.key !== key) {
+        board.dataset.key = key;
+        const frag = document.createDocumentFragment();
+        groups.forEach(g => frag.appendChild(buildRouteCard(g)));
+        frag.appendChild(footnote());
+        board.replaceChildren(frag);
+        board.querySelectorAll('.rcard').forEach(card => goToPane(card, card._idx, false));
+        fitDestTexts();
+      }
+      const cards = board.querySelectorAll('.rcard');
+      groups.forEach((g, gi) => {
+        const panes = cards[gi].querySelectorAll('.rpane');
+        g.panes.forEach((p, i) => fillPane(panes[i], p));
+      });
+    }
+
+    function buildRouteCard(g) {
+      const card = document.createElement('article');
+      const rs = routeStyle(g.color);
+      card.className = 'rcard' + (rs ? ' has-rc' : '');
+      if (rs) card.setAttribute('style', rs);
+      card.dataset.route = g.r;
+      card._panes = g.panes.map(p => p.hs);
+      card._idx = Math.max(0, card._panes.indexOf(paneChoice[g.r]));
+      const multi = g.panes.length > 1;
+      card.innerHTML = `
+        <div class="rcard-head">
+          <span class="row-route" style="${routeStyle(g.color)}">${escapeHtml(g.r)}</span>
+          <span class="rcard-hint"><span class="rcard-pin" hidden>${ICON_STAR}Pinned</span>${multi ? `<span>${g.panes.length} directions</span>` : ''}<span class="rcard-flag" hidden>${warnIcon()}Alert</span></span>
+          ${multi ? `<div class="rcard-nav">
+            <button type="button" class="rcard-arrow" data-step="-1" aria-label="Previous direction">&#x2039;&#xFE0E;</button>
+            <div class="rcard-dots">${g.panes.map((p, i) => `<button type="button" class="rcard-dot" data-i="${i}" aria-label="${escapeHtml(p.hs || g.r)}"></button>`).join('')}</div>
+            <button type="button" class="rcard-arrow" data-step="1" aria-label="Next direction">&#x203A;&#xFE0E;</button>
+          </div>` : ''}
+        </div>
+        <div class="rcard-swiper"${multi ? ' tabindex="0" aria-roledescription="carousel"' : ''}>
+          <div class="rcard-track">
+          ${g.panes.map(p => `<section class="rpane" aria-label="${escapeHtml(p.hs || g.r)}">
+            <div class="row-dest rpane-hs" data-full-dest="${escapeHtml(p.hs || g.r)}"></div>
+            <div class="rpane-body"></div>
+          </section>`).join('')}
+          </div>
+        </div>`;
+      if (multi) {
+        const sw = card.querySelector('.rcard-swiper');
+        initCarouselSwipe(card, sw);
+        sw.addEventListener('keydown', e => {
+          if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); goToPane(card, card._idx + (e.key === 'ArrowRight' ? 1 : -1), true); }
+        });
+        card.querySelectorAll('.rcard-dot').forEach(b => b.addEventListener('click', () => goToPane(card, +b.dataset.i, true)));
+        card.querySelectorAll('.rcard-arrow').forEach(b => b.addEventListener('click', () => goToPane(card, card._idx + +b.dataset.step, true)));
+      }
+      setDots(card);
+      return card;
+    }
+
+    // Move the track to pane i. ms = snap duration (0 = jump); dots + saved choice update at once.
+    function goToPane(card, i, smooth, ms = 130) {
+      const track = card.querySelector('.rcard-track');
+      i = Math.max(0, Math.min(card._panes.length - 1, i));
+      const animate = smooth && !reduceMotion();
+      track.classList.toggle('snapping', animate);
+      if (animate) track.style.setProperty('--snap-ms', Math.round(ms) + 'ms');
+      track.style.setProperty('--idx', i);
+      track.style.setProperty('--dx', '0px');
+      if (i !== card._idx && card._panes.length > 1) {
+        paneChoice[card.dataset.route] = card._panes[i];
+        lsSet(HS_KEY, paneChoice);
+      }
+      card._idx = i;
+      setDots(card);
+    }
+
+    // Touch swipe: axis-locked, 1:1 while dragging, rubber band at the ends, and on release
+    // a flick or a >15% drag moves one pane. The snap is short and its duration shrinks
+    // with release speed, so a fast flick lands fast instead of gliding.
+    function initCarouselSwipe(card, sw) {
+      const track = card.querySelector('.rcard-track');
+      let x0, y0, lastX, lastT, vel, dx, axis = null, active = false;
+      sw.addEventListener('touchstart', e => {
+        if (e.touches.length !== 1) { active = false; return; }
+        active = true; axis = null; dx = 0; vel = 0;
+        x0 = lastX = e.touches[0].clientX; y0 = e.touches[0].clientY; lastT = performance.now();
+      }, { passive: true });
+      sw.addEventListener('touchmove', e => {
+        if (!active) return;
+        const t = e.touches[0];
+        const mx = t.clientX - x0, my = t.clientY - y0;
+        if (!axis) {
+          if (Math.abs(mx) + Math.abs(my) < 6) return; // same lock rule as the sheet's, so they never disagree
+          axis = Math.abs(mx) > Math.abs(my) ? 'x' : 'y';
+          if (axis === 'x') { track.classList.remove('snapping'); card._dragged = true; }
+        }
+        if (axis !== 'x') return;
+        if (e.cancelable) e.preventDefault();
+        const atStart = card._idx === 0 && mx > 0, atEnd = card._idx === card._panes.length - 1 && mx < 0;
+        dx = (atStart || atEnd) ? mx / 3 : mx;
+        track.style.setProperty('--dx', dx + 'px');
+        const now = performance.now();
+        vel = (t.clientX - lastX) / Math.max(1, now - lastT);
+        lastX = t.clientX; lastT = now;
+      }, { passive: false });
+      const end = () => {
+        if (!active) return;
+        active = false;
+        if (axis !== 'x') return;
+        const w = sw.clientWidth || 1;
+        let target = card._idx;
+        if (vel < -0.2 || dx < -w * 0.15) target++;
+        else if (vel > 0.2 || dx > w * 0.15) target--;
+        target = Math.max(0, Math.min(card._panes.length - 1, target));
+        const remaining = Math.abs((card._idx - target) * w + dx);
+        const ms = Math.max(70, Math.min(130, remaining / Math.max(Math.abs(vel), 3)));
+        goToPane(card, target, true, ms);
+        setTimeout(() => { card._dragged = false; }, 0);
+      };
+      sw.addEventListener('touchend', end);
+      sw.addEventListener('touchcancel', end);
+      // Trackpad horizontal scroll: one pane per gesture.
+      let wheelLock = 0, wheelAcc = 0;
+      sw.addEventListener('wheel', e => {
+        if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
+        e.preventDefault();
+        if (performance.now() < wheelLock) return;
+        wheelAcc += e.deltaX;
+        if (Math.abs(wheelAcc) > 40) {
+          goToPane(card, card._idx + Math.sign(wheelAcc), true);
+          wheelAcc = 0;
+          wheelLock = performance.now() + 450;
+        }
+      }, { passive: false });
+    }
+    function setDots(card) {
+      card.querySelectorAll('.rcard-dot').forEach((d, i) => d.setAttribute('aria-current', String(i === card._idx)));
+      const arrows = card.querySelectorAll('.rcard-arrow');
+      if (arrows.length) { arrows[0].disabled = card._idx === 0; arrows[1].disabled = card._idx === card._panes.length - 1; }
+    }
+
+    function fillPane(pane, p) {
+      const body = pane.querySelector('.rpane-body');
+      const key = p.deps.map(depKey).join(',');
+      if (body.dataset.key === key) return;
+      body.dataset.key = key;
+      const [first, ...rest] = p.deps;
+      body.innerHTML = `
+        <div class="dep-card rpane-main">${metaHTML(first)}${statusHTML(first)}${LEAVE_HTML}<div class="row-bus" hidden></div></div>
+        ${rest.length ? `<div class="rpane-next">${rest.map(d => `<div class="dep-card rpane-sub">${LEAVE_HTML}${statusHTML(d)}${
+          d._stopId !== first._stopId ? `<div class="row-meta">${escapeHtml(d._stopName || '')}</div>` : ''}</div>`).join('')}</div>` : ''}`;
+      body.querySelectorAll('.dep-card').forEach((el, i) => setDepAttrs(el, p.deps[i]));
+    }
+
+    function updateETAs() {
+      const now = nowInSeconds();
+      document.querySelectorAll('#scroller .dep-card').forEach(el => {
+        const dep = el._dep;
+        if (!dep) return;
+        const l = fmtLeave(dep);
+        const box = el.querySelector('.row-leave');
+        const numEl = box.querySelector('.row-leave-num');
+        const changed = numEl.textContent !== l.num;
+        numEl.textContent = l.num;
+        box.querySelector('.row-leave-unit').textContent = l.unit;
+        box.className = 'row-leave' + (l.cls ? ' ' + l.cls : '');
+        if (changed && el.dataset.shown && !reduceMotion()) {
+          void box.offsetWidth;
+          box.classList.add('eta-roll');
+        }
+        el.dataset.shown = '1';
+        el.classList.toggle('is-later', l.cls === 'later');
+        el.classList.toggle('row-missed', Number(el.dataset.walkSec) > realTime(dep) - now);
+      });
+    }
+
+    function reduceMotion() { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
+
+    // Re-sort + relabel every 15 s, and pull fresh RT for every stop on the board.
+    function rtTick() {
+      renderBoard();
+      lastStopDatas.forEach(s => loadRTStopUpdates(s.stop_id));
+      refreshTripDelays();
+      trackBus();
+      refreshCardBuses();
+      loadAlerts();
+    }
+
+    // ===== Refresh button: location + departures + realtime (delays, card buses, selected bus) =====
+    document.getElementById('refreshBtn').addEventListener('click', () => {
+      const btn = document.getElementById('refreshBtn');
+      if (btn.classList.contains('refreshing')) return;
+      btn.classList.add('refreshing');
+      btn.setAttribute('aria-busy', 'true');
+      rtStopCache = new Map(); // fetch realtime fresh rather than reuse the last 15 s
+      const done = () => { btn.classList.remove('refreshing'); btn.removeAttribute('aria-busy'); };
+      loadAlerts(true);
+      Promise.resolve(loadLocation())
+        .then(() => Promise.all(lastStopDatas.map(sd => loadRTStopUpdates(sd.stop_id))))
+        .then(() => { renderBoard(); refreshTripDelays(true); trackBus(); refreshCardBuses(); })
+        .catch(() => {})
+        .finally(done);
+    });
+
+    // ===== Lifecycle: timers only run while the page is visible (phones background tabs) =====
+    function secondTick() {
+      renderHeaderSub(); // "Updated 12s ago" counts every second
+      tickVehicles();
+    }
+    function startTimers() {
+      stopTimers();
+      timers.push(setInterval(loadLocation, BOARD_REFRESH_MS));
+      timers.push(setInterval(rtTick, BOARD_RT_MS));
+      timers.push(setInterval(secondTick, 1000));
+    }
+    function stopTimers() { timers.forEach(clearInterval); timers = []; }
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) { stopTimers(); stopGeoWatch(); return; }
+      startGeoWatch();
+      secondTick();
+      renderBoard(); // drop anything that left while we were away
+      loadLocation().then(rtTick);
+      startTimers();
+      if (wakeWanted) requestWake();
+    });
+
+    // ===== Bottom sheet =====
+    const sheet = document.getElementById('sheet');
+    const backdrop = document.getElementById('sheetBackdrop');
+    let sheetReturnFocus = null;
+    function sheetOpen() { return sheet.classList.contains('open'); }
+    function showPane(name) {
+      sheet.querySelectorAll('.seg button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.pane === name)));
+      sheet.querySelectorAll('.sheet-pane').forEach(p => { p.hidden = p.dataset.pane !== name; });
+      sheet.querySelector('.sheet-body').scrollTop = 0;
+    }
+    function openSheet(pane) {
+      showPane(pane);
+      sheetReturnFocus = document.activeElement;
+      sheet.style.removeProperty('--drag');
+      sheet.classList.add('open');
+      backdrop.classList.add('open');
+      sheet.querySelector('.seg button[aria-selected="true"]').focus({ preventScroll: true });
+    }
+    function closeSheet() {
+      if (!sheetOpen()) return;
+      if (document.activeElement && sheet.contains(document.activeElement)) document.activeElement.blur();
+      sheet.classList.remove('open');
+      backdrop.classList.remove('open');
+      if (sheetReturnFocus && sheetReturnFocus.focus) sheetReturnFocus.focus({ preventScroll: true });
+    }
+    document.querySelectorAll('[data-open]').forEach(b => b.addEventListener('click', () => openSheet(b.dataset.open)));
+    document.getElementById('locHeaderBtn').addEventListener('click', () => openSheet('location'));
+    sheet.querySelectorAll('.seg button').forEach(b => b.addEventListener('click', () => showPane(b.dataset.pane)));
+    backdrop.addEventListener('click', closeSheet);
+    document.addEventListener('keydown', e => {
+      if (e.key !== 'Escape') return;
+      if (sheetOpen()) closeSheet(); else if (inDetail()) goBack();
+    });
+
+    // Drag the handle/tabs area down to dismiss.
+    (function initSheetDrag() {
+      const grab = document.getElementById('sheetGrab');
+      let y0 = null, dy = 0, t0 = 0;
+      grab.addEventListener('pointerdown', e => {
+        if (e.target.closest('button')) return;
+        y0 = e.clientY; dy = 0; t0 = performance.now();
+        sheet.classList.add('dragging');
+        grab.setPointerCapture(e.pointerId);
+      });
+      grab.addEventListener('pointermove', e => {
+        if (y0 == null) return;
+        dy = Math.max(0, e.clientY - y0);
+        sheet.style.setProperty('--drag', dy + 'px');
+      });
+      const end = () => {
+        if (y0 == null) return;
+        y0 = null;
+        sheet.classList.remove('dragging');
+        const fast = dy / Math.max(1, performance.now() - t0) > 0.6;
+        if (dy > 120 || (fast && dy > 30)) closeSheet();
+        sheet.style.removeProperty('--drag');
+      };
+      grab.addEventListener('pointerup', end);
+      grab.addEventListener('pointercancel', end);
+    })();
+
+    // ===== Location =====
+    function getSavedLocations() {
+      const v = lsGet(LOC_SAVED_KEY, []);
+      return Array.isArray(v) ? v.filter(l => l && isFinite(l.lat) && isFinite(l.lon) && l.name) : [];
+    }
+
+    function setBoardLocation(loc) {
+      boardCustom = loc ? { lat: +loc.lat, lon: +loc.lon, name: loc.name } : null;
+      boardLat = boardLon = null;
+      allDeps = [];
+      lastStopDatas = [];
+      lastLoadedAt = 0;
+      routeColors = new Map();
+      showSkeleton();
+      document.getElementById('locName').textContent = boardLabel();
+      refreshLocPanel();
+      closeSheet();
+      changingLocation = true;
+      exitToBoard({ unwind: true, restore: false }); // also clears the map; the remembered selection stays
+      changingLocation = false;
+      resetListScroll();
+      clearBus();
+      mapLocKey = '';
+      boardFetchedAt = null;
+      if (boardCustom) stopGeoWatch(); else startGeoWatch();
+      renderMap();
+      loadLocation().then(rtTick);
+    }
+
+    function renderSavedLocations() {
+      const box = document.getElementById('locSaved');
+      const saved = getSavedLocations();
+      box.innerHTML = saved.length ? '' : '<div class="sh-empty">Nothing saved yet.</div>';
+      saved.forEach((l, i) => {
+        const row = document.createElement('div');
+        row.className = 'sh-item';
+        const pick = document.createElement('button');
+        pick.type = 'button';
+        pick.className = 'sh-btn' + (boardCustom && boardCustom.lat === +l.lat && boardCustom.lon === +l.lon ? ' active' : '');
+        pick.innerHTML = `<span class="grow">${escapeHtml(l.name)}<small>${(+l.lat).toFixed(4)}, ${(+l.lon).toFixed(4)}</small></span>`;
+        pick.addEventListener('click', () => setBoardLocation(l));
+        const del = document.createElement('button');
+        del.type = 'button'; del.className = 'sh-btn sh-del'; del.textContent = '✕︎';
+        del.setAttribute('aria-label', 'Delete ' + l.name);
+        del.addEventListener('click', () => {
+          const cur = getSavedLocations(); cur.splice(i, 1); lsSet(LOC_SAVED_KEY, cur); renderSavedLocations();
+        });
+        row.append(pick, del);
+        box.appendChild(row);
+      });
+    }
+
+    function saveCurrentLocation() {
+      const nickEl = document.getElementById('locNick');
+      const name = nickEl.value.trim();
+      if (!name || boardLat == null) { nickEl.focus(); return; }
+      const cur = getSavedLocations().filter(l => l.name.toLowerCase() !== name.toLowerCase());
+      cur.push({ name, lat: boardLat, lon: boardLon });
+      lsSet(LOC_SAVED_KEY, cur);
+      boardCustom = { lat: boardLat, lon: boardLon, name };
+      nickEl.value = '';
+      nickEl.blur();
+      document.getElementById('locName').textContent = boardLabel();
+      refreshLocPanel();
+    }
+
+    function refreshLocPanel() {
+      document.getElementById('locName').textContent = boardLabel();
+      document.getElementById('locCurrent').textContent = boardCustom ? `Showing stops near ${boardCustom.name}` : 'Showing stops near your live location';
+      document.getElementById('locGps').classList.toggle('is-current', !boardCustom);
+      document.getElementById('locSaveWrap').hidden = boardLat == null;
+      renderSavedLocations();
+      renderRecentStops();
+    }
+
+    const runLocSearch = debounce(q => {
+      const box = document.getElementById('locResults');
+      if (!q) { box.innerHTML = ''; return; }
+      fetch('/api/searchstop/' + encodeURIComponent(q))
+        .then(r => r.ok ? r.json() : { matches: [] })
+        .then(d => {
+          if (document.getElementById('locSearch').value.trim() !== q) return;
+          const ms = (d.matches || []).filter(m => isFinite(m.lat) && isFinite(m.lon)).slice(0, 8);
+          box.innerHTML = ms.length ? '' : '<div class="sh-empty">No stops found.</div>';
+          ms.forEach(m => {
+            const b = document.createElement('button');
+            b.type = 'button'; b.className = 'sh-btn';
+            b.innerHTML = `<span class="grow">${escapeHtml(m.stop_name)}<small>${escapeHtml(m.stop_code || m.stop_id)}</small></span>`;
+            b.addEventListener('click', () => {
+              document.getElementById('locSearch').value = '';
+              box.innerHTML = '';
+              rememberRecentStop(m);
+              setBoardLocation({ lat: m.lat, lon: m.lon, name: m.stop_name });
+            });
+            box.appendChild(b);
+          });
+        })
+        .catch(() => { box.innerHTML = '<div class="sh-empty">Search failed.</div>'; });
+    }, 250);
+
+    function submitCoords() {
+      const inp = document.getElementById('locCoords'), err = document.getElementById('locCoordsErr');
+      const m = inp.value.trim().match(/^(-?\d+(?:\.\d+)?)\s*[,\s]\s*(-?\d+(?:\.\d+)?)$/);
+      const lat = m ? parseFloat(m[1]) : NaN, lon = m ? parseFloat(m[2]) : NaN;
+      if (!m || Math.abs(lat) > 90 || Math.abs(lon) > 180) { err.hidden = false; return; }
+      err.hidden = true;
+      inp.value = '';
+      setBoardLocation({ lat, lon, name: `${lat.toFixed(4)}, ${lon.toFixed(4)}` });
+    }
+    document.getElementById('locCoordsGo').addEventListener('click', submitCoords);
+    document.getElementById('locCoords').addEventListener('keydown', e => { if (e.key === 'Enter') submitCoords(); });
+    document.getElementById('locGps').addEventListener('click', () => setBoardLocation(null));
+    document.getElementById('locSave').addEventListener('click', saveCurrentLocation);
+    document.getElementById('locNick').addEventListener('keydown', e => { if (e.key === 'Enter') saveCurrentLocation(); });
+    document.getElementById('locSearch').addEventListener('input', e => runLocSearch(e.target.value.trim()));
+
+    // ===== Memory (localStorage) =====
+    // Recent stops share index.html's list ('gtfs-recent-stops', same entry shape, newest
+    // first, 6 max), so a stop picked on either page shows up on both. The last trip/route
+    // put on the map and the map zoom are this page's own.
+    const RECENT_STOPS_KEY = 'gtfs-recent-stops';
+    const RECENT_STOPS_MAX = 6;
+    const SELECTION_KEY = 'gtfs-phone-selection'; // {date, type:'trip'|'route', key, trip_id, route_id}
+    const ZOOM_KEY = 'gtfs-phone-map-zoom';
+
+    function getRecentStops() {
+      const v = lsGet(RECENT_STOPS_KEY, []);
+      return Array.isArray(v) ? v.filter(r => r && r.stop_id != null && r.stop_name) : [];
+    }
+    function rememberRecentStop(m) {
+      const entry = { stop_id: String(m.stop_id), stop_name: m.stop_name || '', stop_code: m.stop_code || '', lat: +m.lat, lon: +m.lon, group: false };
+      const rest = getRecentStops().filter(r => !(String(r.stop_id) === entry.stop_id && !r.group));
+      lsSet(RECENT_STOPS_KEY, [entry, ...rest].slice(0, RECENT_STOPS_MAX));
+    }
+    function renderRecentStops() {
+      const box = document.getElementById('locRecent');
+      const list = getRecentStops().filter(r => isFinite(r.lat) && isFinite(r.lon));
+      document.getElementById('locRecentHead').hidden = !list.length;
+      box.hidden = !list.length;
+      box.innerHTML = '';
+      list.forEach(r => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'sh-btn' + (boardCustom && boardCustom.lat === +r.lat && boardCustom.lon === +r.lon ? ' active' : '');
+        b.innerHTML = `<span class="grow">${escapeHtml(r.stop_name)}<small>${escapeHtml(r.group ? 'All stops with this name' : 'Stop ' + (r.stop_code || r.stop_id))}</small></span>`;
+        b.addEventListener('click', () => { rememberRecentStop(r); setBoardLocation({ lat: r.lat, lon: r.lon, name: r.stop_name }); });
+        box.appendChild(b);
+      });
+    }
+    document.getElementById('locRecentClear').addEventListener('click', () => {
+      try { localStorage.removeItem(RECENT_STOPS_KEY); } catch (e) {}
+      renderRecentStops();
+    });
+
+    function saveSelection(sel) { lsSet(SELECTION_KEY, sel ? { date: todayStr(), ...sel } : null); }
+    // Once per page load, after the first board: put the last trip/route back on the map
+    // if it's still on today's board.
+    let selectionRestored = false;
+    function restoreSelection() {
+      if (selectionRestored || !map) return;
+      selectionRestored = true;
+      const sel = lsGet(SELECTION_KEY, null);
+      if (!sel || sel.date !== todayStr()) return;
+      if (sel.type === 'trip') {
+        const dep = upcoming().find(d => depKey(d) === sel.key);
+        if (dep) openTrip(dep);
+      } else if (sel.type === 'route') {
+        const dep = upcoming().find(d => d.route_id === sel.route_id);
+        if (dep) openRoute(dep);
+      }
+    }
+    function savedZoom() { const z = lsGet(ZOOM_KEY, 16); return isFinite(z) && z >= 3 && z <= 19 ? z : 16; }
+
+    // ===== Display toggles =====
+    function bindToggle(id, key, bodyClass, onChange) {
+      const cb = document.getElementById(id);
+      const apply = on => { document.body.classList.toggle(bodyClass, on); cb.checked = on; };
+      apply(lsGet(key, false) === true);
+      cb.addEventListener('change', () => { apply(cb.checked); lsSet(key, cb.checked); if (onChange) onChange(); });
+    }
+    bindToggle('listToggle', 'gtfs-phone-list', 'list-view', () => { document.getElementById('board').dataset.key = ''; renderBoard(); });
+    bindToggle('showWalkToggle', 'gtfs-board-show-walk', 'show-walk', () => { renderHeaderSub(); updateETAs(); });  // shared with depboard
+    bindToggle('hideClockToggle', 'gtfs-board-hide-clock', 'hide-clock');                                         // shared with depboard
+
+    function syncThemeColor() {
+      document.getElementById('themeColorMeta').setAttribute('content', getComputedStyle(document.documentElement).getPropertyValue('--bg').trim());
+    }
+    (function initThemeToggle() {
+      const cb = document.getElementById('lightThemeToggle');
+      const root = document.documentElement;
+      cb.checked = root.getAttribute('data-theme') === 'light';
+      cb.addEventListener('change', () => {
+        const theme = cb.checked ? 'light' : 'dark';
+        root.setAttribute('data-theme', theme);
+        try { localStorage.setItem('gtfs-theme', theme); } catch (e) {}
+        syncThemeColor();
+      });
+      syncThemeColor();
+    })();
+
+    // Keep screen on (Screen Wake Lock); the lock drops when the page hides, so re-request on return.
+    let wakeWanted = false, wakeLock = null;
+    function requestWake() {
+      if (!('wakeLock' in navigator) || document.hidden) return;
+      navigator.wakeLock.request('screen').then(l => { wakeLock = l; }).catch(() => {});
+    }
+    (function initWake() {
+      const cb = document.getElementById('wakeToggle');
+      if (!('wakeLock' in navigator)) { document.getElementById('wakeRow').hidden = true; return; }
+      wakeWanted = lsGet('gtfs-phone-wakelock', false) === true;
+      cb.checked = wakeWanted;
+      if (wakeWanted) requestWake();
+      cb.addEventListener('change', () => {
+        wakeWanted = cb.checked;
+        lsSet('gtfs-phone-wakelock', wakeWanted);
+        if (wakeWanted) requestWake();
+        else if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; }
+      });
+    })();
+
+    // Keep the sheet's inputs above the on-screen keyboard (it only shrinks the visual viewport).
+    (function initKeyboardAvoidance() {
+      const vv = window.visualViewport;
+      if (!vv) return;
+      const update = () => {
+        const kb = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
+        document.documentElement.style.setProperty('--kb-h', (kb > 100 ? kb : 0) + 'px');
+      };
+      vv.addEventListener('resize', update);
+      vv.addEventListener('scroll', update);
+      update();
+    })();
+
+    // ===== MAP =====
+    let map = null, stopLayer = null, hereMarker = null, mapLocKey = '', focusedStopId = null;
+    const stopMarkers = new Map(); // stop_id -> circleMarker
+    // Follow mode: the board's location (GPS dot or picked spot) stays centred in the
+    // visible part of the map — above the sheet — so raising the sheet by h moves it up
+    // h/2. Panning the map or opening a stop turns it off and shows the one-time Recenter
+    // pill, which flies back and hides again.
+    let mapFollow = true;
+
+    function initMap() {
+      if (!window.L) return;
+      map = L.map('map', { zoomControl: false, attributionControl: false }).setView([43.88, -79.34], 11);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+      L.control.attribution({ position: 'topleft', prefix: false })
+        .addAttribution('© OpenStreetMap contributors · Unofficial, not affiliated with York Region Transit')
+        .addTo(map);
+      if (isWide()) L.control.zoom({ position: 'bottomright' }).addTo(map);
+      stopLayer = L.layerGroup().addTo(map);
+      map.on('dragstart', () => setFollow(false));
+      map.on('zoomend', () => {
+        if (mapFollow && boardLat != null) lsSet(ZOOM_KEY, map.getZoom()); // zoom around your location only, not trip/route fits
+        followMap();
+      });
+    }
+
+    function safeTopPx() { return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--safe-top-px')) || 0; }
+    // Where the location should sit: centre of the map area not covered by the sheet/panel.
+    function followPoint() {
+      const size = map.getSize();
+      if (isWide()) return L.point(452 + (size.x - 452) / 2, size.y / 2);
+      return L.point(size.x / 2, (safeTopPx() + size.y - sheetVisible()) / 2);
+    }
+    function mapPadding() {
+      if (isWide()) return { paddingTopLeft: [470, 40], paddingBottomRight: [40, 40] };
+      return { paddingTopLeft: [40, 60 + safeTopPx()], paddingBottomRight: [40, sheetVisible() + 24] };
+    }
+    function setFollow(on) {
+      mapFollow = on;
+      document.body.classList.toggle('map-off-center', !on && boardLat != null);
+    }
+    // Per-frame while following: nudge the map so the location stays at followPoint().
+    function followMap() {
+      if (!map || !mapFollow || boardLat == null) return;
+      const d = map.latLngToContainerPoint([boardLat, boardLon]).subtract(followPoint());
+      if (Math.abs(d.x) < 0.5 && Math.abs(d.y) < 0.5) return;
+      map.panBy(d, { animate: false, noMoveStart: true });
+    }
+    // Jump/fly to the location at a street-level zoom, offset into the visible area.
+    function centerOnLocation(animate, zoom) {
+      if (!map || boardLat == null) return;
+      const z = zoom ?? savedZoom();
+      const offset = followPoint().subtract(map.getSize().divideBy(2));
+      const center = map.unproject(map.project([boardLat, boardLon], z).subtract(offset), z);
+      map.setView(center, z, { animate: animate && !reduceMotion() });
+    }
+
+    function renderMap() {
+      if (!map) return;
+      // Location marker follows the user's choice: blue dot for live GPS, pin for a picked stop/spot.
+      if (hereMarker) { hereMarker.remove(); hereMarker = null; }
+      if (boardLat != null) {
+        const icon = boardCustom
+          ? L.divIcon({ className: '', html: '<div class="here-pin"><svg viewBox="0 0 24 32"><path fill="currentColor" stroke="#fff" stroke-width="2" d="M12 1C6 1 1.5 5.5 1.5 11.3 1.5 19 12 31 12 31s10.5-12 10.5-19.7C22.5 5.5 18 1 12 1z"/><circle cx="12" cy="11.5" r="4" fill="#fff"/></svg></div>', iconSize: [26, 34], iconAnchor: [13, 33] })
+          : L.divIcon({ className: '', html: '<div class="here-dot"></div>', iconSize: [18, 18], iconAnchor: [9, 9] });
+        hereMarker = L.marker([boardLat, boardLon], { icon, keyboard: false, interactive: false, zIndexOffset: 1000 }).addTo(map);
+      }
+      stopLayer.clearLayers();
+      stopMarkers.clear();
+      lastStopDatas.forEach(sd => {
+        if (!isFinite(sd._lat) || !isFinite(sd._lon)) return;
+        const m = L.circleMarker([sd._lat, sd._lon], { radius: 7, className: 'stop-dot' + (String(sd.stop_id) === String(focusedStopId) ? ' is-focus' : '') });
+        // Registered before the popup so the stop view is already open when the popup renders.
+        m.on('click', () => {
+          setFollow(false);
+          setFocusedStop(sd.stop_id);
+          if (view.type === 'board' || view.type === 'stop') openStop(sd.stop_id); // over a trip/route: the popup's button
+        });
+        m.bindPopup(() => stopPopupHTML(sd), { autoPanPaddingTopLeft: mapPadding().paddingTopLeft, autoPanPaddingBottomRight: mapPadding().paddingBottomRight });
+        m.addTo(stopLayer);
+        stopMarkers.set(String(sd.stop_id), m);
+      });
+      // A new location (or the first GPS fix) re-centres and turns follow back on; refreshes don't.
+      const key = boardLat == null ? '' : `${boardCustom ? 'c' : 'g'}:${boardCustom ? boardLat.toFixed(5) + ',' + boardLon.toFixed(5) : ''}`;
+      if (key && key !== mapLocKey) { mapLocKey = key; setFollow(true); centerOnLocation(false, savedZoom()); }
+      else followMap(); // live GPS moved: keep the dot centred while following
+    }
+
+    function stopPopupHTML(sd) {
+      const routes = [...new Set((sd.departures || []).map(d => d.route_id))]
+        .sort(routeCmp)
+        .map(r => `<span class="flt-bullet" style="${routeStyle(routeColors.get(r))}">${escapeHtml(r)}</span>`).join('');
+      return `<div class="stop-pop-name">${escapeHtml(sd._stopName || sd.stop_name || sd.stop_id)}</div>
+        <div class="stop-pop-code">Stop ${escapeHtml(sd._stopCode || sd.stop_id)}${document.body.classList.contains('show-walk') ? ` · ${escapeHtml(fmtWalk(sd._distanceKM || 0))}` : ''}</div>
+        ${routes ? `<div class="stop-pop-routes">${routes}</div>` : ''}${boardStopTripTime(sd)}${
+          view.type === 'stop' && view.stopId === String(sd.stop_id) ? '' : `<button type="button" class="pop-btn" data-pop-stop="${escapeHtml(sd.stop_id)}">Departures here</button>`}`;
+    }
+    // In a trip / route stop's popup: move the board to that stop.
+    function nearBtn(id, code, name, lat, lon) {
+      return `<button type="button" class="pop-btn" data-pop-loc data-id="${escapeHtml(id)}" data-code="${escapeHtml(code || '')}" data-name="${escapeHtml(name || '')}" data-lat="${+lat}" data-lon="${+lon}">Departures near here</button>`;
+    }
+    // Leaflet stops clicks at the popup, so catch its buttons on the way down.
+    document.getElementById('map').addEventListener('click', e => {
+      const stopBtn = e.target.closest('[data-pop-stop]');
+      if (stopBtn) {
+        e.stopPropagation();
+        const id = stopBtn.dataset.popStop;
+        openStop(id);
+        const m = stopMarkers.get(String(id));
+        if (m && m.isPopupOpen()) m.getPopup().update();
+        return;
+      }
+      const locBtn = e.target.closest('[data-pop-loc]');
+      if (locBtn) {
+        e.stopPropagation();
+        const d = locBtn.dataset;
+        map.closePopup();
+        rememberRecentStop({ stop_id: d.id, stop_name: d.name, stop_code: d.code, lat: +d.lat, lon: +d.lon });
+        setBoardLocation({ lat: +d.lat, lon: +d.lon, name: d.name || `Stop ${d.id}` });
+      }
+    }, true);
+    function boardStopTripTime(sd) {
+      const v = tripView;
+      if (!v || String(sd.stop_id) !== v.boardStopId) return '';
+      const i = v.stops.findIndex(s => String(s.id) === v.boardStopId);
+      return i < 0 ? '' : tripTimeHTML(v.stops[i], v.delays[i]);
+    }
+
+    function setFocusedStop(stopId) {
+      focusedStopId = stopId;
+      stopMarkers.forEach((m, id) => {
+        const el = m.getElement && m.getElement();
+        if (el) el.classList.toggle('is-focus', id === String(stopId));
+        if (id === String(stopId)) m.bringToFront();
+      });
+    }
+
+    // Route number (or its alert flag) -> the route view; any departure -> that trip's view.
+    // Covers the board and the departure rows inside a route / stop view.
+    document.getElementById('scroller').addEventListener('click', e => {
+      const rc = e.target.closest('.rcard');
+      if (rc && rc._dragged) return;
+      if (e.target.closest('a, summary, .rcard-nav, [data-act], .tl')) return;
+      const badge = e.target.closest('.row-route, .rcard-flag');
+      if (badge) {
+        const host = badge.closest('.row');
+        const dep = host ? host._dep : rc && rc.querySelectorAll('.rpane')[rc._idx || 0]?.querySelector('.dep-card')?._dep;
+        if (dep) openRoute(dep);
+        return;
+      }
+      const card = e.target.closest('.dep-card');
+      if (card && card._dep) openTrip(card._dep);
+    });
+    document.getElementById('recenterBtn').addEventListener('click', () => { setFollow(true); centerOnLocation(true); });
+
+    // ===== TRIP / ROUTE ON THE MAP =====
+    let overlayLayer = null, overlayReq = 0, selectedKey = null, selectedRoute = null;
+    let changingLocation = false; // a location switch clears the map but keeps the remembered selection
+    const realRouteIds = new Map(); // board route_id ("025") -> feed route_id ("25"), learned from /api/trip
+
+    function ensureOverlay() {
+      if (overlayLayer) return;
+      map.createPane('routePane').style.zIndex = 350; // above tiles, below the board's stop dots
+      overlayLayer = L.layerGroup().addTo(map);
+    }
+    function lineColor(c) {
+      c = String(c || '').replace('#', '');
+      return /^[0-9a-fA-F]{6}$/.test(c) ? '#' + c : getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+    }
+    function clearOverlay() {
+      overlayReq++;
+      tripView = null;
+      clearBus();
+      if (overlayLayer) overlayLayer.clearLayers();
+      selectedKey = selectedRoute = null;
+      if (!changingLocation) saveSelection(null);
+      markSelection();
+    }
+
+    // Outline whatever is on the map; re-run after every board render.
+    function markSelection() {
+      document.querySelectorAll('#board .dep-card').forEach(el => {
+        el.classList.toggle('is-selected', !!selectedKey && !!el._dep && depKey(el._dep) === selectedKey);
+        if (el.classList.contains('row')) el.classList.toggle('route-selected', !!selectedRoute && el._dep && el._dep.route_id === selectedRoute);
+      });
+      document.querySelectorAll('#board .rcard').forEach(c => c.classList.toggle('route-selected', !!selectedRoute && c.dataset.route === selectedRoute));
+    }
+
+    // Leave follow mode and make sure some map is showing above the sheet.
+    function makeRoomForOverlay() {
+      setFollow(false);
+      if (!isWide() && pos > sheetTravel() * 0.55) { stopMomentum(); setPos(sheetTravel() * 0.4); savePos(); }
+    }
+    function fitOverlay(points, maxZoom) {
+      if (points.length > 1) map.fitBounds(L.latLngBounds(points), { ...mapPadding(), maxZoom, animate: !reduceMotion() });
+    }
+
+    // ===== Delays at the shown trip's stops =====
+    // Realtime trip updates are only reachable per stop, but each entity carries the whole
+    // trip's stop_time_updates, so asking for the trip's last stop (always still ahead of
+    // the bus) gets them. A delay carries forward to later stops the update leaves out
+    // (GTFS-RT propagation); stops before the first update keep their scheduled time.
+    let tripView = null; // {trip, stops, boardStopId, markers, delays[]}
+    const TRIP_RT_MAX_AGE_MS = 25 * 1000;
+
+    function cachedTripUpdate(tripId) {
+      let best = null;
+      for (const { data, receivedAt } of rtStopCache.values()) {
+        if (Date.now() - receivedAt > RT_STALE_MS) continue;
+        const e = (data.entity || []).find(e => e.trip_update?.trip?.trip_id === tripId);
+        if (e && (!best || receivedAt > best.receivedAt)) best = { tu: e.trip_update, receivedAt };
+      }
+      return best;
+    }
+    function applyTripDelays() {
+      const v = tripView;
+      if (!v) return;
+      const cached = cachedTripUpdate(v.trip.trip_id);
+      let carried = null;
+      v.delays = v.stops.map(s => {
+        if (!cached) return null;
+        const d = rtStopDelay(cached.tu, s.id, s.time);
+        if (d !== null) carried = d;
+        return d !== null ? d : carried;
+      });
+      // Re-render any popup that's open right now (closed ones render on open).
+      v.markers.forEach(m => { if (m.isPopupOpen()) m.getPopup().update(); });
+      stopMarkers.forEach((m, id) => { if (id === v.boardStopId && m.isPopupOpen()) m.getPopup().update(); });
+      renderTimeline();
+    }
+    // force: fetch even if a recent update for this trip is cached
+    function refreshTripDelays(force) {
+      const v = tripView;
+      if (!v || !v.stops.length) return;
+      applyTripDelays();
+      const cached = cachedTripUpdate(v.trip.trip_id);
+      if (!force && cached && Date.now() - cached.receivedAt < TRIP_RT_MAX_AGE_MS) return;
+      const last = v.stops.reduce((a, b) => (+b.stop_sequence > +a.stop_sequence ? b : a));
+      loadRTStopUpdates(String(last.id)).then(() => { if (tripView === v) applyTripDelays(); });
+    }
+
+    // Scheduled time, or struck-out scheduled + new time and the delay when the bus is off schedule.
+    function tripTimeHTML(stop, delay) {
+      if (!stop.time) return '';
+      const sched = parseTime(stop.time);
+      const schedTxt = fmtClockShort(sched);
+      if (delay == null) return `<div class="trip-pop-time"><span>${schedTxt}</span></div>`;
+      const mins = Math.round(delay / 60);
+      if (mins === 0) return `<div class="trip-pop-time"><span>${schedTxt}</span><span class="tp-badge tp-ontime">On time</span></div>`;
+      const cls = mins > 0 ? 'tp-late' : 'tp-early';
+      const badge = mins > 0 ? `+${mins} min late` : `${-mins} min early`;
+      return `<div class="trip-pop-time"><s>${schedTxt}</s><span class="tp-new ${cls}">${fmtClockShort(sched + delay)}</span><span class="tp-badge ${cls}">${badge}</span></div>`;
+    }
+
+    // Shape index of every stop, in order (same in-order nearest-point match).
+    function stopShapeIndices(line, stops) {
+      const out = [];
+      let idx = 0;
+      stops.forEach(s => {
+        const k = Math.cos(s.lat * Math.PI / 180);
+        let best = idx, bd = Infinity;
+        for (let j = idx; j < line.length; j++) {
+          const d = (line[j][0] - s.lat) ** 2 + ((line[j][1] - s.lng) * k) ** 2;
+          if (d < bd) { bd = d; best = j; }
+        }
+        out.push(idx = best);
+      });
+      return out;
+    }
+    function tripLine(t) {
+      const stops = (t.stops || []).filter(s => isFinite(s.lat) && isFinite(s.lng));
+      const shape = (t.pos_markers || []).filter(p => isFinite(p.lat) && isFinite(p.lng))
+        .sort((a, b) => a.sequence - b.sequence).map(p => [p.lat, p.lng]);
+      const line = shape.length > 1 ? shape : stops.map(s => [s.lat, s.lng]);
+      const idxs = shape.length > 1 ? stopShapeIndices(line, stops) : stops.map((_, i) => i);
+      return { stops, line, idxs };
+    }
+
+    function showTrip(dep) {
+      if (!map) return;
+      ensureOverlay();
+      const req = ++overlayReq;
+      selectedKey = depKey(dep); selectedRoute = null;
+      saveSelection({ type: 'trip', key: depKey(dep), trip_id: dep.trip_id, route_id: dep.route_id });
+      tripView = null;
+      clearBus();
+      markSelection();
+      if (dep._stopId) setFocusedStop(dep._stopId);
+      makeRoomForOverlay();
+      fetchTripJson(dep.trip_id).then(t => {
+        if (req !== overlayReq) return;
+        if (!t) { tripFailed(dep); return; }
+        if (t.route_id) realRouteIds.set(dep.route_id, String(t.route_id));
+        drawTrip(t, dep);
+      });
+    }
+    function tripFailed(dep) {
+      if (view.type !== 'trip' || view.dep !== dep) return;
+      view.failed = true;
+      renderTimeline();
+    }
+
+    function drawTrip(t, dep) {
+      overlayLayer.clearLayers();
+      const { stops, line, idxs } = tripLine(t);
+      if (line.length < 2) { tripFailed(dep); return; }
+      const bi = stops.findIndex(s => String(s.id) === String(dep._stopId));
+      const boardSplit = bi < 0 ? 0 : idxs[bi];
+      const color = lineColor(t.route_color || dep.route_color);
+      const base = { pane: 'routePane', interactive: false, lineJoin: 'round', lineCap: 'round' };
+      L.polyline(line, { ...base, color: '#000', weight: 9, opacity: 0.22 }).addTo(overlayLayer);
+      // "driven" = behind the bus (or, with no live bus, the part before your stop); "ahead" = solid
+      const driven = L.polyline([], { ...base, color, weight: 5, opacity: 0.35 }).addTo(overlayLayer);
+      const ahead = L.polyline([], { ...base, color, weight: 6, opacity: 1 }).addTo(overlayLayer);
+      const prevLayer = L.layerGroup().addTo(overlayLayer); // the bus's previous trip, while it's still on it
+      tripView = { trip: t, dep, stops, line, idxs, bi, boardStopId: bi >= 0 ? String(stops[bi].id) : null,
+                   markers: [], delays: [], driven, ahead, prevLayer, boardSplit };
+      stops.forEach((s, i) => {
+        if (i === bi) return; // the board's own stop dot marks the boarding stop (its popup gets the time too)
+        const m = L.circleMarker([s.lat, s.lng], { pane: 'routePane', radius: 4, className: 'trip-stop' })
+          .bindPopup(() => `<div class="stop-pop-name">${escapeHtml(s.name)}</div>${tripTimeHTML(s, tripView ? tripView.delays[i] : null)}${nearBtn(s.id, s.code, s.name, s.lat, s.lng)}`,
+            { autoPanPaddingTopLeft: mapPadding().paddingTopLeft, autoPanPaddingBottomRight: mapPadding().paddingBottomRight })
+          .addTo(overlayLayer);
+        m._i = i;
+        tripView.markers.push(m);
+      });
+      setTripSplit(tripView, boardSplit, bi >= 0 ? bi : 0);
+      refreshTripDelays();
+      trackBus();
+      fitOverlay(line.slice(boardSplit), 16);
+      renderDetail(); // the trip view's header + stop list
+    }
+
+    // Faded up to shape point k, solid after; stops before passedBefore drawn as passed.
+    function setTripSplit(v, k, passedBefore) {
+      v.driven.setLatLngs(k > 0 ? v.line.slice(0, k + 1) : []);
+      v.ahead.setLatLngs(v.line.slice(k));
+      v.markers.forEach(m => { const el = m.getElement && m.getElement(); if (el) el.classList.toggle('passed', m._i < passedBefore); });
+    }
+
+    function showRoute(dep) {
+      if (!map) return;
+      tripView = null;
+      clearBus();
+      ensureOverlay();
+      const req = ++overlayReq;
+      selectedRoute = dep.route_id; selectedKey = null;
+      saveSelection({ type: 'route', route_id: dep.route_id });
+      markSelection();
+      makeRoomForOverlay();
+      const known = realRouteIds.get(dep.route_id);
+      const idP = known ? Promise.resolve(known)
+        : fetch(`/api/trip/${encodeURIComponent(dep.trip_id)}`).then(r => r.ok ? r.json() : {}).then(t => {
+            const id = t.route_id ? String(t.route_id) : dep.route_id;
+            realRouteIds.set(dep.route_id, id);
+            return id;
+          }).catch(() => dep.route_id);
+      idP.then(id => fetch(`/api/routemap/${encodeURIComponent(id)}/${todayStr()}`))
+        .then(r => r.json().then(d => { if (!r.ok) throw new Error(d.error || `HTTP ${r.status}`); return d; }))
+        .then(d => {
+          if (req !== overlayReq) return;
+          drawRoute(d, dep);
+          if (view.type === 'route' && view.dep === dep) { view.info = d; syncHead(); }
+        })
+        .catch(() => {});
+    }
+
+    function drawRoute(d, dep) {
+      overlayLayer.clearLayers();
+      const shapes = (d.shapes || []).filter(s => Array.isArray(s.points) && s.points.length > 1);
+      const color = lineColor(d.route_color || dep.route_color);
+      const most = Math.max(1, ...shapes.map(s => s.trips || 0));
+      const base = { pane: 'routePane', interactive: false, lineJoin: 'round', lineCap: 'round' };
+      // Busiest pattern on top; rarer variants fainter.
+      [...shapes].sort((a, b) => (a.trips || 0) - (b.trips || 0)).forEach(s => {
+        L.polyline(s.points, { ...base, color: '#000', weight: 8, opacity: 0.18 }).addTo(overlayLayer);
+        L.polyline(s.points, { ...base, color, weight: 5, opacity: 0.3 + 0.7 * ((s.trips || 0) / most) }).addTo(overlayLayer);
+      });
+      (d.stops || []).forEach(st => {
+        if (!isFinite(st.lat) || !isFinite(st.lon)) return;
+        L.circleMarker([st.lat, st.lon], { pane: 'routePane', radius: 3.5, className: 'route-stop' })
+          .bindPopup(`<div class="stop-pop-name">${escapeHtml(st.stop_name || st.stop_id)}</div><div class="stop-pop-code">Stop ${escapeHtml(st.stop_code || st.stop_id)}</div>${nearBtn(st.stop_id, st.stop_code, st.stop_name, st.lat, st.lon)}`)
+          .addTo(overlayLayer);
+      });
+      fitOverlay(shapes.flatMap(s => s.points), 15);
+    }
+
+    // ===== THE SELECTED TRIP'S BUS =====
+    // 1. If a vehicle reports this trip (/api/rt/location), place it, fade the line behind it
+    //    and say how far along it is: STOPPED_AT / INCOMING_AT / IN_TRANSIT_TO a stop
+    //    (current_stop_sequence, else stop_id) -> "stopped at X · 3 stops away".
+    // 2. Otherwise the bus is usually still working an earlier trip of the same block
+    //    (/api/block: same block_id, running order), so look one or two trips back, show that
+    //    bus, dash the rest of its current trip, and say when it should finish there (from
+    //    that trip's realtime delay at its last stop) and whether that eats into this start.
+    const VEH_STALE_SECS = 5 * 60;
+    let busLayer = null, bus = null, busReq = 0;
+    const blockCache = new Map();   // `${date}|${trip_id}` -> Promise of /api/block json
+    const tripJsonCache = new Map(); // trip_id -> Promise of /api/trip json (earlier trips of a block)
+
+    function clearBus() {
+      busReq++;
+      removeBusMarker();
+    }
+    function removeBusMarker() {
+      if (bus && busLayer) busLayer.removeLayer(bus.marker);
+      bus = null;
+    }
+    function serviceDate(v) {
+      if (!v.dep || !(v.dep.prev_day || v.dep.next_day)) return todayStr();
+      const y = new Date(); y.setDate(y.getDate() + (v.dep.next_day ? 1 : -1));
+      return dateStr(y);
+    }
+    function fetchVehicle(tripId) {
+      return fetch(`/api/rt/location/${encodeURIComponent(tripId)}`)
+        .then(r => r.ok ? r.json() : null) // 422 = nothing reporting this trip
+        .then(data => {
+          const e = data && (data.entity || []).find(x => x.vehicle && x.vehicle.position && isFinite(+x.vehicle.position.latitude));
+          return e ? { entity: e, ts: Number(e.vehicle.timestamp || data.header?.timestamp) || null } : null;
+        })
+        .catch(() => null);
+    }
+    function fetchBlock(tripId, date) {
+      const key = `${date}|${tripId}`;
+      if (!blockCache.has(key)) blockCache.set(key, fetch(`/api/block/${encodeURIComponent(tripId)}/${date}`).then(r => r.ok ? r.json() : null).catch(() => null));
+      return blockCache.get(key);
+    }
+    function fetchTripJson(tripId) {
+      if (!tripJsonCache.has(tripId)) {
+        tripJsonCache.set(tripId, fetch(`/api/trip/${encodeURIComponent(tripId)}`).then(r => r.ok ? r.json() : null).catch(() => null)
+          .then(t => { if (!t) tripJsonCache.delete(tripId); return t; })); // a failed load is retried next time
+      }
+      return tripJsonCache.get(tripId);
+    }
+
+    // 'stopped' | 'incoming' | 'transit' (GTFS-RT's default when absent is IN_TRANSIT_TO)
+    function vehStatus(veh) {
+      const st = String(veh.current_status ?? '');
+      if (st === 'STOPPED_AT' || st === '1') return 'stopped';
+      if (st === 'INCOMING_AT' || st === '0') return 'incoming';
+      return 'transit';
+    }
+    function stopIndexForVehicle(stops, veh) {
+      if (veh.current_stop_sequence != null && veh.current_stop_sequence !== '') {
+        const i = stops.findIndex(s => +s.stop_sequence === +veh.current_stop_sequence);
+        if (i >= 0) return i;
+      }
+      return veh.stop_id != null ? stops.findIndex(s => String(s.id) === String(veh.stop_id)) : -1;
+    }
+    // Shape point for the bus: its stop when stopped there, else the nearest point between
+    // the previous stop and the one it's heading to.
+    function busShapeIndex(line, idxs, i, status, lat, lon) {
+      if (status === 'stopped') return idxs[i];
+      const lo = i > 0 ? idxs[i - 1] : 0, hi = idxs[i], k = Math.cos(lat * Math.PI / 180);
+      let best = hi, bd = Infinity;
+      for (let j = lo; j <= hi; j++) {
+        const d = (line[j][0] - lat) ** 2 + ((line[j][1] - lon) * k) ** 2;
+        if (d < bd) { bd = d; best = j; }
+      }
+      return best;
+    }
+    const plural = (n, w) => `${n} ${w}${n !== 1 ? 's' : ''}`;
+
+    async function trackBus() {
+      const v = tripView;
+      if (!map || !v) { clearBus(); return; }
+      const req = ++busReq;
+      const live = () => req === busReq && tripView === v;
+      const own = await fetchVehicle(v.trip.trip_id);
+      if (!live()) return;
+      v.prevLayer.clearLayers();
+      if (own) {
+        placeBus(own, { route: v.dep.route_id, color: v.trip.route_color || v.dep.route_color });
+        showOwnProgress(v, own);
+        renderTimeline();
+        return;
+      }
+
+      // Not on this trip yet: walk back through the block.
+      v.busAt = null;
+      renderTimeline();
+      setTripSplit(v, v.boardSplit, v.bi >= 0 ? v.bi : 0);
+      const block = await fetchBlock(v.trip.trip_id, serviceDate(v));
+      if (!live()) return;
+      const trips = (block && block.trips) || [];
+      const k = trips.findIndex(t => t.trip_id === v.trip.trip_id);
+      if (!block || !block.block_id || k <= 0) { removeBusMarker(); return; }
+      for (let back = 1; back <= 2 && k - back >= 0; back++) {
+        const pt = trips[k - back];
+        const loc = await fetchVehicle(pt.trip_id);
+        if (!live()) return;
+        if (!loc) continue;
+        const prevTrip = await fetchTripJson(pt.trip_id);
+        if (!live()) return;
+        placeBus(loc, { route: pt.route_short_name || pt.route_id, color: pt.route_color, prev: pt, back, next: trips[k] });
+        showPreviousProgress(v, pt, prevTrip, loc);
+        return;
+      }
+      removeBusMarker();
+    }
+
+    // ---- Wording for the route cards ----
+    const AT_STOP_M = 60, NEAR_STOP_M = 250; // a "passed" bus this close to your stop still counts as here / nearby
+    function distM(lat1, lon1, lat2, lon2) {
+      const R = 6371000, r = Math.PI / 180;
+      const a = Math.sin((lat2 - lat1) * r / 2) ** 2 + Math.cos(lat1 * r) * Math.cos(lat2 * r) * Math.sin((lon2 - lon1) * r / 2) ** 2;
+      return 2 * R * Math.asin(Math.sqrt(a));
+    }
+    // Bus on the trip itself: where it is relative to the rider's stop (bi = index of that stop, -1 if unknown).
+    function describeOwn(stops, bi, veh) {
+      const status = vehStatus(veh), i = stopIndexForVehicle(stops, veh);
+      if (i < 0 || bi < 0) return { i, status, html: 'Bus is on this trip' };
+      if (i > bi) {
+        // Feeds move current_stop_sequence on as soon as the doors close, so a bus that
+        // "passed" may still be right there: go by where it actually is.
+        const m = distM(+veh.position.latitude, +veh.position.longitude, stops[bi].lat, stops[bi].lng);
+        if (m <= AT_STOP_M) return { i, status, near: true, html: 'Bus is at your stop' };
+        if (m <= NEAR_STOP_M) return { i, status, near: true, html: `Bus is ${Math.round(m / 10) * 10} m from your stop` };
+        return { i, status, html: '<span class="mcb-dim">Bus has passed your stop</span>' };
+      }
+      if (i === bi) return { i, status, near: status !== 'transit', html: status === 'stopped' ? 'Bus is at your stop' : status === 'incoming' ? 'Bus is arriving at your stop' : 'Bus 1 stop away' };
+      // stops still to reach before yours (heading to i means i itself hasn't been reached)
+      const away = bi - i + (status === 'transit' ? 1 : 0);
+      return { i, status, html: `Bus ${plural(away, 'stop')} away` };
+    }
+
+    // Bus still on an earlier trip of the block (pt = that /api/block entry, geo = its tripLine,
+    // self = the rider's trip's block entry, back = 1 or 2 trips behind).
+    function describePrev(pt, geo, veh, delay, self, back) {
+      const status = vehStatus(veh);
+      const i = geo ? stopIndexForVehicle(geo.stops, veh) : -1;
+      const finish = parseTime(pt.end_time) + delay, start = parseTime(self.start_time);
+      const toGo = i < 0 ? null : geo.stops.length - 1 - i + (status === 'transit' ? 1 : 0);
+      const lateMin = Math.round(delay / 60);
+      const trip = `${escapeHtml(pt.route_short_name || pt.route_id)} to ${escapeHtml(pt.headsign || pt.last_stop_name)}`;
+      const ends = `ends ${fmtClockShort(finish)}${lateMin > 0 ? ` <span class="mcb-late">(${lateMin} min late)</span>` : ''}`;
+      const squeeze = finish > start ? ' · <span class="mcb-late">may start late</span>' : '';
+      return {
+        i, status,
+        short: `${back === 1 ? 'Bus on previous trip' : 'Bus two trips back'} <span class="mcb-dim">(${trip})</span> · ${toGo != null ? `${plural(toGo, 'stop')} to go · ` : ''}${ends}${squeeze}`,
+      };
+    }
+
+    // That earlier trip's realtime delay carried to its last stop (0 if none). Uses the
+    // stop cache when it's fresh, else asks for its last stop.
+    async function prevTripDelay(pt, geo) {
+      if (!geo || !geo.stops.length) return 0;
+      const fresh = cachedTripUpdate(pt.trip_id);
+      if (!fresh || Date.now() - fresh.receivedAt > TRIP_RT_MAX_AGE_MS) await loadRTStopUpdates(String(pt.last_stop_id));
+      const c = cachedTripUpdate(pt.trip_id);
+      let delay = 0;
+      if (c) geo.stops.forEach(st => { const d = rtStopDelay(c.tu, st.id, st.time); if (d !== null) delay = d; });
+      return delay;
+    }
+
+    function showOwnProgress(v, loc) {
+      const veh = loc.entity.vehicle;
+      const d = describeOwn(v.stops, v.bi, veh);
+      v.busAt = d.i >= 0 ? { i: d.i, status: d.status } : null; // for the trip view's stop list
+      if (d.i >= 0) setTripSplit(v, busShapeIndex(v.line, v.idxs, d.i, d.status, +veh.position.latitude, +veh.position.longitude), d.i);
+    }
+
+    // Bus still on an earlier trip: dash the rest of that trip and link it to this one.
+    function showPreviousProgress(v, pt, prevTrip, loc) {
+      const veh = loc.entity.vehicle, status = vehStatus(veh);
+      const geo = prevTrip ? tripLine(prevTrip) : null;
+      const i = geo ? stopIndexForVehicle(geo.stops, veh) : -1;
+      // Dash the rest of the trip the bus is on, plus the link to this trip's first stop.
+      if (geo && i >= 0 && geo.line.length > 1) {
+        const kk = busShapeIndex(geo.line, geo.idxs, i, status, +veh.position.latitude, +veh.position.longitude);
+        const rest = geo.line.slice(kk);
+        if (rest.length > 1) L.polyline(rest, { pane: 'routePane', interactive: false, color: lineColor(pt.route_color), weight: 4, opacity: 0.9, dashArray: '2 8', lineCap: 'round' }).addTo(v.prevLayer);
+        const end = geo.line[geo.line.length - 1], first = v.line[0];
+        if (map.distance(end, first) > 40) L.polyline([end, first], { pane: 'routePane', interactive: false, color: '#666', weight: 3, opacity: 0.8, dashArray: '1 7', lineCap: 'round' }).addTo(v.prevLayer);
+      }
+      setTripSplit(v, 0, 0); // the bus hasn't started this trip: all of it is ahead
+    }
+
+    // ---- Route cards: the same status under each headsign's next departure ----
+    // For the next departure of every pane leaving within CARD_BUS_WINDOW_SECS (at most
+    // CARD_BUS_MAX trips), refreshed with the realtime tick. Text only: the map still shows
+    // just the selected trip's bus.
+    const CARD_BUS_WINDOW_SECS = 60 * 60, CARD_BUS_MAX = 12;
+    let cardBus = new Map(); // depKey -> {html, ts} (html '' = nothing to say; ts = vehicle fix, unix s)
+    let cardBusReq = 0;
+
+    async function cardBusStatus(dep) {
+      const tj = await fetchTripJson(dep.trip_id);
+      if (!tj) return null;
+      const geo = tripLine(tj);
+      const bi = geo.stops.findIndex(s => String(s.id) === String(dep._stopId));
+      const own = await fetchVehicle(dep.trip_id);
+      if (own) {
+        const d = describeOwn(geo.stops, bi, own.entity.vehicle);
+        if (d.near) nearBus.add(depKey(dep)); else nearBus.delete(depKey(dep));
+        return { html: d.html, ts: own.ts };
+      }
+      nearBus.delete(depKey(dep));
+      const block = await fetchBlock(dep.trip_id, serviceDate({ dep }));
+      const trips = (block && block.trips) || [];
+      const k = trips.findIndex(t => t.trip_id === dep.trip_id);
+      if (!block || !block.block_id || k <= 0) return null;
+      for (let back = 1; back <= 2 && k - back >= 0; back++) {
+        const pt = trips[k - back];
+        const loc = await fetchVehicle(pt.trip_id);
+        if (!loc) continue;
+        const pj = await fetchTripJson(pt.trip_id);
+        const pgeo = pj ? tripLine(pj) : null;
+        const delay = await prevTripDelay(pt, pgeo);
+        return { html: describePrev(pt, pgeo, loc.entity.vehicle, delay, trips[k], back).short, ts: loc.ts };
+      }
+      return null;
+    }
+
+    function refreshCardBuses() {
+      const now = nowInSeconds();
+      const targets = [];
+      document.querySelectorAll('#board .rcard .rpane-main').forEach(el => {
+        if (el._dep && realTime(el._dep) - now <= CARD_BUS_WINDOW_SECS) targets.push(el._dep);
+      });
+      targets.sort((a, b) => realTime(a) - realTime(b));
+      const want = targets.slice(0, CARD_BUS_MAX);
+      // The trip view's own departure always gets its bus line, however far off it is.
+      const hero = document.querySelector('#detail .rpane-main');
+      if (hero && hero._dep && !want.some(d => depKey(d) === depKey(hero._dep))) want.unshift(hero._dep);
+      const req = ++cardBusReq;
+      const next = new Map();
+      want.forEach(d => { if (cardBus.has(depKey(d))) next.set(depKey(d), cardBus.get(depKey(d))); }); // keep showing the last text meanwhile
+      cardBus = next;
+      applyCardBuses();
+      want.forEach(dep => {
+        cardBusStatus(dep).catch(() => null).then(r => {
+          if (req !== cardBusReq) return;
+          cardBus.set(depKey(dep), r);
+          applyCardBuses();
+        });
+      });
+    }
+
+    function applyCardBuses() {
+      document.querySelectorAll('#scroller .rpane-main').forEach(el => {
+        const box = el.querySelector('.row-bus');
+        if (!box || !el._dep) return;
+        const r = cardBus.get(depKey(el._dep));
+        const html = r && r.html ? r.html + (r.ts ? ` <span class="mcb-dim">· updated ${escapeHtml(fmtAgo(Date.now() - r.ts * 1000))}</span>` : '') : '';
+        if (box.innerHTML !== html) box.innerHTML = html;
+        box.hidden = !html;
+      });
+    }
+
+    function busIcon(info, veh, stale) {
+      const b = veh.position.bearing;
+      const arrow = b != null && isFinite(b) ? `<i class="bus-dir" style="transform:rotate(${+b}deg)"></i>` : '';
+      return L.divIcon({
+        className: 'bus-marker',
+        html: `<div class="bus${stale ? ' stale' : ''}" style="${routeStyle(String(info.color || '').replace('#', ''))}">${arrow}${escapeHtml(info.route)}</div>`,
+        iconSize: [30, 20], iconAnchor: [15, 10],
+      });
+    }
+    function busAgeText() { return bus && bus.ts ? fmtAgo(Date.now() - bus.ts * 1000) : 'Live'; }
+    function busPopupHTML() {
+      const veh = bus.veh, info = veh.vehicle || {};
+      const id = info.label || info.id || bus.entityId || '—';
+      const occ = veh.occupancy_status ? String(veh.occupancy_status).replace(/_/g, ' ').toLowerCase().replace(/^\w/, c => c.toUpperCase()) : '';
+      const speed = veh.position.speed != null ? `${Math.round(veh.position.speed * 3.6)} km/h` : '';
+      const status = { stopped: 'Stopped at a stop', incoming: 'Arriving at a stop', transit: 'In transit' }[vehStatus(veh)];
+      const p = bus.info.prev;
+      return `<div class="veh-pop-id">Vehicle ${escapeHtml(id)}</div>
+        ${p ? `<div class="veh-pop-line">Now on ${escapeHtml(p.route_short_name || p.route_id)} to ${escapeHtml(p.headsign || p.last_stop_name)}</div>
+               <div class="veh-pop-line">Then your trip, starting ${fmtClockShort(parseTime(bus.info.next.start_time))}</div>`
+            : `<div class="veh-pop-line">On your trip · Route ${escapeHtml(bus.info.route)}</div>`}
+        <div class="veh-pop-line">${[status, speed, occ].filter(Boolean).map(escapeHtml).join(' · ')}</div>
+        <div class="veh-pop-line">Updated ${escapeHtml(busAgeText())}</div>`;
+    }
+
+    function placeBus(loc, info) {
+      if (!busLayer) {
+        map.createPane('vehiclePane').style.zIndex = 650;
+        busLayer = L.layerGroup().addTo(map);
+      }
+      const veh = loc.entity.vehicle;
+      const ll = [+veh.position.latitude, +veh.position.longitude];
+      const stale = loc.ts && (Date.now() / 1000 - loc.ts) > VEH_STALE_SECS;
+      if (bus && bus.entityId !== loc.entity.id) removeBusMarker(); // a different vehicle: don't glide across town
+      if (!bus) {
+        bus = { veh, ts: loc.ts, entityId: loc.entity.id, info };
+        bus.marker = L.marker(ll, { icon: busIcon(info, veh, stale), pane: 'vehiclePane', keyboard: false })
+          .bindPopup(() => busPopupHTML(), { offset: [0, -8] })
+          .bindTooltip(busAgeText(), { permanent: true, direction: 'top', offset: [0, -14], className: 'veh-time-tooltip' })
+          .addTo(busLayer);
+        return;
+      }
+      Object.assign(bus, { veh, ts: loc.ts, info });
+      bus.marker.setIcon(busIcon(info, veh, stale));
+      if (!reduceMotion()) {
+        const els = [bus.marker.getElement(), bus.marker.getTooltip() && bus.marker.getTooltip().getElement()].filter(Boolean);
+        els.forEach(el => el.classList.add('gliding'));
+        clearTimeout(bus.glideT);
+        bus.glideT = setTimeout(() => els.forEach(el => el.classList.remove('gliding')), 1300);
+      }
+      bus.marker.setLatLng(ll);
+      if (bus.marker.isPopupOpen()) bus.marker.getPopup().update();
+    }
+
+    // Every second: the "12s ago" label and an open bus popup.
+    function tickVehicles() {
+      applyCardBuses();
+      if (!bus) return;
+      bus.marker.setTooltipContent(busAgeText());
+      if (bus.marker.isPopupOpen()) bus.marker.getPopup().update();
+    }
+
+    // ===== DEPARTURES SHEET =====
+    // One continuous position drives both the sheet and its list: pos 0 = only the header
+    // showing, pos = sheetTravel() = sheet at the top, anything past that scrolls the list.
+    // So dragging up raises the sheet and then keeps scrolling; dragging down scrolls back
+    // to the top of the list and then lowers the sheet. No snap points: it stays where it
+    // is released (after a short momentum glide).
+    const bsheet = document.getElementById('bsheet');
+    const scroller = document.getElementById('scroller');
+    const POS_KEY = 'gtfs-phone-sheet-pos'; // sheet height as a fraction of its travel
+    const wideMQ = window.matchMedia('(min-width: 900px)');
+    function isWide() { return wideMQ.matches; }
+    let pos = 0;
+    function headHeight() { return document.getElementById('bsheetHead').offsetHeight; }
+    function safeBottomPx() { return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--safe-bottom-px')) || 0; }
+    function sheetTravel() { return Math.max(0, bsheet.offsetHeight - headHeight() - safeBottomPx()); }
+    function maxScroll() { return Math.max(0, scroller.scrollHeight - scroller.clientHeight); }
+    function maxPos() { return sheetTravel() + maxScroll(); }
+    function sheetVisible() { return isWide() ? 0 : headHeight() + safeBottomPx() + Math.min(pos, sheetTravel()); }
+
+    function setPos(p) {
+      if (isWide()) return;
+      pos = Math.max(0, Math.min(maxPos(), p));
+      const T = sheetTravel(), sp = Math.min(pos, T);
+      bsheet.style.setProperty('--sheet-y', (T - sp) + 'px');
+      document.documentElement.style.setProperty('--sheet-visible', sheetVisible() + 'px');
+      scroller.scrollTop = Math.max(0, pos - T);
+      document.body.classList.toggle('sheet-full', sp >= T - 1);
+      followMap();
+    }
+    function savePos() {
+      const T = sheetTravel();
+      if (T) lsSet(POS_KEY, Math.round(Math.min(pos, T) / T * 1000) / 1000);
+    }
+    const savePosSoon = debounce(savePos, 300);
+    // Back to the top of the list without moving the sheet (location changes).
+    function resetListScroll() {
+      if (isWide()) scroller.scrollTop = 0;
+      else setPos(Math.min(pos, sheetTravel()));
+    }
+    // Content got shorter (refresh): keep pos inside the new range.
+    // Also re-applies pos when the header height changed (chip strip appearing).
+    function clampPos() { if (!isWide() && !anim) setPos(pos); }
+
+    let anim = null;
+    function stopMomentum() { if (!anim) return false; cancelAnimationFrame(anim); anim = null; return true; }
+    function momentum(v) {
+      if (Math.abs(v) < 0.05) { savePos(); return; }
+      let last = performance.now();
+      const step = now => {
+        const dt = Math.min(32, now - last); last = now;
+        const T = sheetTravel(), prev = pos;
+        const next = pos + v * dt;
+        // A downward fling through the list stops at its top instead of dropping the sheet.
+        if (v < 0 && prev > T && next <= T) { setPos(T); anim = null; savePos(); return; }
+        setPos(next);
+        v *= Math.pow(0.996, dt);
+        if (Math.abs(v) < 0.02 || pos <= 0 || pos >= maxPos()) { anim = null; savePos(); return; }
+        anim = requestAnimationFrame(step);
+      };
+      anim = requestAnimationFrame(step);
+    }
+    function animateTo(target, ms = 260) {
+      stopMomentum();
+      const from = pos, t0 = performance.now();
+      if (reduceMotion()) { setPos(target); savePos(); return; }
+      const step = now => {
+        const k = Math.min(1, (now - t0) / ms), e = 1 - Math.pow(1 - k, 3);
+        setPos(from + (target - from) * e);
+        anim = k < 1 ? requestAnimationFrame(step) : (savePos(), null);
+      };
+      anim = requestAnimationFrame(step);
+    }
+
+    (function initSheetGestures() {
+      let x0, y0, lastY, lastT, v = 0, startPos = 0, mode = null, suppressClick = false;
+
+      bsheet.addEventListener('touchstart', e => {
+        if (isWide() || e.touches.length !== 1) { mode = 'none'; return; }
+        suppressClick = stopMomentum(); // a tap that catches a moving list just stops it
+        const t = e.touches[0];
+        x0 = t.clientX; y0 = lastY = t.clientY; lastT = performance.now();
+        v = 0; startPos = pos; mode = null;
+      }, { passive: true });
+      bsheet.addEventListener('touchmove', e => {
+        if (mode === 'none' || mode === 'x') return;
+        const t = e.touches[0];
+        const dx = t.clientX - x0, dy = t.clientY - y0;
+        if (mode === null) {
+          if (Math.abs(dx) + Math.abs(dy) < 6) return;
+          mode = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y'; // x: the headsign carousel handles it
+          if (mode === 'x') return;
+        }
+        if (e.cancelable) e.preventDefault();
+        setPos(startPos - dy);
+        const now = performance.now(), dt = Math.max(1, now - lastT);
+        v = 0.8 * (-(t.clientY - lastY) / dt) + 0.2 * v;
+        lastY = t.clientY; lastT = now;
+      }, { passive: false });
+      const end = () => {
+        if (mode === 'y') momentum(performance.now() - lastT > 80 ? 0 : v);
+        mode = null;
+      };
+      bsheet.addEventListener('touchend', end);
+      bsheet.addEventListener('touchcancel', end);
+      bsheet.addEventListener('click', e => {
+        if (suppressClick) { suppressClick = false; e.stopPropagation(); e.preventDefault(); }
+      }, true);
+
+      // Mouse wheel / trackpad: same continuous position.
+      bsheet.addEventListener('wheel', e => {
+        if (isWide() || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+        e.preventDefault();
+        stopMomentum();
+        setPos(pos + e.deltaY * (e.deltaMode === 1 ? 16 : 1));
+        savePosSoon();
+      }, { passive: false });
+
+      // Mouse drag on the header.
+      const head = document.getElementById('bsheetHead');
+      let swallowClick = false;
+      head.addEventListener('pointerdown', e => {
+        if (e.pointerType !== 'mouse' || isWide()) return;
+        stopMomentum();
+        const yStart = e.clientY, p0 = pos;
+        let dragging = false;
+        const onMove = ev => {
+          if (!dragging && Math.abs(ev.clientY - yStart) > 5) dragging = true;
+          if (dragging) setPos(p0 - (ev.clientY - yStart));
+        };
+        const onUp = () => {
+          window.removeEventListener('pointermove', onMove);
+          window.removeEventListener('pointerup', onUp);
+          if (dragging) { swallowClick = true; savePos(); setTimeout(() => { swallowClick = false; }, 0); }
+        };
+        window.addEventListener('pointermove', onMove);
+        window.addEventListener('pointerup', onUp);
+      });
+      head.addEventListener('click', e => { if (swallowClick) { e.stopPropagation(); e.preventDefault(); } }, true);
+
+      // Handle tap / Enter: open the sheet if it's mostly down, otherwise lower it.
+      const handle = document.getElementById('bsheetHandle');
+      const toggle = () => animateTo(Math.min(pos, sheetTravel()) < sheetTravel() * 0.5 ? sheetTravel() : 0);
+      handle.addEventListener('click', toggle);
+      handle.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });
+
+      const relayout = () => {
+        if (map) map.invalidateSize();
+        if (isWide()) { bsheet.style.removeProperty('--sheet-y'); scroller.scrollTop = 0; }
+        else { const f = lsGet(POS_KEY, 0.45); setPos((isFinite(f) ? f : 0.45) * sheetTravel()); }
+        followMap();
+      };
+      window.addEventListener('resize', debounce(relayout, 120));
+      wideMQ.addEventListener('change', relayout);
+    })();
+
+    // ===== SERVICE ALERTS =====
+    // /api/rt/alerts (GTFS-RT, route-level on YRT). An alert names the feed's route_id
+    // ("1") while the board knows short names ("001", "purple"), so routes are compared
+    // without leading zeros and through realRouteIds, learned from one /api/trip per
+    // board route. Shown as one collapsed box above the board, a flag on the route's
+    // card, and in full at the top of that route's / trip's view.
+    const ALERTS_MS = 5 * 60 * 1000;
+    let alerts = [], alertsAt = 0;
+    const openAlerts = new Set(); // alert ids (and 'board' for the box) the rider has opened
+    function warnIcon(cls) {
+      return `<svg${cls ? ` class="${cls}"` : ''} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M12 3.5L2.5 20h19z"/><path d="M12 10v4.5M12 17.4v.1"/></svg>`;
+    }
+    const ICON_CHEV = '<svg class="alerts-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
+    const ICON_STAR = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.8z"/></svg>';
+
+    const normRoute = r => String(r ?? '').replace(/^0+(?=.)/, '').toLowerCase();
+    function alertText(t) {
+      const tr = (t && t.translation) || [];
+      return ((tr.find(x => String(x.language || '').startsWith('en')) || tr[0] || {}).text || '').trim();
+    }
+    function alertActive(al, now) {
+      const periods = al.active_period || [];
+      return !periods.length || periods.some(p => (!p.start || Number(p.start) <= now) && (!p.end || Number(p.end) >= now));
+    }
+    // Active alerts for a board route (and, when given, one of its trips).
+    function alertsFor(routeId, tripId) {
+      if (!alerts.length) return [];
+      const keys = new Set([normRoute(routeId)]);
+      if (realRouteIds.has(routeId)) keys.add(normRoute(realRouteIds.get(routeId)));
+      const now = Date.now() / 1000;
+      return alerts.filter(a => a.alert && alertActive(a.alert, now) && (a.alert.informed_entity || []).some(ie => {
+        if (ie.trip && ie.trip.trip_id) return !!tripId && ie.trip.trip_id === tripId;
+        if (ie.stop_id != null) return false; // stop-level alerts aren't matched to a route card
+        const r = ie.route_id != null ? ie.route_id : ie.trip && ie.trip.route_id;
+        return r != null && keys.has(normRoute(r));
+      }));
+    }
+    function alertId(a) { return String(a.id != null ? a.id : alertText(a.alert.header_text)); }
+    // routes: board route ids to show as bullets (the board box); without them, a warning icon.
+    function alertHTML(a, routes) {
+      const al = a.alert, id = alertId(a);
+      const head = alertText(al.header_text) || 'Service alert';
+      const body = alertText(al.description_text);
+      const lead = routes && routes.length
+        ? `<span class="alert-routes">${routes.map(r => `<span class="flt-bullet" style="${routeStyle(routeColors.get(r))}">${escapeHtml(r)}</span>`).join('')}</span>`
+        : warnIcon('alerts-ico');
+      return `<details class="alert-item" data-alert="${escapeHtml(id)}"${openAlerts.has(id) ? ' open' : ''}><summary>${lead}<span>${escapeHtml(head)}</span>${ICON_CHEV}</summary>${body ? `<p>${escapeHtml(body)}</p>` : ''}</details>`;
+    }
+
+    // The box above the board: every active alert touching a route on it.
+    function renderAlerts() {
+      const box = byId('alertBox');
+      const found = new Map(); // alert id -> {a, routes[]}
+      [...routeColors.keys()].sort(routeCmp).forEach(r => alertsFor(r).forEach(a => {
+        const id = alertId(a);
+        if (!found.has(id)) found.set(id, { a, routes: [] });
+        found.get(id).routes.push(r);
+      }));
+      const list = [...found.values()];
+      const key = list.map(x => alertId(x.a) + ':' + x.routes.join('|')).join(',');
+      if (box.dataset.key !== key) {
+        box.dataset.key = key;
+        box.hidden = !list.length;
+        box.innerHTML = list.length
+          ? `<summary>${warnIcon('alerts-ico')}<span class="alerts-count">${plural(list.length, 'service alert')} on these routes</span>${ICON_CHEV}</summary>${list.map(x => alertHTML(x.a, x.routes)).join('')}`
+          : '';
+        box.open = list.length > 0 && openAlerts.has('board');
+        clampPos();
+      }
+      applyCardMarks();
+    }
+    // Pinned / alert marks in each route card's head (cards are only rebuilt when the route set changes).
+    function applyCardMarks() {
+      document.querySelectorAll('#board .rcard').forEach(c => {
+        const pin = c.querySelector('.rcard-pin'), flag = c.querySelector('.rcard-flag');
+        if (pin) pin.hidden = !pinned.has(c.dataset.route);
+        if (flag) flag.hidden = !alertsFor(c.dataset.route).length;
+      });
+    }
+    // <details> toggle doesn't bubble: capture it to remember what's open and re-clamp the sheet.
+    byId('scroller').addEventListener('toggle', e => {
+      const id = e.target && e.target.dataset && e.target.dataset.alert;
+      if (!id) return;
+      if (e.target.open) openAlerts.add(id); else openAlerts.delete(id);
+      clampPos();
+    }, true);
+
+    const renderAlertsSoon = debounce(() => { renderAlerts(); if (inDetail()) renderDetail(); }, 150);
+    // One /api/trip per board route that hasn't told us its feed route_id yet (cached).
+    function ensureRouteIds() {
+      if (!alerts.length) return;
+      const seen = new Set();
+      allDeps.forEach(d => {
+        if (seen.has(d.route_id)) return;
+        seen.add(d.route_id);
+        if (realRouteIds.has(d.route_id)) return;
+        fetchTripJson(d.trip_id).then(t => {
+          if (!t || !t.route_id) return;
+          realRouteIds.set(d.route_id, String(t.route_id));
+          renderAlertsSoon();
+        });
+      });
+    }
+    // Every ALERTS_MS at most (force: the refresh button).
+    function loadAlerts(force) {
+      if (!force && Date.now() - alertsAt < ALERTS_MS) return Promise.resolve();
+      alertsAt = Date.now();
+      return fetch('/api/rt/alerts')
+        .then(r => r.ok ? r.json() : []) // 422 = no alerts right now
+        .then(d => {
+          alerts = Array.isArray(d) ? d : (d && d.entity) || [];
+          ensureRouteIds();
+          renderAlertsSoon();
+        })
+        .catch(() => {});
+    }
+
+    // ===== FIRST-RUN TIP + PINNED ROUTES =====
+    const TIP_KEY = 'gtfs-phone-tip-seen';
+    function syncTip() { byId('tip').hidden = lsGet(TIP_KEY, false) === true || !allDeps.length; }
+    function dismissTip() {
+      if (lsGet(TIP_KEY, false) === true) return;
+      lsSet(TIP_KEY, true);
+      syncTip();
+    }
+    byId('tipClose').addEventListener('click', () => { dismissTip(); clampPos(); });
+
+    function togglePin(routeId) {
+      if (pinned.has(routeId)) pinned.delete(routeId); else pinned.add(routeId);
+      lsSet(PIN_KEY, [...pinned]);
+      renderBoard(); // re-sorts the cards and, through renderDetail, the header's pin button
+    }
+    byId('pinBtn').addEventListener('click', () => { if (view.dep) togglePin(view.dep.route_id); });
+
+    // ===== DETAIL VIEWS: a trip, a route or a stop inside the departures sheet =====
+    // view.type: 'board' | 'trip' {dep} | 'route' {dep, routeId} | 'stop' {stopId}. Opening
+    // one hides the board (which keeps refreshing underneath) and puts the same thing on
+    // the map. Back (the header button, Esc, or the phone's own back gesture through a
+    // history entry per level) pops to the previous view; from the first one it returns
+    // to the board where it was left and re-centres the map on the rider.
+    const detailEl = byId('detail');
+    const ROUTE_VIEW_DEPS = 6;  // per direction before "Show all"
+    const STOP_VIEW_DEPS = 60;
+    const DEST_KEY = 'gtfs-phone-dest'; // `${route}|${headsign}` -> stop_id the rider gets off at
+    function viewDepth() { return inDetail() ? viewStack.length + 1 : 0; }
+    function stopData(id) { return lastStopDatas.find(s => String(s.stop_id) === String(id)); }
+
+    function setView(next) {
+      const before = viewDepth();
+      if (!inDetail()) boardReturn = isWide() ? { scrollTop: scroller.scrollTop } : { pos };
+      else if (!(view.type === 'stop' && next.type === 'stop')) viewStack.push(view); // stop -> stop just swaps
+      view = next;
+      document.body.classList.add('in-detail');
+      detailEl.hidden = false;
+      if (viewDepth() > before) { try { history.pushState({ pd: viewDepth() }, ''); } catch (e) {} }
+      renderDetail(true);
+      resetListScroll();
+    }
+    function openTrip(dep) {
+      if (view.type === 'trip' && depKey(view.dep) === depKey(dep)) return;
+      dismissTip();
+      setView({ type: 'trip', dep, showEarlier: false, dest: null });
+      showTrip(dep);
+    }
+    function openRoute(dep) {
+      if (view.type === 'route' && view.routeId === dep.route_id) return;
+      setView({ type: 'route', dep, routeId: dep.route_id, expanded: new Set() });
+      showRoute(dep);
+    }
+    function openStop(stopId) {
+      if (!stopData(stopId) || (view.type === 'stop' && view.stopId === String(stopId))) return;
+      setView({ type: 'stop', stopId: String(stopId) });
+      clearOverlay();
+      setFocusedStop(stopId);
+    }
+
+    // Back one level. A history entry was pushed per level, so go through history when
+    // ours is on top (keeps the system back gesture and the button in step).
+    let backPending = false; // history.back() lands a moment later; don't send a second one meanwhile
+    function goBack() {
+      if (!inDetail() || backPending) return;
+      if (history.state && history.state.pd === viewDepth()) {
+        backPending = true;
+        setTimeout(() => { backPending = false; }, 600);
+        history.back();
+      } else popView();
+    }
+    function popView() {
+      if (!inDetail()) return;
+      const prev = viewStack.pop();
+      if (!prev) { exitToBoard(); return; }
+      view = prev;
+      if (view.type === 'trip') showTrip(view.dep);
+      else if (view.type === 'route') showRoute(view.dep);
+      else { clearOverlay(); setFocusedStop(view.stopId); }
+      renderDetail(true);
+      resetListScroll();
+    }
+    // unwind: also drop our history entries (a location change, not a Back).
+    // restore: false leaves the sheet and map where they are.
+    function exitToBoard(opts = {}) {
+      const depth = viewDepth();
+      viewStack.length = 0;
+      view = { type: 'board' };
+      document.body.classList.remove('in-detail');
+      detailEl.hidden = true;
+      detailEl.replaceChildren();
+      syncHead();
+      clearOverlay();
+      setFocusedStop(null);
+      if (!depth) return;
+      if (opts.unwind) { try { if (history.state && history.state.pd) history.go(-Math.min(depth, history.state.pd)); } catch (e) {} }
+      if (opts.restore === false) return;
+      stopMomentum();
+      if (isWide()) scroller.scrollTop = (boardReturn && boardReturn.scrollTop) || 0;
+      else if (boardReturn && boardReturn.pos != null) { setPos(boardReturn.pos); savePos(); }
+      setFollow(true);
+      centerOnLocation(true);
+    }
+    window.addEventListener('popstate', () => {
+      backPending = false;
+      const target = (history.state && history.state.pd) || 0;
+      while (viewDepth() > target) popView();
+    });
+    byId('backBtn').addEventListener('click', goBack);
+
+    // The sheet header: location button on the board; Back + what's open in a detail view.
+    function syncHead() {
+      const d = inDetail();
+      byId('backBtn').hidden = !d;
+      byId('locHeaderBtn').hidden = d;
+      byId('dh').hidden = !d;
+      byId('displayBtn').hidden = d;
+      const pinBtn = byId('pinBtn');
+      pinBtn.hidden = !d || view.type === 'stop';
+      if (!d) return;
+      const bullet = byId('dhRoute'), title = byId('dhTitle'), sub = byId('dhSub');
+      if (view.type === 'stop') {
+        const sd = stopData(view.stopId);
+        bullet.hidden = true;
+        title.textContent = (sd && (sd._stopName || sd.stop_name)) || `Stop ${view.stopId}`;
+        sub.textContent = sd ? `Stop ${sd._stopCode || sd.stop_id} · ${fmtWalk(sd._distanceKM || 0)}` : '';
+        return;
+      }
+      const dep = view.dep;
+      bullet.hidden = false;
+      bullet.textContent = dep.route_id;
+      bullet.setAttribute('style', routeStyle(dep.route_color));
+      if (view.type === 'trip') {
+        title.textContent = dep.trip_headsign || `Route ${dep.route_id}`;
+        sub.textContent = (tripView && tripView.dep === dep && tripView.trip.route_long_name) || '';
+      } else {
+        title.textContent = (view.info && view.info.route_long_name) || `Route ${dep.route_id}`;
+        sub.textContent = !view.info ? '' : view.info.all_days ? 'No trips today' : `${plural(view.info.trips || 0, 'trip')} today`;
+      }
+      const on = pinned.has(dep.route_id);
+      pinBtn.setAttribute('aria-pressed', String(on));
+      pinBtn.setAttribute('aria-label', on ? `Unpin route ${dep.route_id}` : `Pin route ${dep.route_id} to the top of the board`);
+    }
+
+    // fresh: the view just opened (or came back off the stack): rebuild it from scratch.
+    // Otherwise each view only rebuilds what changed, so this is safe to call every tick.
+    function renderDetail(fresh) {
+      if (!inDetail()) return;
+      if (fresh) { view.built = false; view.key = null; detailEl.className = 'pd-list dv dv-' + view.type; }
+      if (view.type === 'trip') renderTripView();
+      else if (view.type === 'route') renderRouteView();
+      else renderStopView();
+      syncHead();
+      updateETAs();
+      lastStopDatas.forEach(s => reapplyCachedRT(s.stop_id));
+      applyCardBuses();
+      clampPos();
+    }
+
+    function fillDetailAlerts(list) {
+      const box = detailEl.querySelector('.dv-alerts');
+      if (!box) return;
+      const key = list.map(alertId).join(',');
+      if (box.dataset.key === key) return;
+      box.dataset.key = key;
+      box.className = 'dv-alerts' + (list.length ? ' alerts' : '');
+      box.innerHTML = list.map(a => alertHTML(a)).join('');
+    }
+    const ICON_WALK = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21 3 3 10.5l7.2 2.3L12.5 20z"/></svg>';
+    const ICON_ROUTE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 17V9a3 3 0 0 1 6 0v6a3 3 0 0 0 6 0V7"/><path d="M4 17h4v4H4zM16 3h4v4h-4z"/></svg>';
+    // Walking directions in the phone's own maps app.
+    function directionsLink(lat, lon) {
+      if (!isFinite(lat) || !isFinite(lon)) return '';
+      const apple = /iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent);
+      const href = apple
+        ? `https://maps.apple.com/?daddr=${lat},${lon}&dirflg=w`
+        : `https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}&travelmode=walking`;
+      return `<a class="dv-btn" href="${href}" target="_blank" rel="noopener">${ICON_WALK}Directions to stop</a>`;
+    }
+    function detailNote(text) {
+      const n = document.createElement('div');
+      n.className = 'dv-note';
+      n.textContent = text;
+      return n;
+    }
+
+    // --- Trip: the departure you tapped (same pane as its route card), then every stop ---
+    function renderTripView() {
+      const dep = view.dep;
+      if (!view.built) {
+        view.built = true;
+        const rs = routeStyle(dep.route_color);
+        const sd = stopData(dep._stopId);
+        detailEl.innerHTML = `
+          <div class="dv-alerts"></div>
+          <article class="rcard tv-hero${rs ? ' has-rc' : ''}" style="${rs}">
+            <section class="rpane"><div class="dep-card rpane-main">${metaHTML(dep)}${statusHTML(dep)}${LEAVE_HTML}<div class="row-bus" hidden></div></div></section>
+          </article>
+          <div class="dv-actions">${sd ? directionsLink(sd._lat, sd._lon) : ''}<button type="button" class="dv-btn" data-act="route">${ICON_ROUTE}Whole route</button></div>
+          <div class="tl" id="tl" style="${rs}"></div>`;
+        detailEl.appendChild(footnote());
+        setDepAttrs(detailEl.querySelector('.dep-card'), dep);
+      }
+      fillDetailAlerts(alertsFor(dep.route_id, dep.trip_id));
+      renderTimeline();
+    }
+
+    // Seconds on today's clock for a stop of the shown trip (its service day may be
+    // yesterday's or tomorrow's).
+    function tripClock(v, s) { return parseTime(s.time) + (v.dep.next_day ? 86400 : v.dep.prev_day ? -86400 : 0); }
+    function dayClock(secs) { return ((secs % 86400) + 86400) % 86400; }
+    function destKey(dep) { return `${dep.route_id}|${dep.trip_headsign || ''}`; }
+
+    const fareFormats = new Map();
+    function fmtFare(price, currency) {
+      if (!fareFormats.has(currency)) {
+        let f = null;
+        try { f = new Intl.NumberFormat(undefined, { style: 'currency', currency }); } catch (e) {}
+        fareFormats.set(currency, f);
+      }
+      const f = fareFormats.get(currency);
+      return f ? f.format(price) : `${(+price).toFixed(2)} ${currency}`;
+    }
+    // Fares from the boarding stop to every later stop, once the rider picks where they get off.
+    function ensureFares(v) {
+      if (view.fares !== undefined || v.bi < 0) return;
+      view.fares = null;
+      const cur = view, b = v.stops[v.bi];
+      fetch(`/api/tripfares/${encodeURIComponent(v.trip.trip_id)}/${encodeURIComponent(b.id)}?seq=${+b.stop_sequence}`)
+        .then(r => r.ok ? r.json() : null)
+        .then(d => {
+          if (!d || !d.fares_available) return;
+          cur.fares = new Map((d.fares || []).filter(f => f.fare).map(f => [+f.stop_sequence, f.fare]));
+          if (view === cur) renderTimeline();
+        })
+        .catch(() => {});
+    }
+
+    function tlTimeHTML(v, i) {
+      const s = v.stops[i];
+      if (!s.time) return '';
+      const sched = tripClock(v, s), d = v.delays[i];
+      const txt = fmtClockShort(dayClock(sched));
+      const mins = d == null ? 0 : Math.round(d / 60);
+      if (!mins) return txt;
+      return `<s>${txt}</s><span class="${mins > 0 ? 'late' : 'early'}">${fmtClockShort(dayClock(sched + d))}</span>`;
+    }
+    function destText(v, i) {
+      const parts = ['Get off here'];
+      if (v.bi >= 0 && v.stops[i].time && v.stops[v.bi].time) {
+        const ride = Math.max(1, Math.round((tripClock(v, v.stops[i]) - tripClock(v, v.stops[v.bi])) / 60));
+        parts.push(`${ride} min ride`);
+      }
+      const fare = view.fares && view.fares.get(+v.stops[i].stop_sequence);
+      if (fare) parts.push(fmtFare(fare.price, fare.currency));
+      return parts.join(' · ');
+    }
+
+    function timelineHTML(v) {
+      const n = v.stops.length, bi = v.bi, bus = v.busAt, now = nowInSeconds();
+      // The stop the rider last chose for this route + direction comes back selected.
+      if (!view.destInit) {
+        view.destInit = true;
+        const saved = (lsGet(DEST_KEY, {}) || {})[destKey(v.dep)];
+        const i = saved != null && bi >= 0 ? v.stops.findIndex((s, k) => k > bi && String(s.id) === String(saved)) : -1;
+        if (i > 0) { view.dest = i; ensureFares(v); }
+      }
+      // Behind the bus when one is reporting, otherwise by the (realtime-adjusted) clock.
+      const passed = i => bus ? i < bus.i : !!v.stops[i].time && tripClock(v, v.stops[i]) + (v.delays[i] || 0) < now - 30;
+      const from = !view.showEarlier && bi > 1 ? bi : 0;
+      let out = '';
+      if (from > 0) {
+        out += `<button type="button" class="tl-row tl-expand passed"><span class="tl-time"></span><span class="tl-rail"></span><span class="tl-name">Show ${plural(from, 'earlier stop')}${bus && bus.i < from ? ' and the bus' : ''}</span></button>`;
+      }
+      for (let i = from; i < n; i++) {
+        const s = v.stops[i];
+        if (bus && bus.i === i && bus.status !== 'stopped') {
+          out += `<button type="button" class="tl-row tl-busrow"><span class="tl-time"></span><span class="tl-rail"></span><span class="tl-name">Bus is here</span></button>`;
+        }
+        const cls = ['tl-row'];
+        if (passed(i)) cls.push('passed');
+        if (i === bi) cls.push('is-board');
+        if (i === view.dest) cls.push('is-dest');
+        if (i === 0) cls.push('is-first');
+        if (i === n - 1) cls.push('is-last');
+        const tags = [];
+        if (bus && bus.i === i && bus.status === 'stopped') tags.push('Bus is here');
+        if (i === bi) tags.push('Your stop');
+        if (i === view.dest) tags.push(destText(v, i));
+        const note = i > 0 && i < n - 1 && i >= bi ? pickupDropoffNote(s) : '';
+        const tagHTML = tags.length || note ? `<span class="tl-tag">${escapeHtml(tags.join(' · '))}${tags.length && note ? ' ' : ''}${note}</span>` : '';
+        out += `<button type="button" class="${cls.join(' ')}" data-i="${i}"${i > bi && bi >= 0 ? ` aria-pressed="${i === view.dest}"` : ''}><span class="tl-time">${tlTimeHTML(v, i)}</span><span class="tl-rail"></span><span class="tl-name">${escapeHtml(s.name)}${tagHTML}</span></button>`;
+      }
+      return out;
+    }
+    function renderTimeline() {
+      if (view.type !== 'trip') return;
+      const box = byId('tl');
+      if (!box) return;
+      const v = tripView;
+      const html = view.failed ? '<div class="dv-note">Couldn’t load this trip’s stops. Go back and try again.</div>'
+        : !v || v.dep !== view.dep ? '<div class="tl-skel"></div>'.repeat(4)
+        : timelineHTML(v);
+      if (box._html === html) return;
+      box._html = html;
+      box.innerHTML = html;
+      clampPos();
+    }
+
+    // Centre a point in the part of the map the sheet doesn't cover, at street level.
+    function showOnMap(latlng) {
+      const z = Math.max(map.getZoom(), 15);
+      const offset = followPoint().subtract(map.getSize().divideBy(2));
+      map.setView(map.unproject(map.project(latlng, z).subtract(offset), z), z, { animate: !reduceMotion() });
+    }
+    function focusTripStop(v, i) {
+      if (!map) return;
+      const m = i === v.bi ? stopMarkers.get(v.boardStopId) : v.markers.find(x => x._i === i);
+      if (!m) return;
+      setFollow(false);
+      m.openPopup();
+      showOnMap(m.getLatLng());
+    }
+
+    detailEl.addEventListener('click', e => {
+      const act = e.target.closest('[data-act]');
+      if (act) {
+        if (act.dataset.act === 'route' && view.dep) openRoute(view.dep);
+        else if (act.dataset.act === 'more' && view.type === 'route') { view.expanded.add(act.dataset.hs || ''); renderDetail(); }
+        return;
+      }
+      const row = e.target.closest('.tl-row');
+      const v = tripView;
+      if (!row || view.type !== 'trip' || !v || v.dep !== view.dep) return;
+      if (row.classList.contains('tl-expand')) { view.showEarlier = true; renderTimeline(); return; }
+      if (row.classList.contains('tl-busrow')) {
+        if (bus && map) { setFollow(false); bus.marker.openPopup(); showOnMap(bus.marker.getLatLng()); }
+        return;
+      }
+      const i = +row.dataset.i;
+      // A stop after yours: mark (or unmark) it as where you get off, remembered per route + direction.
+      if (v.bi >= 0 && i > v.bi) {
+        view.dest = view.dest === i ? null : i;
+        const saved = lsGet(DEST_KEY, {}) || {};
+        if (view.dest == null) delete saved[destKey(v.dep)]; else saved[destKey(v.dep)] = String(v.stops[i].id);
+        lsSet(DEST_KEY, saved);
+        if (view.dest != null) ensureFares(v);
+        renderTimeline();
+      }
+      focusTripStop(v, i);
+    });
+
+    // --- Route: today's remaining departures from the stops around you, by direction ---
+    function buildSlimRow(dep) {
+      const row = document.createElement('article');
+      row.className = 'dep-card row row-slim';
+      setDepAttrs(row, dep);
+      row.innerHTML = `<div class="row-dest">${escapeHtml(dep._stopName || 'Stop ' + dep._stopId)}</div>
+        <div class="row-meta"><span class="row-stop"><span class="row-walk">${fmtWalk(dep._distanceKM)}</span></span>${pickupDropoffNote(dep)}<span class="row-miss"> · can’t make it</span></div>${statusHTML(dep)}${LEAVE_HTML}`;
+      return row;
+    }
+    function renderRouteView() {
+      const r = view.routeId;
+      const groups = new Map(); // headsign -> departures, soonest first
+      upcoming().forEach(d => {
+        if (d.route_id !== r) return;
+        const k = d.trip_headsign || '';
+        if (!groups.has(k)) groups.set(k, []);
+        groups.get(k).push(d);
+      });
+      const list = [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([hs, deps]) => ({ hs, total: deps.length, deps: view.expanded.has(hs) ? deps : deps.slice(0, ROUTE_VIEW_DEPS) }));
+      const key = list.map(g => `${g.hs}:${g.total}:${g.deps.map(depKey).join(',')}`).join(';');
+      if (!view.built || view.key !== key) {
+        view.built = true;
+        view.key = key;
+        const frag = document.createDocumentFragment();
+        const al = document.createElement('div');
+        al.className = 'dv-alerts';
+        frag.appendChild(al);
+        list.forEach(g => {
+          const h = document.createElement('h2');
+          h.className = 'dv-section';
+          h.textContent = g.hs || `Route ${r}`;
+          frag.appendChild(h);
+          g.deps.forEach(d => frag.appendChild(buildSlimRow(d)));
+          if (g.total > g.deps.length) {
+            const more = document.createElement('button');
+            more.type = 'button';
+            more.className = 'dv-more';
+            more.dataset.act = 'more';
+            more.dataset.hs = g.hs;
+            more.textContent = `Show all ${g.total} departures`;
+            frag.appendChild(more);
+          }
+        });
+        if (!list.length) frag.appendChild(detailNote('No more departures on this route from the stops around you today.'));
+        frag.appendChild(footnote());
+        detailEl.replaceChildren(frag);
+      }
+      fillDetailAlerts(alertsFor(r));
+    }
+
+    // --- Stop: everything still leaving from one stop of the board ---
+    function renderStopView() {
+      const sd = stopData(view.stopId);
+      const now = nowInSeconds();
+      const deps = !sd ? [] : (sd.departures || [])
+        .map(d => ({ ...d, _stopId: sd.stop_id, _stopName: sd._stopName, _distanceKM: sd._distanceKM }))
+        .filter(d => stillHere(d, now))
+        .sort((a, b) => realTime(a) - realTime(b))
+        .slice(0, STOP_VIEW_DEPS);
+      const key = (sd ? 's:' : 'x:') + deps.map(depKey).join(',');
+      if (view.built && view.key === key) return;
+      view.built = true;
+      view.key = key;
+      const frag = document.createDocumentFragment();
+      if (sd) {
+        const actions = document.createElement('div');
+        actions.className = 'dv-actions';
+        actions.innerHTML = directionsLink(sd._lat, sd._lon);
+        frag.appendChild(actions);
+      }
+      deps.forEach((d, i) => frag.appendChild(buildRow(d, i === 0)));
+      if (!deps.length) frag.appendChild(detailNote(sd ? 'No more departures from this stop today.' : 'This stop is no longer near your location.'));
+      frag.appendChild(footnote());
+      detailEl.replaceChildren(frag);
+      fitDestTexts();
+    }
+
+    window.addEventListener('online', () => { renderHeaderSub(); loadLocation().then(rtTick); });
+    window.addEventListener('offline', renderHeaderSub);
+
+    // ===== Start =====
+    // env() can't be read from JS directly; mirror the safe-area insets into px custom properties.
+    (function measureSafeArea() {
+      const probe = document.createElement('div');
+      probe.style.cssText = 'position:fixed;top:0;left:0;visibility:hidden;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)';
+      document.body.appendChild(probe);
+      const cs = getComputedStyle(probe);
+      document.documentElement.style.setProperty('--safe-top-px', cs.paddingTop);
+      document.documentElement.style.setProperty('--safe-bottom-px', cs.paddingBottom);
+      probe.remove();
+    })();
+    (function restoreSheet() {
+      if (isWide()) return;
+      const T = sheetTravel();
+      const saved = lsGet(POS_KEY, null);
+      // default: sheet covers about half the screen
+      const f = isFinite(saved) && saved !== null ? saved : (window.innerHeight * 0.5 - headHeight() - safeBottomPx()) / Math.max(1, T);
+      setPos(Math.max(0, Math.min(1, f)) * T);
+    })();
+    initMap();
+    setFollow(true);
+    // Always opens on live GPS; a picked/saved location only lasts until the page is reopened.
+    try { localStorage.removeItem('gtfs-phone-filter'); } catch (e) {} // filtering was removed; drop any saved selection
+    try { if (history.state && history.state.pd) history.replaceState(null, ''); } catch (e) {} // detail-view entries from before a reload
+    refreshLocPanel();
+    showSkeleton();
+    secondTick();
+    startGeoWatch();
+    loadLocation().then(rtTick);
+    startTimers();
+  </script>
+</body>
+</html>

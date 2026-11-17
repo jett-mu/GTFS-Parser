@@ -285,6 +285,28 @@ int main() {
         res.set_content(json, "application/json");
     });
 
+    // every trip in trip_id's block (same vehicle) running on the date, in running order
+    svr.Get("/api/block/:trip_id/:year/:month/:day", [](const Request& req, Response& res) {
+        if (!requireLoaded(res)) return;
+        std::shared_lock lock(dataMutex);
+        const string trip_id = req.path_params.at("trip_id");
+        const int year = std::stoi(req.path_params.at("year"));
+        const int month = std::stoi(req.path_params.at("month"));
+        const int day = std::stoi(req.path_params.at("day"));
+
+        auto start = std::chrono::steady_clock::now();
+        string json = getBlock(trip_id, year, month, day,
+                               triplines, triprefs, stoptimesstoplines, stoptimesstoprefs,
+                               calendarlines, calendarrefs, calendardatelines, calendardaterefs,
+                               stoplines, stoprefs, routelines, routerefs);
+        auto elapsed = std::chrono::steady_clock::now() - start;
+
+        std::cout << "GET /api/block/" << trip_id << "/" << year << "/" << month << "/" << day << " -> "
+                << std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count() << " µs\n";
+
+        res.set_content(json, "application/json");
+    });
+
     // :from and :to are comma-separated stop_id lists (e.g. both sides of a street)
     svr.Get("/api/between/:from/:to/:year/:month/:day", [](const Request& req, Response& res) {
         if (!requireLoaded(res)) return;

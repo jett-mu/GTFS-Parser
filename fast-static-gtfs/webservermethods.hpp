@@ -655,3 +655,108 @@ inline string getRouteFare(const fares::index& fx, const string& route_id, const
     out << "\t\"fare\": " << fares::toJson(fx, fares::price(fx, {fr}), [](int) { return 0; }) << "\n}\n";
     return out.str();
 }
+
+// Every trip that shares trip_id's block_id (same vehicle) and runs on the date, in running
+// order by first departure, with each one's first and last call. Lets a client find the trip
+// the bus is working before the one asked about. block_id is optional in GTFS: no block (or
+// an unknown trip) -> "block_id": "" and "trips": [].
+inline string getBlock(const string& trip_id, const int& year, const int& month, const int& day,
+                     const vector<pair<string, vector<string>>>& triplines,
+                     const std::unordered_map<string, int>& triprefs,
+                     const vector<pair<string, vector<string>>>& stoptimesstoplines,
+                     const std::unordered_map<string, int>& stoptimesstoprefs,
+                     const vector<pair<string, vector<string>>>& calendarlines,
+                     const std::unordered_map<string, int>& calendarrefs,
+                     const vector<pair<string, vector<string>>>& calendardatelines,
+                     const std::unordered_map<string, int>& calendardaterefs,
+                     const vector<pair<string, vector<string>>>& stoplines,
+                     const std::unordered_map<string, int>& stoprefs,
+                     const vector<pair<string, vector<string>>>& routelines,
+                     const std::unordered_map<string, int>& routerefs) {
+    ostringstream out;
+    auto optionalCol = [&](const char* key) { auto find = triprefs.find(key); return find == triprefs.end() ? -1 : find->second; };
+    const int blockCol = optionalCol("block_id");
+    const int headsignCol = optionalCol("trip_headsign");
+    const int routeCol = triprefs.at("route_id");
+    const int serviceCol = triprefs.at("service_id");
+
+    string block_id;
+    if (blockCol >= 0) {
+        for (const auto& row : triplines) {
+            if (row.first == trip_id) { block_id = row.second[blockCol]; break; }
+        }
+    }
+
+    struct block_trip {
+        const pair<string, vector<string>>* row;
+        gtfs::trip_segment first, last;
+        int depart = 0, arrive = 0;
+        size_t calls = 0;
+    };
+    vector<block_trip> trips;
+    if (!block_id.empty()) {
+        auto isSet = [](const gtfs::time& t) { return t.h >= 0 && !(t == gtfs::time()); };
+        std::unordered_map<string, bool> runs; // service_id -> runs on the date
+        for (const auto& row : triplines) {
+            if (row.second[blockCol] != block_id) continue;
+            const string& service_id = row.second[serviceCol];
+            auto find = runs.find(service_id);
+            if (find == runs.end()) {
+                find = runs.emplace(service_id, fast_gtfs::bin_search::isServiceActive(service_id, year, month, day,
+                    calendarlines, calendarrefs, calendardatelines, calendardaterefs)).first;
+            }
+            if (!find->second) continue;
+            const vector<gtfs::trip_segment> calls = fast_gtfs::bin_search::getAllStops(row.first, stoptimesstoplines, stoptimesstoprefs);
+            if (calls.empty()) continue;
+            block_trip bt{&row, calls.front(), calls.back()};
+            const gtfs::stop_time& f = bt.first.stop;
+            const gtfs::stop_time& l = bt.last.stop;
+            bt.depart = planner::toSecs(isSet(f.departure_time) ? f.departure_time : f.arrival_time);
+            bt.arrive = planner::toSecs(isSet(l.arrival_time) ? l.arrival_time : l.departure_time);
+            bt.calls = calls.size();
+            trips.push_back(bt);
+        }
+        std::sort(trips.begin(), trips.end(), [](const block_trip& a, const block_trip& b) { return a.depart < b.depart; });
+    }
+
+    std::unordered_map<string, gtfs::route> routeInfo;
+    std::unordered_map<string, gtfs::stop> stopInfo;
+    auto routeOf = [&](const string& id) -> const gtfs::route& {
+        auto find = routeInfo.find(id);
+        if (find == routeInfo.end()) find = routeInfo.emplace(id, fast_gtfs::bin_search::getRouteInfo(id, routelines, routerefs)).first;
+        return find->second;
+    };
+    auto stopOf = [&](const string& id) -> const gtfs::stop& {
+        auto find = stopInfo.find(id);
+        if (find == stopInfo.end()) find = stopInfo.emplace(id, fast_gtfs::bin_search::getStopInfo(id, stoplines, stoprefs)).first;
+        return find->second;
+    };
+
+    out << "{\n";
+    out << "\t\"trip_id\": \"" << gtfs::jsonEscape(trip_id) << "\",\n";
+    out << "\t\"block_id\": \"" << gtfs::jsonEscape(block_id) << "\",\n";
+    out << "\t\"trips\": [";
+    for (size_t i = 0; i < trips.size(); i++) {
+        const block_trip& bt = trips[i];
+        const string& rid = bt.row->second[routeCol];
+        const gtfs::route& rx = routeOf(rid);
+        const gtfs::stop& fs = stopOf(bt.first.stop.stop_id);
+        const gtfs::stop& ls = stopOf(bt.last.stop.stop_id);
+        out << (i ? ",\n\t\t" : "\n\t\t")
+            << "{ \"trip_id\": \"" << gtfs::jsonEscape(bt.row->first)
+            << "\", \"route_id\": \"" << gtfs::jsonEscape(rid)
+            << "\", \"route_short_name\": \"" << gtfs::jsonEscape(rx.route_short_name)
+            << "\", \"route_color\": \"" << gtfs::jsonEscape(rx.route_color)
+            << "\", \"headsign\": \"" << gtfs::jsonEscape(headsignCol >= 0 ? bt.row->second[headsignCol] : string())
+            << "\", \"start_time\": \"" << secsToTime(bt.depart)
+            << "\", \"end_time\": \"" << secsToTime(bt.arrive)
+            << "\", \"first_stop_id\": \"" << gtfs::jsonEscape(bt.first.stop.stop_id)
+            << "\", \"first_stop_name\": \"" << gtfs::jsonEscape(fs.stop_name)
+            << "\", \"last_stop_id\": \"" << gtfs::jsonEscape(bt.last.stop.stop_id)
+            << "\", \"last_stop_name\": \"" << gtfs::jsonEscape(ls.stop_name)
+            << "\", \"stops\": " << bt.calls << " }";
+    }
+    out << (trips.empty() ? "]\n" : "\n\t]\n");
+    out << "}\n";
+    return out.str();
+}

@@ -54,6 +54,21 @@ def get_stop(stop_id, date):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/block/<trip_id>/<date>')
+def get_block(trip_id, date):
+    """Every trip in trip_id's block (same vehicle) running on the date, in running order."""
+    try:
+        try:
+            year, month, day = (int(part) for part in date.split('-'))
+        except ValueError:
+            return jsonify({'error': 'date must be YYYY-MM-DD'}), 400
+        data, status = fast_get(f"/api/block/{urllib.parse.quote(trip_id, safe='')}/{year}/{month}/{day}")
+        if status != 200:
+            return jsonify(data), status
+        return jsonify(data)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/routemap/<route_id>/<date>')
 def get_route_map(route_id, date):
     """Every distinct shape a route runs on a date (with trip counts) and the stops those trips serve."""
@@ -286,6 +301,10 @@ def route_board():
 def flip_board():
     return send_from_directory('web', 'flipboard.html')
 
+@app.route('/phone')
+def phone_dashboard():
+    return send_from_directory('web', 'phone-dashboard.html')
+
 @app.route('/at-a-glance')
 def at_a_glance():
     return send_from_directory('web', 'at-a-glance.html')
@@ -333,4 +352,4 @@ def home():
 
 
 if __name__ == '__main__':
-    app.run(debug=False, port=5015, host = 'localhost')
+    app.run(debug=False, port=5015, host = '0.0.0.0')

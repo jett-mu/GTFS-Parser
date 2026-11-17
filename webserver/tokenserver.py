@@ -70,6 +70,22 @@ def get_stop(stop_id, date):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/block/<trip_id>/<date>')
+@require_token
+def get_block(trip_id, date):
+    """Every trip in trip_id's block (same vehicle) running on the date, in running order."""
+    try:
+        try:
+            year, month, day = (int(part) for part in date.split('-'))
+        except ValueError:
+            return jsonify({'error': 'date must be YYYY-MM-DD'}), 400
+        data, status = fast_get(f"/api/block/{urllib.parse.quote(trip_id, safe='')}/{year}/{month}/{day}")
+        if status != 200:
+            return jsonify(data), status
+        return jsonify(data)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/routemap/<route_id>/<date>')
 @require_token
 def get_route_map(route_id, date):
@@ -318,6 +334,11 @@ def route_board():
 @require_token
 def flip_board():
     return send_from_directory('tksweb', 'flipboard.html')
+
+@app.route('/phone')
+@require_token
+def phone_dashboard():
+    return send_from_directory('tksweb', 'phone-dashboard.html')
 
 @app.route('/at-a-glance')
 @require_token
