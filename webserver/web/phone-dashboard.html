@@ -149,8 +149,46 @@
     .stop-pop-routes { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
     .stop-pop-routes .flt-bullet { min-width: 34px; height: 22px; font-size: 13px; }
 
-    path.stop-dot { fill: var(--surface); stroke: var(--text); stroke-width: 2.5; transition: stroke-width 0.2s var(--ease-out); }
-    path.stop-dot.is-focus { fill: var(--eta); stroke: var(--bg); stroke-width: 3; }
+    /* Board stop marker: a little stop sign on a post, carrying the bullets of the routes
+       still leaving it (soonest first). The 0x0 Leaflet icon sits on the stop; the sign
+       hangs above it so the post's foot marks the exact spot. */
+    .stop-mk-wrap { overflow: visible; }
+    .stop-mk {
+      position: absolute; left: 0; bottom: 8px;
+      transform: translateX(-50%);
+      display: flex; gap: 2px; padding: 2px;
+      background: var(--surface); border: 1.5px solid var(--text);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.35);
+      white-space: nowrap; cursor: pointer;
+      font-family: var(--font-board); font-feature-settings: "lnum"; line-height: 1;
+    }
+    .stop-mk::before { /* post */
+      content: ''; position: absolute; left: 50%; top: 100%;
+      width: 2px; height: 8px; margin-left: -1px; background: var(--text);
+    }
+    .stop-mk::after { /* foot, on the stop itself */
+      content: ''; position: absolute; left: 50%; top: calc(100% + 6px);
+      width: 6px; height: 6px; margin-left: -3px; background: var(--text);
+    }
+    .stop-mk b {
+      min-width: 24px; height: 18px; padding: 0 4px;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: var(--rc, var(--accent2)); color: var(--rc-fg, #fff);
+      font-size: 12px; font-weight: 800;
+    }
+    .stop-mk .stop-mk-more { background: none; color: var(--text-muted); min-width: 0; padding: 0 3px; }
+    .stop-mk .stop-mk-none { background: none; color: var(--text-dim); font-weight: 700; }
+    .stop-mk-wrap.is-focus .stop-mk { border-color: var(--eta); box-shadow: 0 0 0 2px var(--eta), 0 2px 6px rgba(0,0,0,0.35); }
+    .stop-mk-wrap.is-focus .stop-mk::before, .stop-mk-wrap.is-focus .stop-mk::after { background: var(--eta); }
+    /* Where there's no room for a sign (declutter()), the stop is just a small square. */
+    .stop-tick {
+      position: absolute; left: -6px; top: -6px; width: 12px; height: 12px;
+      background: var(--text); border: 2px solid var(--surface); box-sizing: border-box;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.4); cursor: pointer;
+    }
+    .stop-tick::after { content: ''; position: absolute; inset: -10px; } /* finger-sized hit area */
+    .stop-mk-wrap.is-focus .stop-tick { background: var(--eta); }
+    .stop-mk-wrap.is-tick .stop-mk, .stop-mk-wrap:not(.is-tick) .stop-tick { display: none; }
     .here-dot {
       width: 18px; height: 18px; border-radius: 50%;
       background: #2F7BFF; border: 3px solid #fff;
@@ -179,9 +217,14 @@
       font-size: 13.5px; font-weight: 700;
     }
 
-    path.trip-stop { fill: #fff; stroke: #222; stroke-width: 2; }
-    path.trip-stop.passed { fill-opacity: 0.55; stroke-opacity: 0.45; }
-    path.route-stop { fill: #fff; stroke: #222; stroke-width: 1.5; }
+    /* Stops along a drawn trip / route: small squares on the line, thinned out by
+       declutter() so only ones with room around them show (zoom in for the rest). */
+    .line-stop { background: #fff; border: 2px solid #222; box-sizing: border-box; }
+    .line-stop::after { content: ''; position: absolute; inset: -9px; }
+    .line-stop.is-end { border-width: 3px; }
+    .line-stop.is-dest { background: #222; }
+    .line-stop.passed { opacity: 0.5; }
+    .line-stop.is-off { display: none; }
     .trip-pop-time { font-size: 12px; color: var(--text-dim); margin-top: 2px; font-variant-numeric: tabular-nums; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 6px; }
     .trip-pop-time s { opacity: 0.7; }
     .trip-pop-time .tp-new { font-weight: 800; }
@@ -590,6 +633,15 @@
       color: #fff;
       font-weight: 600;
     }
+    /* "Later" divider: departures more than laterHours away get their own section. */
+    .pd-section {
+      display: flex; align-items: center; gap: 10px;
+      margin: 14px 0 2px;
+      font-family: var(--font-board); font-size: 13px; font-weight: 800;
+      letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted);
+    }
+    .pd-section::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+    .pd-section:first-child { margin-top: 2px; }
     .pd-footnote {
       margin-top: 16px;
       font-size: 11px;
@@ -842,6 +894,11 @@
     .sh-toggle .grow { flex: 1; min-width: 0; }
     .sh-toggle small { display: block; font-size: 12px; color: var(--text-muted); margin-top: 1px; }
     .sh-toggle input { width: 22px; height: 22px; accent-color: var(--accent); flex-shrink: 0; }
+    .sh-toggle select {
+      flex-shrink: 0; min-height: 36px; padding: 0 10px;
+      background: var(--surface); color: var(--text); border: 1px solid var(--border);
+      font: inherit; font-size: 16px; /* no iOS focus zoom */
+    }
     a.sh-link { text-decoration: none; color: var(--text); }
 
     .flt-bullet {
@@ -973,6 +1030,17 @@
         <label class="sh-toggle" for="listToggle">
           <span class="grow">Time-ordered list<small>Every departure in one list instead of a card per route</small></span>
           <input type="checkbox" id="listToggle">
+        </label>
+        <label class="sh-toggle" for="laterSelect">
+          <span class="grow">Later section<small>Departures further away than this go in a separate section below</small></span>
+          <select id="laterSelect">
+            <option value="0">Off</option>
+            <option value="1">1 hour</option>
+            <option value="2">2 hours</option>
+            <option value="3">3 hours</option>
+            <option value="4">4 hours</option>
+            <option value="6">6 hours</option>
+          </select>
         </label>
         <label class="sh-toggle" for="showWalkToggle">
           <span class="grow">Show walk times<small>Dims buses you can't walk to in time</small></span>
@@ -1444,6 +1512,25 @@
       return allDeps.filter(d => stillHere(d, now)).sort((a, b) => realTime(a) - realTime(b));
     }
 
+    // Departures more than laterHours away (0 = off) move to a "Later" section under the
+    // rest, so a route can show up twice: its card for now, and again for later.
+    const LATER_KEY = 'gtfs-phone-later-hours';
+    const LATER_CHOICES = [0, 1, 2, 3, 4, 6];
+    let laterHours = (v => LATER_CHOICES.includes(v) ? v : 3)(Number(lsGet(LATER_KEY, 3)));
+    function splitLater(deps) {
+      if (!laterHours) return [deps, []];
+      const cut = nowInSeconds() + laterHours * 3600;
+      const soon = [], later = [];
+      deps.forEach(d => (realTime(d) > cut ? later : soon).push(d));
+      return [soon, later];
+    }
+    function laterHeading() {
+      const h = document.createElement('h2');
+      h.className = 'pd-section';
+      h.textContent = `Later · ${laterHours}+ hour${laterHours > 1 ? 's' : ''} away`;
+      return h;
+    }
+
     // Hooks applyRTtoDepartures / updateETAs read off any departure element.
     function setDepAttrs(el, dep) {
       el.dataset.tripId = dep.trip_id;
@@ -1508,12 +1595,17 @@
         perDir.set(k, (perDir.get(k) || 0) + 1);
         return perDir.get(k) <= NEXT_DAY_LIST_MAX;
       });
+      const [soon, later] = splitLater(deps);
       // Rebuild only when the trips on screen (or their order) change; otherwise just relabel.
-      const key = 't:' + deps.map(depKey).join(',');
+      const key = 't:' + soon.map(depKey).join(',') + '/' + later.map(depKey).join(',');
       if (board.dataset.key === key) return;
       board.dataset.key = key;
       const frag = document.createDocumentFragment();
-      deps.forEach((d, i) => frag.appendChild(buildRow(d, i === 0)));
+      soon.forEach((d, i) => frag.appendChild(buildRow(d, i === 0)));
+      if (later.length) {
+        frag.appendChild(laterHeading());
+        later.forEach((d, i) => frag.appendChild(buildRow(d, !soon.length && i === 0)));
+      }
       frag.appendChild(footnote());
       board.replaceChildren(frag);
       fitDestTexts();
@@ -1539,14 +1631,21 @@
     }
 
     function renderRoutes(board, deps) {
-      const groups = routeGroups(deps);
+      const [soon, later] = splitLater(deps);
+      const soonGroups = routeGroups(soon), laterGroups = routeGroups(later);
+      const groups = soonGroups.concat(laterGroups);
       // Cards are rebuilt only when the set of routes/headsigns changes, so a swipe
       // position survives the 15 s refresh; departures inside a pane update in place.
-      const key = 'r:' + groups.map(g => g.r + ':' + g.panes.map(p => p.hs).join('|')).join(',');
+      const gKey = gs => gs.map(g => g.r + ':' + g.panes.map(p => p.hs).join('|')).join(',');
+      const key = 'r:' + gKey(soonGroups) + '/' + gKey(laterGroups) + '/' + laterHours;
       if (board.dataset.key !== key) {
         board.dataset.key = key;
         const frag = document.createDocumentFragment();
-        groups.forEach(g => frag.appendChild(buildRouteCard(g)));
+        soonGroups.forEach(g => frag.appendChild(buildRouteCard(g)));
+        if (laterGroups.length) {
+          frag.appendChild(laterHeading());
+          laterGroups.forEach(g => frag.appendChild(buildRouteCard(g)));
+        }
         frag.appendChild(footnote());
         board.replaceChildren(frag);
         board.querySelectorAll('.rcard').forEach(card => goToPane(card, card._idx, false));
@@ -2010,6 +2109,15 @@
     bindToggle('listToggle', 'gtfs-phone-list', 'list-view', () => { document.getElementById('board').dataset.key = ''; renderBoard(); });
     bindToggle('showWalkToggle', 'gtfs-board-show-walk', 'show-walk', () => { renderHeaderSub(); updateETAs(); });  // shared with depboard
     bindToggle('hideClockToggle', 'gtfs-board-hide-clock', 'hide-clock');                                         // shared with depboard
+    (sel => {
+      sel.value = String(laterHours);
+      sel.addEventListener('change', () => {
+        laterHours = LATER_CHOICES.includes(+sel.value) ? +sel.value : 3;
+        lsSet(LATER_KEY, laterHours);
+        document.getElementById('board').dataset.key = '';
+        renderBoard();
+      });
+    })(document.getElementById('laterSelect'));
 
     function syncThemeColor() {
       document.getElementById('themeColorMeta').setAttribute('content', getComputedStyle(document.documentElement).getPropertyValue('--bg').trim());
@@ -2062,7 +2170,16 @@
 
     // ===== MAP =====
     let map = null, stopLayer = null, hereMarker = null, mapLocKey = '', focusedStopId = null;
-    const stopMarkers = new Map(); // stop_id -> circleMarker
+    const stopMarkers = new Map(); // stop_id -> L.marker (stop sign icon)
+    const STOP_MK_ROUTES = 4;      // bullets per stop sign before "+N"
+    // Declutter: board stops get a sign only where it fits (and at most SIGN_MAX of them,
+    // nearest first, from zoom SIGN_MIN_Z); the rest are small squares. Stops along a
+    // drawn trip / route keep LINE_STOP_GAP px apart, the rest hidden until you zoom in.
+    const SIGN_MAX = 4;
+    const SIGN_MIN_Z = 15;
+    const LINE_STOP_GAP = 20;
+    let lineStops = [];   // [{m, pri}] markers along the drawn trip / route (lower pri = kept first)
+    let lineFocus = null; // the line stop last picked from the timeline: always shown
     // Follow mode: the board's location (GPS dot or picked spot) stays centred in the
     // visible part of the map — above the sheet — so raising the sheet by h moves it up
     // h/2. Panning the map or opening a stop turns it off and shows the one-time Recenter
@@ -2079,7 +2196,9 @@
       if (isWide()) L.control.zoom({ position: 'bottomright' }).addTo(map);
       stopLayer = L.layerGroup().addTo(map);
       map.on('dragstart', () => setFollow(false));
+      map.createPane('lineStopPane').style.zIndex = 360; // stops along a trip / route, over its line
       map.on('zoomend', () => {
+        declutter();
         if (mapFollow && boardLat != null) lsSet(ZOOM_KEY, map.getZoom()); // zoom around your location only, not trip/route fits
         followMap();
       });
@@ -2130,7 +2249,9 @@
       stopMarkers.clear();
       lastStopDatas.forEach(sd => {
         if (!isFinite(sd._lat) || !isFinite(sd._lon)) return;
-        const m = L.circleMarker([sd._lat, sd._lon], { radius: 7, className: 'stop-dot' + (String(sd.stop_id) === String(focusedStopId) ? ' is-focus' : '') });
+        const focus = String(sd.stop_id) === String(focusedStopId);
+        const m = L.marker([sd._lat, sd._lon], { icon: stopIcon(sd, focus), zIndexOffset: focus ? 500 : 0 });
+        m._dist = sd._distanceKM || 0;
         // Registered before the popup so the stop view is already open when the popup renders.
         m.on('click', () => {
           setFollow(false);
@@ -2145,6 +2266,92 @@
       const key = boardLat == null ? '' : `${boardCustom ? 'c' : 'g'}:${boardCustom ? boardLat.toFixed(5) + ',' + boardLon.toFixed(5) : ''}`;
       if (key && key !== mapLocKey) { mapLocKey = key; setFollow(true); centerOnLocation(false, savedZoom()); }
       else followMap(); // live GPS moved: keep the dot centred while following
+      declutter();
+    }
+
+    // Keep the map readable on a phone: greedy placement in screen space, most useful first.
+    // Board stops: the focused stop, then nearest. Each gets its sign if the sign's box
+    // misses every sign already placed, the location dot and the other board stops;
+    // otherwise it's a square. In a trip / route view only the focused stop keeps a sign.
+    // Then the line stops, by priority, each kept only with LINE_STOP_GAP px of room.
+    // Pixel layout only changes with zoom, so this runs on zoomend and when markers change.
+    let declutterQueued = false;
+    function scheduleDeclutter() {
+      if (declutterQueued) return;
+      declutterQueued = true;
+      requestAnimationFrame(declutter);
+    }
+    function declutter() {
+      declutterQueued = false;
+      if (!map) return;
+      const placed = [];
+      const hits = r => placed.some(q => r.x0 < q.x1 && r.x1 > q.x0 && r.y0 < q.y1 && r.y1 > q.y0);
+      const box = (p, r) => ({ x0: p.x - r, y0: p.y - r, x1: p.x + r, y1: p.y + r });
+      const pt = ll => map.latLngToLayerPoint(ll);
+      if (boardLat != null) placed.push(box(pt([boardLat, boardLon]), 12));
+
+      const board = [...stopMarkers.entries()].map(([id, m]) => ({ id, m, el: m.getElement(), p: pt(m.getLatLng()), focus: id === String(focusedStopId) }));
+      board.sort((a, b) => (b.focus - a.focus) || (a.m._dist - b.m._dist));
+      // Measure each new sign once (writes first, then reads, so it's one layout).
+      const fresh = board.filter(b => !b.m._sz && b.el);
+      fresh.forEach(b => b.el.classList.remove('is-tick'));
+      fresh.forEach(b => { const sg = b.el.querySelector('.stop-mk'); b.m._sz = sg && sg.offsetWidth ? [sg.offsetWidth, sg.offsetHeight] : [60, 24]; });
+      const ticks = board.map(b => box(b.p, 7));
+      const wide = map.getZoom() >= SIGN_MIN_Z;
+      let signs = 0;
+      board.forEach((b, bi) => {
+        const [w, h] = b.m._sz || [60, 24];
+        const r = { x0: b.p.x - w / 2 - 3, x1: b.p.x + w / 2 + 3, y0: b.p.y - 8 - h - 3, y1: b.p.y };
+        const others = ticks.some((t, ti) => ti !== bi && r.x0 < t.x1 && r.x1 > t.x0 && r.y0 < t.y1 && r.y1 > t.y0);
+        const sign = b.focus || (!inDetail() && wide && signs < SIGN_MAX && !others && !hits(r));
+        if (sign) signs++;
+        placed.push(sign ? r : ticks[bi]);
+        if (b.el) b.el.classList.toggle('is-tick', !sign);
+        b.m.options.icon.options.popupAnchor = sign ? [0, -h - 10] : [0, -8];
+      });
+
+      [...lineStops].sort((a, b) => ((b.m === lineFocus) - (a.m === lineFocus)) || (linePri(a) - linePri(b))).forEach(s => {
+        const r = box(pt(s.m.getLatLng()), LINE_STOP_GAP / 2);
+        const show = s.m === lineFocus || !hits(r);
+        if (show) placed.push(r);
+        const el = s.m.getElement();
+        if (el) el.classList.toggle('is-off', !show);
+      });
+    }
+    // Trip: where you get off, the last and first stops, then stops still ahead in order, then passed ones.
+    function linePri(s) {
+      const v = tripView;
+      if (s.pri != null || !v) return s.pri ?? 9;
+      const i = s.m._i, n = v.stops.length;
+      if (view.type === 'trip' && i === view.dest) return 0;
+      if (i === n - 1) return 1;
+      if (i === 0) return 2;
+      return (i < (v.passedBefore || 0) ? 5 : 3) + i / 1e4;
+    }
+    function lineStopMarker(lat, lon, cls) {
+      const big = /is-end|is-dest/.test(cls);
+      return L.marker([lat, lon], {
+        pane: 'lineStopPane', keyboard: false,
+        icon: L.divIcon({ className: 'line-stop ' + cls, iconSize: big ? [13, 13] : [10, 10], popupAnchor: [0, -6] }),
+      });
+    }
+
+    // Routes still leaving this stop, soonest first; with none left it shows the stop code.
+    function stopIcon(sd, focus) {
+      const now = nowInSeconds(), id = String(sd.stop_id), seen = new Set();
+      allDeps.filter(d => String(d._stopId) === id && stillHere(d, now))
+        .sort((a, b) => realTime(a) - realTime(b))
+        .forEach(d => seen.add(d.route_id));
+      const routes = [...seen];
+      const bullets = routes.slice(0, STOP_MK_ROUTES)
+        .map(r => `<b style="${routeStyle(routeColors.get(r))}">${escapeHtml(r)}</b>`).join('')
+        + (routes.length > STOP_MK_ROUTES ? `<b class="stop-mk-more">+${routes.length - STOP_MK_ROUTES}</b>` : '');
+      const name = escapeHtml(sd._stopName || sd.stop_name || sd.stop_id);
+      return L.divIcon({
+        className: 'stop-mk-wrap' + (focus ? ' is-focus' : ''),
+        html: `<div class="stop-mk" title="${name}">${bullets || `<b class="stop-mk-none">${escapeHtml(sd._stopCode || sd.stop_id)}</b>`}</div><div class="stop-tick" title="${name}"></div>`,
+        iconSize: [0, 0], iconAnchor: [0, 0], popupAnchor: [0, -34],
+      });
     }
 
     function stopPopupHTML(sd) {
@@ -2192,8 +2399,9 @@
       stopMarkers.forEach((m, id) => {
         const el = m.getElement && m.getElement();
         if (el) el.classList.toggle('is-focus', id === String(stopId));
-        if (id === String(stopId)) m.bringToFront();
+        m.setZIndexOffset(id === String(stopId) ? 500 : 0);
       });
+      declutter();
     }
 
     // Route number (or its alert flag) -> the route view; any departure -> that trip's view.
@@ -2233,6 +2441,8 @@
       tripView = null;
       clearBus();
       if (overlayLayer) overlayLayer.clearLayers();
+      lineStops = []; lineFocus = null;
+      scheduleDeclutter();
       selectedKey = selectedRoute = null;
       if (!changingLocation) saveSelection(null);
       markSelection();
@@ -2366,29 +2576,34 @@
       const { stops, line, idxs } = tripLine(t);
       if (line.length < 2) { tripFailed(dep); return; }
       const bi = stops.findIndex(s => String(s.id) === String(dep._stopId));
-      const boardSplit = bi < 0 ? 0 : idxs[bi];
+      // The whole trip, whichever stop you board at: nothing faded until a live bus says what's behind it.
+      const boardSplit = 0;
       const color = lineColor(t.route_color || dep.route_color);
       const base = { pane: 'routePane', interactive: false, lineJoin: 'round', lineCap: 'round' };
       L.polyline(line, { ...base, color: '#000', weight: 9, opacity: 0.22 }).addTo(overlayLayer);
-      // "driven" = behind the bus (or, with no live bus, the part before your stop); "ahead" = solid
+      // "driven" = behind the live bus (empty until one reports); "ahead" = solid
       const driven = L.polyline([], { ...base, color, weight: 5, opacity: 0.35 }).addTo(overlayLayer);
       const ahead = L.polyline([], { ...base, color, weight: 6, opacity: 1 }).addTo(overlayLayer);
       const prevLayer = L.layerGroup().addTo(overlayLayer); // the bus's previous trip, while it's still on it
       tripView = { trip: t, dep, stops, line, idxs, bi, boardStopId: bi >= 0 ? String(stops[bi].id) : null,
                    markers: [], delays: [], driven, ahead, prevLayer, boardSplit };
+      lineStops = []; lineFocus = null;
       stops.forEach((s, i) => {
-        if (i === bi) return; // the board's own stop dot marks the boarding stop (its popup gets the time too)
-        const m = L.circleMarker([s.lat, s.lng], { pane: 'routePane', radius: 4, className: 'trip-stop' })
+        if (i === bi) return; // the board's own stop marker marks the boarding stop (its popup gets the time too)
+        const ends = i === 0 || i === stops.length - 1;
+        const m = lineStopMarker(s.lat, s.lng, ends ? 'is-end' : '')
           .bindPopup(() => `<div class="stop-pop-name">${escapeHtml(s.name)}</div>${tripTimeHTML(s, tripView ? tripView.delays[i] : null)}${nearBtn(s.id, s.code, s.name, s.lat, s.lng)}`,
             { autoPanPaddingTopLeft: mapPadding().paddingTopLeft, autoPanPaddingBottomRight: mapPadding().paddingBottomRight })
           .addTo(overlayLayer);
         m._i = i;
         tripView.markers.push(m);
+        lineStops.push({ m });
       });
-      setTripSplit(tripView, boardSplit, bi >= 0 ? bi : 0);
+      setTripSplit(tripView, boardSplit, 0);
+      declutter();
       refreshTripDelays();
       trackBus();
-      fitOverlay(line.slice(boardSplit), 16);
+      fitOverlay(line, 16);
       renderDetail(); // the trip view's header + stop list
     }
 
@@ -2397,6 +2612,15 @@
       v.driven.setLatLngs(k > 0 ? v.line.slice(0, k + 1) : []);
       v.ahead.setLatLngs(v.line.slice(k));
       v.markers.forEach(m => { const el = m.getElement && m.getElement(); if (el) el.classList.toggle('passed', m._i < passedBefore); });
+      markDest(v);
+      if (v.passedBefore !== passedBefore) { v.passedBefore = passedBefore; scheduleDeclutter(); }
+    }
+
+    // The stop you get off at: a filled square that declutter() keeps first.
+    function markDest(v) {
+      const dest = view.type === 'trip' ? view.dest : null;
+      v.markers.forEach(m => { const el = m.getElement && m.getElement(); if (el) el.classList.toggle('is-dest', m._i === dest); });
+      if (v.destShown !== dest) { v.destShown = dest; scheduleDeclutter(); }
     }
 
     function showRoute(dep) {
@@ -2437,13 +2661,16 @@
         L.polyline(s.points, { ...base, color: '#000', weight: 8, opacity: 0.18 }).addTo(overlayLayer);
         L.polyline(s.points, { ...base, color, weight: 5, opacity: 0.3 + 0.7 * ((s.trips || 0) / most) }).addTo(overlayLayer);
       });
+      lineStops = []; lineFocus = null;
       (d.stops || []).forEach(st => {
         if (!isFinite(st.lat) || !isFinite(st.lon)) return;
-        L.circleMarker([st.lat, st.lon], { pane: 'routePane', radius: 3.5, className: 'route-stop' })
+        const m = lineStopMarker(st.lat, st.lon, '')
           .bindPopup(`<div class="stop-pop-name">${escapeHtml(st.stop_name || st.stop_id)}</div><div class="stop-pop-code">Stop ${escapeHtml(st.stop_code || st.stop_id)}</div>${nearBtn(st.stop_id, st.stop_code, st.stop_name, st.lat, st.lon)}`)
           .addTo(overlayLayer);
+        lineStops.push({ m, pri: -(st.trips || 0) }); // busiest stops stay longest
       });
       fitOverlay(shapes.flatMap(s => s.points), 15);
+      declutter();
     }
 
     // ===== THE SELECTED TRIP'S BUS =====
@@ -2540,7 +2767,7 @@
       // Not on this trip yet: walk back through the block.
       v.busAt = null;
       renderTimeline();
-      setTripSplit(v, v.boardSplit, v.bi >= 0 ? v.bi : 0);
+      setTripSplit(v, v.boardSplit, 0);
       const block = await fetchBlock(v.trip.trip_id, serviceDate(v));
       if (!live()) return;
       const trips = (block && block.trips) || [];
@@ -3190,7 +3417,7 @@
     // Otherwise each view only rebuilds what changed, so this is safe to call every tick.
     function renderDetail(fresh) {
       if (!inDetail()) return;
-      if (fresh) { view.built = false; view.key = null; detailEl.className = 'pd-list dv dv-' + view.type; }
+      if (fresh) { view.built = false; view.key = null; detailEl.className = 'pd-list dv dv-' + view.type; scheduleDeclutter(); }
       if (view.type === 'trip') renderTripView();
       else if (view.type === 'route') renderRouteView();
       else renderStopView();
@@ -3307,7 +3534,7 @@
         view.destInit = true;
         const saved = (lsGet(DEST_KEY, {}) || {})[destKey(v.dep)];
         const i = saved != null && bi >= 0 ? v.stops.findIndex((s, k) => k > bi && String(s.id) === String(saved)) : -1;
-        if (i > 0) { view.dest = i; ensureFares(v); }
+        if (i > 0) { view.dest = i; ensureFares(v); markDest(v); }
       }
       // Behind the bus when one is reporting, otherwise by the (realtime-adjusted) clock.
       const passed = i => bus ? i < bus.i : !!v.stops[i].time && tripClock(v, v.stops[i]) + (v.delays[i] || 0) < now - 30;
@@ -3362,6 +3589,7 @@
       const m = i === v.bi ? stopMarkers.get(v.boardStopId) : v.markers.find(x => x._i === i);
       if (!m) return;
       setFollow(false);
+      if (m !== stopMarkers.get(v.boardStopId)) { lineFocus = m; declutter(); }
       m.openPopup();
       showOnMap(m.getLatLng());
     }
@@ -3389,6 +3617,7 @@
         if (view.dest == null) delete saved[destKey(v.dep)]; else saved[destKey(v.dep)] = String(v.stops[i].id);
         lsSet(DEST_KEY, saved);
         if (view.dest != null) ensureFares(v);
+        markDest(v);
         renderTimeline();
       }
       focusTripStop(v, i);
