@@ -1032,7 +1032,7 @@
           <input type="checkbox" id="listToggle">
         </label>
         <label class="sh-toggle" for="laterSelect">
-          <span class="grow">Later section<small>Departures further away than this go in a separate section below</small></span>
+          <span class="grow">Later section<small>Routes whose next bus is further away than this go in a separate section below</small></span>
           <select id="laterSelect">
             <option value="0">Off</option>
             <option value="1">1 hour</option>
@@ -1529,22 +1529,25 @@
       return allDeps.filter(d => stillHere(d, now)).sort((a, b) => realTime(a) - realTime(b));
     }
 
-    // Departures more than laterHours away (0 = off) move to a "Later" section under the
-    // rest, so a route can show up twice: its card for now, and again for later.
+    // Routes whose NEXT departure is more than laterHours away (0 = off) move, whole, to a
+    // "Later" section under the rest. A route with anything sooner stays up top with all
+    // its departures (1 h, 2 h and 4 h all stay together).
     const LATER_KEY = 'gtfs-phone-later-hours';
     const LATER_CHOICES = [0, 1, 2, 3, 4, 6];
     let laterHours = (v => LATER_CHOICES.includes(v) ? v : 3)(Number(lsGet(LATER_KEY, 3)));
     function splitLater(deps) {
       if (!laterHours) return [deps, []];
       const cut = nowInSeconds() + laterHours * 3600;
+      const next = new Map(); // route_id -> its soonest departure time
+      deps.forEach(d => { const t = realTime(d); if (!(next.get(d.route_id) <= t)) next.set(d.route_id, t); });
       const soon = [], later = [];
-      deps.forEach(d => (realTime(d) > cut ? later : soon).push(d));
+      deps.forEach(d => (next.get(d.route_id) > cut ? later : soon).push(d));
       return [soon, later];
     }
     function laterHeading() {
       const h = document.createElement('h2');
       h.className = 'pd-section';
-      h.textContent = `Later · ${laterHours}+ hour${laterHours > 1 ? 's' : ''} away`;
+      h.textContent = `Later · next bus ${laterHours}+ hour${laterHours > 1 ? 's' : ''} away`;
       return h;
     }
 
