@@ -453,6 +453,11 @@
     .row-leave.later { color: var(--text); }
     .row-leave.later .row-leave-num { font-size: 16px; font-weight: 700; }
     .row-leave.later .row-leave-unit { color: var(--text-muted); }
+    /* Just left: "−2 min", counting up until it drops off (see stillHere) */
+    .row-leave.past { color: var(--negative); }
+    .row-leave.past .row-leave-unit { color: var(--negative); opacity: 0.8; }
+    .rcard.has-rc .row-leave.past .row-leave-num,
+    .rcard.has-rc .row-leave.past .row-leave-unit { background: var(--board-bg); padding: 0 5px; opacity: 1; }
     .row-leave.eta-roll .row-leave-num { animation: eta-roll 0.32s var(--ease-out); }
     @keyframes eta-roll { from { transform: translateY(-35%); opacity: 0; } to { transform: none; opacity: 1; } }
 
@@ -1032,7 +1037,7 @@
           <input type="checkbox" id="listToggle">
         </label>
         <label class="sh-toggle" for="laterSelect">
-          <span class="grow">Later section<small>Routes whose next bus is further away than this go in a separate section below</small></span>
+          <span class="grow">Later section<small>Directions whose next bus is further away than this go in a separate section below</small></span>
           <select id="laterSelect">
             <option value="0">Off</option>
             <option value="1">1 hour</option>
@@ -1330,21 +1335,30 @@
     }
     const realTime = dep => parseTime(dep.arrival_time) + getRTDelaySeconds(dep.trip_id, dep.arrival_time, dep._stopId);
 
-    // -> {num, unit, cls}
-    // Departures whose time has passed but whose bus is still at / near your stop
-    // (set by the card bus check). They stay on the board, shown as "Now", for up to
-    // HOLD_NEAR_SECS past their time.
-    const nearBus = new Set(); // depKey
-    const HOLD_NEAR_SECS = 5 * 60;
+    // Departures whose (realtime-adjusted) time has passed stay on the board for a bit,
+    // counting up as "−2 min" in their own colour. Where the card bus check found the bus
+    // (cardBusStatus) its position decides:
+    //   nearBus   - at / within NEAR_STOP_M of your stop: "Now", up to HOLD_NEAR_SECS
+    //   busComing - not at your stop yet (or still on an earlier trip): up to HOLD_COMING_SECS
+    //   busPassed - gone past your stop: dropped straight away
+    // with no bus seen, up to HOLD_PAST_SECS.
+    const nearBus = new Set(), busComing = new Set(), busPassed = new Set(); // depKey
+    const HOLD_NEAR_SECS = 5 * 60, HOLD_COMING_SECS = 10 * 60, HOLD_PAST_SECS = 3 * 60;
     function stillHere(dep, now) {
-      const late = now - realTime(dep);
-      return late < 0 || (nearBus.has(depKey(dep)) && late <= HOLD_NEAR_SECS);
+      const late = now - realTime(dep), k = depKey(dep);
+      if (late < 0) return true;
+      if (nearBus.has(k)) return late <= HOLD_NEAR_SECS;
+      if (busPassed.has(k)) return false;
+      if (busComing.has(k)) return late <= HOLD_COMING_SECS;
+      return late <= HOLD_PAST_SECS;
     }
 
+    // -> {num, unit, cls}
     function fmtLeave(dep) {
       const at = realTime(dep);
       const secs = at - nowInSeconds();
-      if (secs < 0)    return nearBus.has(depKey(dep)) ? { num: 'Now', unit: '', cls: 'due' } : { num: 'Gone', unit: '', cls: 'past' };
+      if (secs < 0 && nearBus.has(depKey(dep))) return { num: 'Now', unit: '', cls: 'due' };
+      if (secs < -30)  return { num: '−' + Math.max(1, Math.round(-secs / 60)), unit: 'min', cls: 'past' };
       if (secs <= 30)  return { num: 'Due', unit: '', cls: 'due' };
       if (secs < 3600) return { num: String(Math.round(secs / 60)), unit: 'min', cls: '' };
       const [t, ampm] = fmtClockShort(at).split(' ');
@@ -1512,19 +1526,21 @@
       return allDeps.filter(d => stillHere(d, now)).sort((a, b) => realTime(a) - realTime(b));
     }
 
-    // Routes whose NEXT departure is more than laterHours away (0 = off) move, whole, to a
-    // "Later" section under the rest. A route with anything sooner stays up top with all
-    // its departures (1 h, 2 h and 4 h all stay together).
+    // Each route + headsign whose NEXT departure is more than laterHours away (0 = off)
+    // moves to a "Later" section under the rest; one with anything sooner stays up top with
+    // all its departures (1 h, 2 h and 4 h stay together). So a route can have a card in
+    // both sections, each with only its own headsigns.
     const LATER_KEY = 'gtfs-phone-later-hours';
     const LATER_CHOICES = [0, 1, 2, 3, 4, 6];
     let laterHours = (v => LATER_CHOICES.includes(v) ? v : 3)(Number(lsGet(LATER_KEY, 3)));
     function splitLater(deps) {
       if (!laterHours) return [deps, []];
       const cut = nowInSeconds() + laterHours * 3600;
-      const next = new Map(); // route_id -> its soonest departure time
-      deps.forEach(d => { const t = realTime(d); if (!(next.get(d.route_id) <= t)) next.set(d.route_id, t); });
+      const dir = d => d.route_id + '|' + (d.trip_headsign || '');
+      const next = new Map(); // route|headsign -> its soonest departure time
+      deps.forEach(d => { const t = realTime(d), k = dir(d); if (!(next.get(k) <= t)) next.set(k, t); });
       const soon = [], later = [];
-      deps.forEach(d => (next.get(d.route_id) > cut ? later : soon).push(d));
+      deps.forEach(d => (next.get(dir(d)) > cut ? later : soon).push(d));
       return [soon, later];
     }
     function laterHeading() {
@@ -1814,7 +1830,7 @@
         }
         el.dataset.shown = '1';
         el.classList.toggle('is-later', l.cls === 'later');
-        el.classList.toggle('row-missed', Number(el.dataset.walkSec) > realTime(dep) - now);
+        el.classList.toggle('row-missed', l.cls !== 'past' && Number(el.dataset.walkSec) > realTime(dep) - now);
       });
     }
 
@@ -2188,6 +2204,7 @@
     // h/2. Panning the map or opening a stop turns it off and shows the one-time Recenter
     // pill, which flies back and hides again.
     let mapFollow = true;
+    const FOLLOW_BREAK_PX = 48; // drag further than this and the map stops following
 
     function initMap() {
       if (!window.L) return;
@@ -2198,12 +2215,38 @@
         .addTo(map);
       if (isWide()) L.control.zoom({ position: 'bottomright' }).addTo(map);
       stopLayer = L.layerGroup().addTo(map);
-      map.on('dragstart', () => setFollow(false));
+      // A drag only leaves follow mode once the location has moved FOLLOW_BREAK_PX: the
+      // stray finger travel of a pinch (or a nudge) springs back to centre instead.
+      let dragFrom = null;
+      const locPx = () => map.latLngToContainerPoint([boardLat, boardLon]);
+      map.on('dragstart', () => {
+        dragFrom = mapFollow && boardLat != null ? locPx() : null;
+        if (!dragFrom) setFollow(false);
+      });
+      map.on('drag', () => {
+        if (dragFrom && locPx().distanceTo(dragFrom) > FOLLOW_BREAK_PX) { dragFrom = null; setFollow(false); }
+      });
+      map.on('dragend', () => {
+        if (!dragFrom) return;
+        dragFrom = null;
+        // after Leaflet starts its inertia glide (fired right after dragend), so stop that first
+        setTimeout(() => { if (mapFollow) { map.stop(); followMap(true); } }, 0);
+      });
+      // Two-finger gestures don't fire drag events: a pinch whose midpoint wanders further
+      // than FOLLOW_BREAK_PX is a pan, so it leaves follow mode too; a plain pinch doesn't.
+      let pinchFrom = null;
+      const mid = t => L.point((t[0].clientX + t[1].clientX) / 2, (t[0].clientY + t[1].clientY) / 2);
+      const mc = map.getContainer();
+      mc.addEventListener('touchstart', e => { pinchFrom = e.touches.length === 2 && mapFollow ? mid(e.touches) : null; }, { passive: true });
+      mc.addEventListener('touchmove', e => {
+        if (pinchFrom && e.touches.length === 2 && mid(e.touches).distanceTo(pinchFrom) > FOLLOW_BREAK_PX) { pinchFrom = null; setFollow(false); }
+      }, { passive: true });
+      mc.addEventListener('touchend', e => { if (e.touches.length < 2) pinchFrom = null; }, { passive: true });
       map.createPane('lineStopPane').style.zIndex = 360; // stops along a trip / route, over its line
       map.on('zoomend', () => {
         declutter();
         if (mapFollow && boardLat != null) lsSet(ZOOM_KEY, map.getZoom()); // zoom around your location only, not trip/route fits
-        followMap();
+        followMap(true); // a pinch / double-tap zooms around the fingers: ease back to the location
       });
     }
 
@@ -2223,11 +2266,13 @@
       document.body.classList.toggle('map-off-center', !on && boardLat != null);
     }
     // Per-frame while following: nudge the map so the location stays at followPoint().
-    function followMap() {
+    // animate: a short ease instead (after a zoom or a small drag), skipped under reduced motion.
+    function followMap(animate) {
       if (!map || !mapFollow || boardLat == null) return;
       const d = map.latLngToContainerPoint([boardLat, boardLon]).subtract(followPoint());
       if (Math.abs(d.x) < 0.5 && Math.abs(d.y) < 0.5) return;
-      map.panBy(d, { animate: false, noMoveStart: true });
+      const ease = animate && !reduceMotion() && Math.hypot(d.x, d.y) > 2;
+      map.panBy(d, ease ? { animate: true, duration: 0.22, easeLinearity: 0.5, noMoveStart: true } : { animate: false, noMoveStart: true });
     }
     // Jump/fly to the location at a street-level zoom, offset into the visible area.
     function centerOnLocation(animate, zoom) {
@@ -2807,7 +2852,7 @@
         const m = distM(+veh.position.latitude, +veh.position.longitude, stops[bi].lat, stops[bi].lng);
         if (m <= AT_STOP_M) return { i, status, near: true, html: 'Bus is at your stop' };
         if (m <= NEAR_STOP_M) return { i, status, near: true, html: `Bus is ${Math.round(m / 10) * 10} m from your stop` };
-        return { i, status, html: '<span class="mcb-dim">Bus has passed your stop</span>' };
+        return { i, status, passed: true, html: '<span class="mcb-dim">Bus has passed your stop</span>' };
       }
       if (i === bi) return { i, status, near: status !== 'transit', html: status === 'stopped' ? 'Bus is at your stop' : status === 'incoming' ? 'Bus is arriving at your stop' : 'Bus 1 stop away' };
       // stops still to reach before yours (heading to i means i itself hasn't been reached)
@@ -2883,10 +2928,10 @@
       const own = await fetchVehicle(dep.trip_id);
       if (own) {
         const d = describeOwn(geo.stops, bi, own.entity.vehicle);
-        if (d.near) nearBus.add(depKey(dep)); else nearBus.delete(depKey(dep));
+        setBusFlags(dep, d.near ? 'near' : d.passed ? 'passed' : d.i >= 0 && bi >= 0 ? 'coming' : null);
         return { html: d.html, ts: own.ts };
       }
-      nearBus.delete(depKey(dep));
+      setBusFlags(dep, null);
       const block = await fetchBlock(dep.trip_id, serviceDate({ dep }));
       const trips = (block && block.trips) || [];
       const k = trips.findIndex(t => t.trip_id === dep.trip_id);
@@ -2898,16 +2943,35 @@
         const pj = await fetchTripJson(pt.trip_id);
         const pgeo = pj ? tripLine(pj) : null;
         const delay = await prevTripDelay(pt, pgeo);
+        setBusFlags(dep, 'coming'); // still finishing an earlier trip: it hasn't reached you
         return { html: describePrev(pt, pgeo, loc.entity.vehicle, delay, trips[k], back).short, ts: loc.ts };
       }
       return null;
     }
+
+    // Where the bus is relative to your stop, for stillHere(). A departure already past its
+    // time whose answer changes re-renders the board (so a bus that's gone drops off now).
+    function setBusFlags(dep, state) {
+      const k = depKey(dep);
+      const was = nearBus.has(k) ? 'near' : busPassed.has(k) ? 'passed' : busComing.has(k) ? 'coming' : null;
+      nearBus.delete(k); busPassed.delete(k); busComing.delete(k);
+      if (state === 'near') nearBus.add(k);
+      else if (state === 'passed') busPassed.add(k);
+      else if (state === 'coming') busComing.add(k);
+      if (was !== state && realTime(dep) < nowInSeconds()) renderBoardSoon();
+    }
+    const renderBoardSoon = debounce(() => renderBoard(), 100);
 
     function refreshCardBuses() {
       const now = nowInSeconds();
       const targets = [];
       document.querySelectorAll('#board .rcard .rpane-main').forEach(el => {
         if (el._dep && realTime(el._dep) - now <= CARD_BUS_WINDOW_SECS) targets.push(el._dep);
+      });
+      // In the list there's no bus line, but a departure that's already gone still asks
+      // where its bus is, so it can drop off as soon as the bus has passed.
+      document.querySelectorAll('#board .row').forEach(el => {
+        if (el._dep && realTime(el._dep) < now) targets.push(el._dep);
       });
       targets.sort((a, b) => realTime(a) - realTime(b));
       const want = targets.slice(0, CARD_BUS_MAX);
